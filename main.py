@@ -1,12 +1,13 @@
 from Tkinter import *
-from PIL import ImageTk, Image
+from PIL import Image
+from PIL import ImageTk
 from button_functions import *
 
 # Widget Classes
 
 class FullHeightSlider(Scale):
-	def __init__(self, app, range_, default, name, row = 0, col = 0):
-		Scale.__init__(self, app, from_ = range_[0], to_ = range_[1])
+	def __init__(self, app, range_, default, i, name, row = 0, col = 0):
+		Scale.__init__(self, app, from_ = range_[0], to_ = range_[1], resolution = i)
 
 		screen_width = app.winfo_screenwidth()
 		sliderWidth = screen_width*0.03
@@ -84,8 +85,8 @@ class TouchPanel():
 		# ===========
 
 		equalSections(sliderPane, 1, 2, "rows", "cols")
-		cctSlider = FullHeightSlider(sliderPane, (10000, 1800) , 5000, "CCT",       row = 0, col = 0)
-		intSlider = FullHeightSlider(sliderPane, (100,   0),	 100,  "Intensity", row = 0, col = 1)
+		cctSlider = FullHeightSlider(sliderPane, (10000, 1800) , 5000, 100, "CCT",       row = 0, col = 0)
+		intSlider = FullHeightSlider(sliderPane, (100,   0),	 100,  1,   "Intensity", row = 0, col = 1)
 
 		# Button Pane
 		# ===========
