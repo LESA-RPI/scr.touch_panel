@@ -31,10 +31,10 @@ def button_close():
 	blind_control.tilt_all(100)
 
 def slider_cct(scale, value):
-	light_control.cct(1, 1, int(value), int(scale.get()))
+	light_control.cct_all(int(value), int(scale.get()))
 
 def slider_int(scale, value):
-	light_control.cct(1, 1, int(scale.get()), int(value))
+	light_control.cct_all(int(scale.get()), int(value))
 
 def setButtons(buttons, i):
 	for j in range(len(buttons)):
