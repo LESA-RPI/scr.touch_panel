@@ -86,7 +86,6 @@ class TouchPanel():
 
 		equalSections(sliderPane, 1, 2, "rows", "cols")
 		cctSlider = FullHeightSlider(sliderPane, (10000, 1800) , 5000, 100, "CCT",       row = 0, col = 0)
-		print(cctSlider)
 		cctSlider.config(command = slider_cct)
 		intSlider = FullHeightSlider(sliderPane, (100,   0),	 100,  1,   "Intensity", row = 0, col = 1)
 
