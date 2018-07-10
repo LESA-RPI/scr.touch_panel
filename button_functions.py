@@ -23,13 +23,18 @@ def button_dulling():
 	pass
 
 def button_open():
+	blind_control.tilt_all(50)
 	blind_control.lift_all(100)
 
 def button_close():
 	blind_control.lift_all(0)
+	blind_control.tilt_all(100)
 
-def slider_cct(value):
-	light_control.cct(1, 1, int(value), 100)
+def slider_cct(scale, value):
+	light_control.cct(1, 1, int(value), int(scale.get()))
+
+def slider_int(scale, value):
+	light_control.cct(1, 1, int(scale.get()), int(value))
 
 def setButtons(buttons, i):
 	for j in range(len(buttons)):
