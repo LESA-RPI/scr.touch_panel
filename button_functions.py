@@ -1,6 +1,8 @@
 import sys
 sys.path.append("../catkin_ws/src/scr_control/scripts/blinds")
+sys.path.append("../catkin_ws/src/scr_control/scripts/lights")
 import SCR_blind_client as blind_control
+import SCR_OctaLight_client as light_control
 
 def button_auto():
 	pass
@@ -25,6 +27,9 @@ def button_open():
 
 def button_close():
 	blind_control.lift_all(0)
+
+def slider_cct(value):
+	light_control.cct(1, 1, int(value), 100)
 
 def setButtons(buttons, i):
 	for j in range(len(buttons)):
