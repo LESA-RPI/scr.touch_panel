@@ -93,12 +93,11 @@ class TouchPanel():
 
 		equalSections(buttonPane, 4, 2, "brows", "bcols")
 		buttons = []
-		button_names = ["Auto", "Off", "Set CCT", "Set Sources", "Bright", "Dulling", "Gradient", "Amber"]
-		button_functions = [button_auto, button_off, button_cct, button_sources, button_bright, button_dulling, button_gradient, button_amber]
+		button_names = ["Auto", "Off", "Set CCT", "Set Sources", "Bright", "Dulling", "Open Blinds", "Close Blinds"]
 		for i in range(8):
 			buttons.append(GridBasedButton(buttonPane, button_names[i], row = int(i/2), col = i%2))
 		for i in range(8):
-			buttons[i].config(command = lambda arg=i : button_functions[arg](buttons, arg))
+			buttons[i].config(command = lambda arg=i : pressButton(buttons, arg))
 
 		# Footer pane
 		# ===========
