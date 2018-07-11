@@ -32,13 +32,13 @@ def button_circ(touch):
 	pass
 
 def button_sat(touch):
-	pass
+	light_control.sources_all(21, 14, 4, 73, 22, 100, 22, 4)
 
-def button_lid(touch):
-	pass
+def button_fid(touch):
+	light_control.sources_all(39, 6, 25, 56, 57, 100, 3, 6)
 
 def button_dul(touch):
-	pass
+	light_control.sources_all(41, 2, 25, 53, 38, 100, 2, 0)
 
 def button_lift(touch):
 	blind_control.lift_all(100)
@@ -47,7 +47,7 @@ def button_open(touch):
 	blind_control.tilt_all(50)
 
 def button_close(touch):
-	blind_control.tilt_all(0)
+	blind_control.tilt_all(100)
 	time.sleep(2)
 	blind_control.lift_all(0)
 
@@ -89,10 +89,11 @@ def pressButton(touch, i):
 button_functions = [button_on, button_off, button_sliders,
 					button_cct, button_int, button_auto,
 					button_grad, button_sun, button_circ,
-					button_sat, button_lid, button_dul,
+					button_sat, button_fid, button_dul,
 					button_lift, button_open, button_close]
+
 button_names = ["On", "Off", "Enable\nSliders",
 				"Dynamic\nCCT", "Dynamic\nInt", "Auto",
 				"Gradient", "Sun", "Circ",
-				"Sat", "Lid","Dul",
+				"Sat", "Fid","Dul",
 				"Lift Blinds", "Open\nBlinds", "Close\nBlinds"]
