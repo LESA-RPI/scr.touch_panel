@@ -30,7 +30,7 @@ class GridBasedButton(Button):
 		self.config(background=self.offColors[0],       foreground=self.offColors[1])
 
 		self.setOff()
-		self.grid(row=row, column=col, sticky="nsew", padx = 50, pady = 10)
+		self.grid(row=row, column=col, sticky="nsew", padx = 30, pady = 10)
 
 	def setOn(self):
 		self.config(activebackground=self.onColors[0], activeforeground=self.onColors[1])
