@@ -44,10 +44,10 @@ def button_lift(touch):
 	blind_control.lift_all(100)
 	
 def button_open(touch):
-	blind_control.lift_all(50)
+	blind_control.tilt_all(50)
 
 def button_close(touch):
-	blind_control.tilt_all(100)
+	blind_control.tilt_all(0)
 	time.sleep(2)
 	blind_control.lift_all(0)
 
@@ -95,4 +95,4 @@ button_names = ["On", "Off", "Enable\nSliders",
 				"Dynamic\nCCT", "Dynamic\nInt", "Auto",
 				"Gradient", "Sun", "Circ",
 				"Sat", "Lid","Dul",
-				"Lift Blinds", "Open Blinds", "Close\nBlinds"]
+				"Lift Blinds", "Open\nBlinds", "Close\nBlinds"]
