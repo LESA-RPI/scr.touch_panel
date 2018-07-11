@@ -5,7 +5,7 @@ import SCR_blind_client as blind_control
 import SCR_OctaLight_client as light_control
 
 def button_on(touch):
-	light_control.sources_all(9, 5, 14, 11 ,78, 56, 12, 30)
+	light_control.cct_all(3500, 1000)
 
 def button_off(touch):
 	light_control.cct_all(0, 0)
