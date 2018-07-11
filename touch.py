@@ -84,8 +84,8 @@ class TouchPanel():
 		self.window.rowconfigure(0, weight = 1, uniform = "margin")
 		self.window.rowconfigure(1, weight = 7)
 		self.window.rowconfigure(2, weight = 0, uniform = "margin")
-		self.window.columnconfigure(0, weight = 2)
-		self.window.columnconfigure(1, weight = 3, uniform = "half")
+		self.window.columnconfigure(0, weight = 3, uniform = "sliders")
+		self.window.columnconfigure(1, weight = 4, uniform = "buttons")
 
 		# Create and Localize Panes
 		# =========================

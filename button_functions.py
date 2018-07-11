@@ -40,14 +40,17 @@ def button_lid(touch):
 def button_dul(touch):
 	pass
 
-def button_open(touch):
+def button_lift(touch):
 	blind_control.lift_all(100)
 	
-def button_tilt(touch):
-	blind_control.tilt_all(50)
+def button_open(touch):
+	blind_control.lift_all(50)
 
 def button_close(touch):
+	blind_control.tilt_all(100)
+	time.sleep(2)
 	blind_control.lift_all(0)
+
 	
 def slider_cct(touch, value):
 	if touch.slidersActive:
@@ -84,4 +87,8 @@ def pressButton(touch, i):
 	button_functions[i](touch)
 
 button_functions = [button_on, button_off, button_sliders, button_cct, button_int, button_auto, button_grad, button_sun, button_circ, button_sat, button_lid, button_dul, button_open, button_tilt, button_close]
-button_names = ["On", "Off", "Enable\nSliders", "Dynamic\nCCT", "Dynamic\nInt", "Auto", "Gradient", "Sun", "Circ", "Sat", "Lid", "Dul", "Lift Blinds", "Toggle Tilt", "Close Blinds"]
+button_names = ["On", "Off", "Enable\nSliders",
+				"Dynamic\nCCT", "Dynamic\nInt", "Auto",
+				"Gradient", "Sun", "Circ",
+				"Sat", "Lid","Dul",
+				"Lift Blinds", "Toggle Tilt", "Close\nBlinds"]
