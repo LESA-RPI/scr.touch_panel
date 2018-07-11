@@ -1,50 +1,92 @@
-import sys
+import sys, time, threading
 sys.path.append("../catkin_ws/src/scr_control/scripts/blinds")
 sys.path.append("../catkin_ws/src/scr_control/scripts/lights")
 import SCR_blind_client as blind_control
 import SCR_OctaLight_client as light_control
 
-def button_auto():
+def button_on(touch):
+	light_control.sources_all(9, 5, 14, 11 ,78, 56, 12, 30)
+
+def button_off(touch):
+	light_control.cct_all(0, 0)
+
+def button_sliders(touch):
+	light_control.cct_all(int(touch.cctSlider.get()), int(touch.intSlider.get()))
+
+def button_cct(touch):
 	pass
 
-def button_off():
+def button_int(touch):
 	pass
 
-def button_cct():
+def button_auto(touch):
 	pass
 
-def button_sources():
+def button_grad(touch):
 	pass
 
-def button_bright():
+def button_sun(touch):
 	pass
 
-def button_dulling():
+def button_circ(touch):
 	pass
 
-def button_open():
-	blind_control.tilt_all(50)
-	blind_control.lift_all(100)
+def button_sat(touch):
+	pass
 
-def button_close():
-	blind_control.lift_all(0)
-	blind_control.tilt_all(100)
+def button_lid(touch):
+	pass
 
-def slider_cct(scale, value):
-	light_control.cct_all(int(value), int(scale.get()))
+def button_dul(touch):
+	pass
 
-def slider_int(scale, value):
-	light_control.cct_all(int(scale.get()), int(value))
+def button_open(touch):
+	moveBlinds(100, 50)
+	
+def button_tilt(touch):
+	moveBlinds(0, 50)
+
+def button_close(touch):
+	moveBlinds(0, 100)
+	
+def slider_cct(touch, value):
+	if touch.slidersActive:
+		light_control.cct_all(int(value), int(touch.intSlider.get()))
+
+def slider_int(touch, value):
+	if touch.slidersActive:
+		light_control.cct_all(int(touch.cctSlider.get()), int(value))
 
 def setButtons(buttons, i):
-	for j in range(len(buttons)):
-		if j == i:
-			buttons[j].setOn()
-		else:
+	if i in range(12, 15):
+		for j in range(12, 15):
+			buttons[j].setOff()
+	else:
+		for j in range(0, 12):
 			buttons[j].setOff()
 
-def pressButton(buttons, i):
-	setButtons(buttons, i)
-	button_functions[i]()
+	buttons[i].setOn()
 
-button_functions = [button_auto, button_off, button_cct, button_sources, button_bright, button_dulling, button_open, button_close]
+def setSliders(touch, i):
+	if i < 12:
+		if i==2:
+			touch.cctSlider.config(troughcolor='SlateGray2')
+			touch.intSlider.config(troughcolor='SlateGray2')
+			touch.slidersActive = True
+		else:
+			touch.cctSlider.config(troughcolor='ivory3')
+			touch.intSlider.config(troughcolor='ivory3')
+			touch.slidersActive = False
+
+def pressButton(touch, i):
+	setButtons(touch.buttons, i)
+	setSliders(touch, i)
+	button_functions[i](touch)
+
+def moveBlinds(lift, tilt):
+	blind_control.lift_all(lift)
+	time.sleep(15)
+	blind_control.tilt_all(tilt)
+
+button_functions = [button_on, button_off, button_sliders, button_cct, button_int, button_auto, button_grad, button_sun, button_circ, button_sat, button_lid, button_dul, button_open, button_tilt, button_close]
+button_names = ["On", "Off", "Enable Sliders", "Dynamic CCT", "Dynamic Int", "Auto", "Gradient", "Sun", "Circ", "Sat", "Lid", "Dul", "Lift Blinds", "Tilt Blinds", "Close Blinds"]
