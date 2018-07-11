@@ -112,7 +112,7 @@ class TouchPanel():
 
 		equalSections(self.sliderPane, 1, 2, "srows", "scols")
 		self.cctSlider = FullHeightSlider(self.sliderPane, (10000, 1800) , 5000, 100, "CCT",       row = 0, col = 0)
-		self.intSlider = FullHeightSlider(self.sliderPane, (100,   0),	 100,  1,   "Intensity", row = 0, col = 1)
+		self.intSlider = FullHeightSlider(self.sliderPane, (1900,     0),	 100,  1,   "Intensity", row = 0, col = 1)
 		self.cctSlider.config(command = (lambda value, touch = self: slider_cct(touch, value)) )
 		self.intSlider.config(command = (lambda value, touch = self: slider_int(touch, value)) )
 
