@@ -86,9 +86,13 @@ def pressButton(touch, i):
 	setSliders(touch, i)
 	button_functions[i](touch)
 
-button_functions = [button_on, button_off, button_sliders, button_cct, button_int, button_auto, button_grad, button_sun, button_circ, button_sat, button_lid, button_dul, button_open, button_tilt, button_close]
+button_functions = [button_on, button_off, button_sliders,
+					button_cct, button_int, button_auto,
+					button_grad, button_sun, button_circ,
+					button_sat, button_lid, button_dul,
+					button_tilt, button_open, button_close]
 button_names = ["On", "Off", "Enable\nSliders",
 				"Dynamic\nCCT", "Dynamic\nInt", "Auto",
 				"Gradient", "Sun", "Circ",
 				"Sat", "Lid","Dul",
-				"Lift Blinds", "Toggle Tilt", "Close\nBlinds"]
+				"Lift Blinds", "Open Blinds", "Close\nBlinds"]
