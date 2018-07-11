@@ -50,7 +50,6 @@ def button_close(touch):
 	blind_control.tilt_all(100)
 	time.sleep(2)
 	blind_control.lift_all(0)
-
 	
 def slider_cct(touch, value):
 	if touch.slidersActive:
@@ -96,4 +95,4 @@ button_names = ["On", "Off", "Enable\nSliders",
 				"Dynamic\nCCT", "Dynamic\nInt", "Auto",
 				"Gradient", "Sun", "Circ",
 				"Sat", "Fid","Dul",
-				"Lift Blinds", "Open\nBlinds", "Close\nBlinds"]
+				"Lift\nBlinds", "Open\nBlinds", "Close\nBlinds"]
