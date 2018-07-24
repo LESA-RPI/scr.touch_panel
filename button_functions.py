@@ -4,6 +4,11 @@ sys.path.append("../catkin_ws/src/scr_control/scripts/lights")
 import SCR_blind_client as blind_control
 import SCR_OctaLight_client as light_control
 
+start = 0
+stop = 10000
+
+step = 190
+
 def button_on(touch):
 	light_control.cct_all(3500, 1000)
 
@@ -26,10 +31,10 @@ def button_grad(touch):
 	pass
 
 def button_sun(touch):
-	pass
+	sun()
 
 def button_circ(touch):
-	pass
+	circ()
 
 def button_sat(touch):
 	light_control.sources_all(21, 14, 4, 73, 22, 100, 22, 4)
@@ -58,6 +63,45 @@ def slider_cct(touch, value):
 def slider_int(touch, value):
 	if touch.slidersActive:
 		light_control.cct_all(int(touch.cctSlider.get()), int(value))
+
+def get_data(x):
+	cct = 0
+	lumens = 0
+	x = float(x)
+	cct = stop/2.0 - 0.00013 * (x - stop/2.0)**2
+	lumens = 1900 - 0.00008 * (x - stop/2.0)**2
+	return cct, lumens
+
+def circ():
+	for x in range(start, stop, step):
+		x = float(x)
+		cct, lumens = get_data(x)
+		light_control.cct_all(int(cct),int(lumens))
+		time.sleep(0.001)
+
+def circ_one(x, y):
+	for i in range(start, stop, step):
+		i = float(i)
+		cct, lumens = get_data(i)
+		light_control.cct(x, y, int(cct),int(lumens))
+		time.sleep(0.01)
+
+def sun():
+	row = 0
+	lights = light_control.get_lights()
+	lights.sort()
+	cct, lumens, row = 0, 0, 0
+	current_changing = []
+	for light in lights:
+		if(light[0] != row):
+			current_changing = []
+			row += 1
+			time.sleep(0.2)
+		current_changing.append(light)		
+		for l in current_changing:
+			t = threading.Thread(name = str(l), target = circ_one, args = (l[0], l[1]))
+			t.start()
+
 
 def setButtons(buttons, i):
 	if i in range(12, 15):
