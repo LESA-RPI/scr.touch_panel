@@ -70,6 +70,8 @@ def setButtons(buttons, i):
 	buttons[i].setOn()
 
 def setSliders(touch, i):
+	requests.post('http://192.168.0.2:5000/Script_Kill', json={"name": "sun"})
+	requests.post('http://192.168.0.2:5000/Script_Kill', json={"name": "circ"})
 	if i < 12:
 		if i==2:
 			touch.cctSlider.config(troughcolor='SlateGray2')
