@@ -4,13 +4,22 @@ sys.path.append("../catkin_ws/src/scr_control/scripts/lights")
 import SCR_blind_client as blind_control
 import SCR_OctaLight_client as light_control
 
+server_ip   = 'http://192.168.0.2:5000'
+log_presses = True
+
+def log(arg):
+	requests.post(server_ip + '/Script_Run', json={"name": "sun", "arg": arg})
+
 def button_on(touch):
+	log("on")
 	light_control.cct_all(3500, 1000)
 
 def button_off(touch):
+	log("off")
 	light_control.cct_all(0, 0)
 
 def button_sliders(touch):
+	log("cct: " + touch.cctSlider.get() + ", int: " + touch.intSlider.get())
 	light_control.cct_all(int(touch.cctSlider.get()), int(touch.intSlider.get()))
 
 def button_cct(touch):
@@ -26,27 +35,35 @@ def button_grad(touch):
 	pass
 
 def button_sun(touch):
-	requests.post('http://192.168.0.2:5000/Script_Run', json={"name": "sun"})
+	log("sun")
+	requests.post(server_ip + '/Script_Run', json={"name": "sun"})
 
 def button_circ(touch):
-	requests.post('http://192.168.0.2:5000/Script_Run', json={"name": "circ"})
+	log("circ")
+	requests.post(server_ip + '/Script_Run', json={"name": "circ"})
 
 def button_sat(touch):
+	log("sat")
 	light_control.sources_all(21, 14, 4, 73, 22, 100, 22, 4)
 
 def button_fid(touch):
+	log("fid")
 	light_control.sources_all(39, 6, 25, 56, 57, 100, 3, 6)
 
 def button_dul(touch):
+	log("dul")
 	light_control.sources_all(41, 2, 25, 53, 38, 100, 2, 0)
 
 def button_lift(touch):
+	log("lift")
 	blind_control.lift_all(100)
 	
 def button_open(touch):
+	log("open")
 	blind_control.tilt_all(50)
 
 def button_close(touch):
+	log("close")
 	blind_control.tilt_all(100)
 	time.sleep(2)
 	blind_control.lift_all(0)
@@ -70,8 +87,8 @@ def setButtons(buttons, i):
 	buttons[i].setOn()
 
 def setSliders(touch, i):
-	requests.post('http://192.168.0.2:5000/Script_Kill', json={"name": "sun"})
-	requests.post('http://192.168.0.2:5000/Script_Kill', json={"name": "circ"})
+	requests.post(server_ip + '/Script_Kill', json={"name": "sun"})
+	requests.post(server_ip + '/Script_Kill', json={"name": "circ"})
 	if i < 12:
 		if i==2:
 			touch.cctSlider.config(troughcolor='SlateGray2')
