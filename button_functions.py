@@ -19,7 +19,7 @@ def button_off(touch):
 	light_control.cct_all(0, 0)
 
 def button_sliders(touch):
-	log("cct: " + str(touch.cctSlider.get()) + ", int: " + str(touch.intSlider.get()))
+	log("(cct,int):" + str(touch.cctSlider.get()) + "," + str(touch.intSlider.get()))
 	light_control.cct_all(int(touch.cctSlider.get()), int(touch.intSlider.get()))
 
 def button_cct(touch):
