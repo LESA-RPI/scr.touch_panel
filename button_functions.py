@@ -8,7 +8,7 @@ server_ip   = 'http://192.168.0.2:5000'
 log_presses = True
 
 def log(arg):
-	requests.post(server_ip + '/Script_Run', json={"name": "sun", "arg": arg})
+	requests.post(server_ip + '/Script_Run', json={"name": "log", "arg": arg})
 
 def button_on(touch):
 	log("on")
@@ -19,7 +19,7 @@ def button_off(touch):
 	light_control.cct_all(0, 0)
 
 def button_sliders(touch):
-	log("cct: " + touch.cctSlider.get() + ", int: " + touch.intSlider.get())
+	log("cct: " + str(touch.cctSlider.get()) + ", int: " + str(touch.intSlider.get()))
 	light_control.cct_all(int(touch.cctSlider.get()), int(touch.intSlider.get()))
 
 def button_cct(touch):
