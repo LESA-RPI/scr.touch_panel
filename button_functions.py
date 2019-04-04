@@ -7,16 +7,22 @@ import SCR_OctaLight_client as light_control
 server_ip   = 'http://192.168.0.2:5000'
 log_presses = True
 
+def SetCctColor(cct):
+	for x in range(10):
+		requests.post(server_ip + '/Status_Lights', json={"light": x, "val": cct})
+
 def log(arg):
 	requests.post(server_ip + '/Script_Run', json={"name": "log", "arg": arg})
 
 def button_on(touch):
 	log("on")
 	light_control.cct_all(3500, 1000)
+	SetCctColor(3500)
 
 def button_off(touch):
 	log("off")
 	light_control.cct_all(0, 0)
+	SetCctColor(10000)
 
 def button_sliders(touch):
 	log("cct:" + str(touch.cctSlider.get()))
@@ -33,7 +39,17 @@ def button_auto(touch):
 	pass
 
 def button_grad(touch):
-	pass
+	light_control.sources(0, 0, 100,   0,   0,   0,   0,   0,   0,   0)
+	light_control.sources(0, 2, 100,   0,   0,   0,   0,   0,   0,   0)
+	light_control.sources(1, 1,   0, 100,   0,   0,   0,   0,   0,   0)
+	light_control.sources(2, 0,   0,   0, 100,   0,   0,   0,   0,   0)
+	light_control.sources(2, 2,   0,   0,   0, 100,   0,   0,   0,   0)
+	light_control.sources(3, 0,   0,   0,   0,   0, 100,   0,   0,   0)
+	light_control.sources(3, 2,   0,   0,   0,   0,   0, 100,   0,   0)
+	light_control.sources(4, 1,   0,   0,   0,   0,   0,   0, 100,   0)
+	light_control.sources(5, 0,   0,   0,   0,   0,   0,   0,   0, 100)
+	light_control.sources(5, 2,   0,   0,   0,   0,   0,   0,   0, 100)
+
 
 def button_sun(touch):
 	log("sun")
@@ -72,6 +88,7 @@ def button_close(touch):
 def slider_cct(touch, value):
 	if touch.slidersActive:
 		light_control.cct_all(int(value), int(touch.intSlider.get()))
+		SetCctColor(int(value))
 
 def slider_int(touch, value):
 	if touch.slidersActive:
