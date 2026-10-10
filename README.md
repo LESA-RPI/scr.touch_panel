@@ -89,6 +89,13 @@ also passed three Settings-to-Original-to-Room cycles and timeout/Escape return
 on the installed Pi. No eight-hour soak,
 touch calibration or optical accuracy claim follows from these checks.
 
+The 2026-10-10 deployment check started one beta and one unchanged original
+application. Real screen events verified navigation and fresh Fid admission.
+Launching again kept both process identities unchanged. An authorized reboot
+then left the cabinet unreachable, with a reported blank screen and blinking
+cursor. Boot startup remains unverified. The cause is unresolved; undervoltage
+was active before reboot. No packages, firmware or ROS services were changed.
+
 New panel author: **Diyanko Bhowmik**, with Codex assistance. Independent agent
 reviews and a researcher-supplied Claude brief informed the design. Original
 contributors and code remain in repository history. The researcher supplied the
