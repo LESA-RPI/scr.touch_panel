@@ -1,0 +1,115 @@
+# Panel operation
+
+The root `main.py` is the original room application. Keep its installed checkout,
+working directory and ROS environment intact. The new `app/` client runs above
+it. Do not replace the installed legacy files.
+
+## Before connected control
+
+1. Check power, free memory and storage on the panel.
+2. Verify the native fixture server and its ten connections.
+3. Verify that no recording, demo or other lighting controller owns the lights.
+4. Source the already installed ROS workspace.
+5. Set `SCR_PANEL_MASTER` to the approved remote `ROS_MASTER_URI`.
+6. Run a bounded trial with a new private journal and `--live-lights`.
+
+No automatic discovery or second fixture server is used. Do not launch old demo
+scripts to qualify ownership. Stability reads and a Pi-local file lock cannot
+prove global exclusivity; coordinate with the other room users.
+
+```sh
+# Deployment-specific ROS variables and approved master are set externally.
+python -B app/scr_touch_panel.py --duration 600 --live-lights \
+  --journal /tmp/scr-panel-connected-unique.jsonl
+```
+
+Acquire requires two matching scans and one uniform Fid, Sat, Dul or Off preset.
+Arbitrary drive words and Standard white baselines are refused because their
+exact restore path is not qualified. Use Original controls to establish an
+admitted baseline when no other study holds lighting, then re-enter Room.
+
+One Tk process owns display interaction. One helper owns this trial's ROS calls.
+The helper checks all fixture words before each write and after its response.
+It does not claim optical accuracy. The existing setter accepts integer
+percentages, which cannot reproduce arbitrary fractional drive settings.
+
+## Switching and recovery
+
+Room exposes everyday sliders and static presets. Advanced controls opens the
+channel editor; Back returns directly. All light controls share one latest
+selection queue. Wait for confirmation to distinguish a selection from a result.
+
+Original controls waits for confirmed restoration and helper exit before showing
+the legacy program. Its matching navigation strip supports touch-only return.
+That strip covers the legacy banner, not its actuator buttons.
+
+The helper has a ten-second parent lease and 30-second operation budget, with
+individual service calls bounded to at most twelve seconds. Parent loss triggers
+cleanup only when the last confirmed drive state still matches. A lost response
+or external change disables further writes and automatic restoration. Never retry
+an uncertain write. Inspect the private `.lights-*.jsonl` receipt and coordinate
+with staff before controlling again.
+
+Deadlines do not bound filesystem stalls or ROS initialization. The normal UI
+waits for restoration; process exit alone does not prove that lights were restored.
+`SIGKILL` or host power loss cannot guarantee restoration.
+
+Blank screen displays black pixels. A stationary two-second press returns to the
+previous view; movement beyond 40 pixels cancels. The backlight remains powered.
+Use qualified display-power control for experiments needing complete darkness.
+
+## Startup and rollback
+
+The client does not install or change OS services. The deployment launcher
+uses a private `~/.config/scr-panel/deployment.env` file:
+
+```sh
+SCR_CLASSIC_DIR=/absolute/path/to/installed/original
+SCR_ROS_SETUP=/absolute/path/to/installed/workspace/devel/setup.bash
+SCR_PANEL_MASTER=http://approved-room-master:11311
+ROS_IP=panel-address
+ROS_HOSTNAME=panel-hostname
+DISPLAY=:0
+SCR_START_DELAY=8
+```
+
+Use existing, verified deployment values. Keep this file mode 0600 and outside
+Git. The launcher sources the installed ROS setup, sets the same original
+environment, and checks process working directories before starting `main.py`.
+Its file lock prevents two switchers. Journals and logs stay under
+`~/.cache/scr-panel`; retain them for investigation and manage their disk use.
+
+Deploy each published commit to a separate release directory. Point a `current`
+symlink to that release. An XDG user autostart entry runs:
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=LESA room panel
+Exec=/bin/bash /absolute/path/to/current/app/start_panel.sh
+Terminal=false
+```
+
+The launcher uses `--keep-switcher --duration 0`. Settings, Escape and a window
+close return to Original after helper cleanup; the touch strip remains. Returning
+to Room checks a fresh baseline. If restoration is uncertain, inspect the receipt
+before changing lights. Signal shutdown still stops the switcher.
+
+User autostart runs only after login. Where unattended boot is required, back up
+the existing LightDM configuration before adding a seat drop-in with
+`autologin-user` and `autologin-user-timeout=0`. This grants local desktop access.
+Confirm the configured user/session and perform an authorized reboot test.
+
+Rollback: send SIGTERM to the observed beta PID and wait for its helper to exit.
+Leave the original process running. Disable only the owned XDG autostart entry,
+or repoint `current` to a tested release. Restore the exact previous LightDM
+drop-in when undoing autologin; if none existed, remove only the added file.
+Preserve the private deployment values and receipts. Do not overwrite legacy code.
+
+Keep journals, host configuration, participant data and screenshots private.
+Do not delete logs or disable services merely because they look unused.
+
+Theme times use the panel process's configured timezone. Auto changes wait for
+60 seconds without a touch and do not occur in Experiment. Settings use familiar
+appearance, date/time, schedule and screen rows. Font and study defaults are launch
+configuration; no separate settings service is needed.
