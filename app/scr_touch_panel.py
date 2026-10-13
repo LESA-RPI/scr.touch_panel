@@ -424,8 +424,6 @@ class Panel(object):
     def render(self):
         self.cancel_intent()
         self.light_buttons = []
-        for child in self.body.winfo_children():
-            child.destroy()
         self.dock.withdraw()
         self.tips_button.config(text='Tips: ' + ('On' if self.help_on else 'Off'))
         for key, button in self.nav_buttons.items():
@@ -441,24 +439,41 @@ class Panel(object):
             self.dock.geometry('1280x144+0+0')
             self.dock.lift()
             return
-        self.root.deiconify()
-        self.root.lift()
-        for widget in (self.banner, self.nav, self.footer, self.body):
-            widget.pack_forget()
+        if self.root.state() == 'withdrawn':
+            self.root.deiconify()
+            self.root.lift()
         for binding in ('<ButtonPress-1>', '<ButtonRelease-1>', '<B1-Motion>'):
             self.root.unbind(binding)
         if self.mode == 'black':
+            for widget in (self.banner, self.nav, self.footer, self.body):
+                widget.pack_forget()
             self.root.configure(bg='black')
             self.root.bind('<ButtonPress-1>', self.begin_hold)
             self.root.bind('<ButtonRelease-1>', lambda event: self.cancel_hold())
             self.root.bind('<B1-Motion>', self.move_hold)
             return
         self.root.configure(bg=self.bg)
-        self.banner.pack(fill='x', padx=24, pady=(8, 6))
-        self.nav.pack(fill='x', padx=24, pady=(0, 14))
-        self.footer.pack(side='bottom', fill='x', padx=24, pady=(8, 10))
+        if not self.banner.winfo_manager():
+            self.banner.pack(fill='x', padx=24, pady=(8, 6))
+        if not self.nav.winfo_manager():
+            self.nav.pack(fill='x', padx=24, pady=(0, 14))
+        if not self.footer.winfo_manager():
+            self.footer.pack(side='bottom', fill='x', padx=24, pady=(8, 10))
+        self.rebuild_body(getattr(self, self.mode + '_view'))
+
+    def rebuild_body(self, build):
+        """Prepare one unmapped page, then replace and destroy the previous page."""
+        previous = self.body
+        self.body = tk.Frame(self.root, bg=self.bg)
+        try:
+            build()
+        except Exception:
+            self.body.destroy()
+            self.body = previous
+            raise
+        previous.pack_forget()
         self.body.pack(fill='both', expand=True, padx=24)
-        getattr(self, self.mode + '_view')()
+        previous.destroy()
 
     def room_view(self):
         self.label(self.body, 'Room lighting', 28).pack(anchor='w')
@@ -547,8 +562,9 @@ class Panel(object):
         self.cancel_intent()
         self.light_buttons = []
         self.section = 'channels'
-        for child in self.body.winfo_children():
-            child.destroy()
+        self.rebuild_body(self.channels_view)
+
+    def channels_view(self):
         self.label(self.body, 'Advanced lighting - channel drive percentages', 27).pack(anchor='w')
         editor = tk.Frame(self.body, bg=self.bg)
         editor.pack(fill='both', expand=True, pady=14)
