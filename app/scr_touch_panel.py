@@ -838,7 +838,7 @@ class Panel(object):
         if not self.request(action, arguments):
             self.light_state = 'failed'
             self.cancel_intent()
-            self.light_text.set('Lighting adapter unavailable. Use Legacy or ask staff.')
+            self.lighting_feedback('Lighting adapter unavailable. Use Legacy or ask staff.')
         self.update_light_buttons()
 
     def update_light_buttons(self):
@@ -1249,6 +1249,7 @@ class Panel(object):
                     self.cancel_intent()
                     self.light_state = 'failed'
                     self.status_text.set('Invalid adapter reply; lights disabled. Ask staff.')
+                    self.lighting_feedback('Invalid reply. Controls disabled; ask staff.')
                     worker.stdin.close()
                     continue
                 completed_request, self.pending = self.pending, None
@@ -1257,6 +1258,10 @@ class Panel(object):
                 state = response['state']
                 self.light_state = {'completed': 'ready', 'released': 'disconnected'}.get(state, state)
                 detail = response.get('detail', 'Lighting ready; starting preset: ' + response.get('baseline', '?'))
+                if state == 'failed':
+                    # Full exception text remains in the emitted result/receipt.
+                    # Keep the touch feedback bounded, even for verbose ROS errors.
+                    detail = 'Result unconfirmed. Controls disabled; ask staff.'
                 if state == 'completed':
                     self.confirmed_light = light_selection(action, completed_request['arguments'])
                     detail = 'Confirmed - ' + detail

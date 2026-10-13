@@ -342,6 +342,16 @@ def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch
     state.poll_worker()
     assert state.confirmed_light == '3500 K input / level 1000'
     assert state.pending is None and 'Last confirmed drive: 3500 K input / level 1000' in shown[-1]
+    raw = []
+    state.emit = lambda event, **values: raw.append(values['result'])
+    state.cancel_intent = lambda: None
+    state.pending = {'request_id': 'two', 'action': 'cct', 'arguments': {'cct': 4500, 'intensity': 1000}}
+    failure = dict(reply, request_id='two', state='failed', detail='Long ROS error ' * 100)
+    state.worker_buffer = json.dumps(failure) + '\n'
+    state.poll_worker()
+    assert state.light_state == 'failed' and state.confirmed_light == '3500 K input / level 1000'
+    assert raw[-1]['detail'] == failure['detail']
+    assert len(shown[-1]) < 150 and 'Controls disabled' in shown[-1]
 
 
 def journal_panel(journal, path):
