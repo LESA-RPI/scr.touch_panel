@@ -1,5 +1,7 @@
 """Light writes require a restorable baseline and matching fixture feedback."""
 from types import SimpleNamespace
+from io import BytesIO
+import json
 
 import pytest
 
@@ -183,3 +185,52 @@ def test_latest_touch_intent_is_copied_serialized_and_cancelled_before_release(m
     state.show('original')
     assert state.mode == 'room' and state.release_target == 'original' and pipe.closed
     assert state.trial_deadline is None
+
+
+def test_slow_adapter_initialization_sends_fresh_request_once_and_honors_exit(monkeypatch):
+    now = [100.0]
+    monkeypatch.setattr(panel, 'monotonic', lambda: now[0])
+    monkeypatch.setattr(panel.select, 'select', lambda *args: ([], [], []))
+    for leave in (None, 'original', 'close'):
+        now[0] = 100.0
+        worker = SimpleNamespace(stdin=BytesIO(), stdout=object(), poll=lambda: None)
+        monkeypatch.setattr(panel.subprocess, 'Popen', lambda *args, **kwargs: worker)
+        state = panel.Panel.__new__(panel.Panel)
+        state.args = SimpleNamespace(journal='unused', expected_master='http://room-master',
+                                     adapter_python='unused', live_lights=True)
+        state.root = SimpleNamespace(after=lambda *args: None)
+        state.run_id, state.request_seq, state.last_heartbeat = 'trial', 0, 100.0
+        state.pending = state.release_target = state.closing = None
+        state.closed, state.keep_switcher, state.mode = False, False, 'room'
+        state.status_worker, state.trial_deadline = None, 1.0
+        state.status_text = state.light_text = SimpleNamespace(set=lambda value: None)
+        state.emit = lambda *args, **kwargs: None
+        state.cancel_intent = state.poll_status = state.update_light_buttons = lambda: None
+        state.start_worker()
+        assert state.pending is None and not worker.stdin.getvalue()
+        assert not state.request('acquire')
+        if leave == 'original':
+            state.show('original')
+            assert state.mode == 'room' and state.release_target == 'original'
+        elif leave == 'close':
+            state.close('signal')
+            assert state.closing == 'signal' and state.release_target == 'close'
+
+        # Cold imports exceed the ten-second command lease. Heartbeats may flow,
+        # but no acquire/release command can age in the helper's unread pipe.
+        now[0] = 125.0
+        state.worker_buffer = json.dumps({'version': 2, 'state': 'initialized'}) + '\n'
+        state.poll_worker()
+        commands = lambda: [json.loads(line) for line in worker.stdin.getvalue().splitlines()
+                            if json.loads(line)['action'] != 'heartbeat']
+        assert commands() == [] and not state.worker_ready
+        state.worker_buffer = json.dumps({'version': 1, 'state': 'initialized'}) + '\n'
+        state.poll_worker()
+        sent = commands()
+        assert len(sent) == 1
+        assert sent[0]['action'] == ('release' if leave else 'acquire')
+        assert sent[0]['sent_monotonic_s'] == 125.0
+        assert state.pending['request_id'] == sent[0]['request_id']
+        state.worker_buffer = json.dumps({'version': 1, 'state': 'initialized'}) + '\n'
+        state.poll_worker()
+        assert commands() == sent

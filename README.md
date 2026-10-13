@@ -36,10 +36,10 @@ browser/tablet clients are future work.
 
 ## Use the installed room panel
 
-On the cabinet, Settings returns to Original controls. Its touch navigation strip
-returns to Beta. Both applications remain separate. In the latest source, credits
-are under **Settings → About panel**, rather than on the room screen. The cabinet
-still uses release `39ed385`; this credits update awaits deployment.
+On the cabinet, **Legacy** opens the original controls. Its touch navigation strip
+returns to **Beta**. Both applications remain separate. Credits are under
+**Settings → About panel**. The light theme uses a white background with blue
+controls; navigation remains in the same position across modes.
 
 The existing Pi can run the beta with its installed Python 2.7/Tk/Pillow stack.
 Do not apply the modern preview requirements to that legacy environment.
@@ -79,6 +79,11 @@ deployments, and validate their room adapter independently. ROS 1 has reached
 end of life ([Open Robotics](https://discourse.ros.org/t/ros-noetic-end-of-life-may-31-2025/43160));
 do not treat the old cabinet stack as the default for every future device.
 Do not change the working fleet during migration trials.
+
+The [fresh Raspberry Pi OS procedure](WORKFLOWS.md#fresh-raspberry-pi-os)
+uses distribution Python 3 for both applications and the ROS client. It requires
+the room's custom service bindings, not a ROS master on the panel. Fresh-install
+work is tracked on `experiment/fresh-pi-setup-20261013` until promotion to `main`.
 
 ## Maintain and extend
 

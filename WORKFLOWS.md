@@ -114,6 +114,59 @@ Theme times use the panel process's configured timezone. Auto changes wait for
 appearance, date/time, schedule and screen rows. Font and study defaults are launch
 configuration; no separate settings service is needed.
 
+## Fresh Raspberry Pi OS
+
+The fresh-install profile uses Raspberry Pi OS Legacy 32-bit (Bookworm) on Pi 3.
+Both applications use distribution Python 3.11, Tk 8.6 and Pillow 9.4. The modern
+preview requirements are a separate optional environment; do not replace system
+packages with pip. The room server remains unchanged.
+
+1. Flash the OS, configure the user, hostname and SSH key, and boot the desktop.
+2. Check power, storage and connectivity. Let any OS installation finish first.
+3. Install the small client dependency set; no local ROS master is required:
+
+   ```sh
+   sudo apt-get install --no-install-recommends python3-tk python3-pil.imagetk \
+     python3-requests python3-rospy python3-genpy
+   ```
+
+4. Obtain the verified custom client bundle from the room custodian. It contains
+   `scr_control` generated Python bindings and the existing lights/blinds clients.
+   The recovery capture also retains their `.srv` definitions and original source.
+   Do not rebuild the old workspace's Python 2 native components on the new OS.
+5. Extract the bundle under `~/.local/share/scr-panel/ros-clients`. Add its
+   `bindings`, `scripts/lights` and `scripts/blinds` directories to `PYTHONPATH`
+   in a private `ros-client.env` shell file. The captured utility client needs
+   `except rospy.ServiceException as e` for Python 3; service definitions stay unchanged.
+6. Verify client imports, request/response serialization, and live service type/MD5
+   agreement. Read `/get_lights` and `/get_sources` before enabling setters.
+7. Deploy a published checkout and create the private deployment file described
+   above. Use the approved room address and the panel's reachable address. Add:
+
+   ```sh
+   SCR_ROS_SETUP="$HOME/.config/scr-panel/ros-client.env"
+   SCR_CLASSIC_PYTHON=/usr/bin/python3
+   SCR_PANEL_PYTHON=/usr/bin/python3
+   SCR_ADAPTER_PYTHON=/usr/bin/python3
+   SCR_START_MODE=room
+   ```
+
+8. Start `app/start_panel.sh` from the desktop session. The compatibility entrypoint
+   `app/run_original.py` supplies Tk/Pillow aliases without modifying original code.
+9. Add the owned XDG autostart entry shown above. Bookworm's labwc desktop calls
+   `lxsession-xdg-autostart`; existing desktop autologin must also be enabled.
+10. Check Beta → Legacy → Beta, settings, dynamic lighting and baseline restoration.
+    Confirm one process of each application and test duplicate launcher rejection.
+    An unattended reboot is a separate final acceptance check.
+
+The light helper announces initialization before receiving its first request.
+Slow imports therefore do not age a queued lighting command beyond its ten-second
+freshness limit. Heartbeats and operation deadlines remain enforced.
+
+This is a room-specific client migration, not a complete server installation.
+The external ROS master, fixture server and legacy HTTP demo runner are separate
+dependencies. Do not infer working demos or physical blind motion from UI startup.
+
 ## Backup and rebuild
 
 The Git repository preserves panel source. It does not preserve the installed

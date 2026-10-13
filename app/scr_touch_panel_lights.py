@@ -237,6 +237,8 @@ def main():
     stopping = [False]
     signal.signal(signal.SIGTERM, lambda signum, frame: stopping.__setitem__(0, True))
     signal.signal(signal.SIGINT, lambda signum, frame: stopping.__setitem__(0, True))
+    print(json.dumps({'version': 1, 'state': 'initialized'}))
+    sys.stdout.flush()
     try:
         while not stopping[0]:
             if not inbox['requests']:

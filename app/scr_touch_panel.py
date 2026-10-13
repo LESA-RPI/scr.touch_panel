@@ -31,7 +31,7 @@ FONT = 'Ubuntu'
 CHANNELS = ('Blue 1', 'Blue 2', 'Blue 3', 'Lime', 'Amber', 'Orange', 'Red 1', 'Red 2')
 CHANNEL_COLOURS = ('#4764bc', '#337cb9', '#2198c2', '#86a83b', '#c69c32', '#d47d34', '#ba6052', '#a84658')
 PALETTES = {'dark': ('#111b24', '#192a38', '#f2f6f8', '#aabfcc', '#17455c'),
-            'light': ('#f5f8fa', '#ffffff', '#12384b', '#476373', '#daeff9')}
+            'light': ('#ffffff', '#ffffff', '#12384b', '#476373', '#daeff9')}
 ACCENT = '#0072b2'
 DEFAULT_PROFILE = {'title': 'Room activity practice', 'sensors': 'Ceiling and colour sensors',
                    'stages': ['Leave the room empty', 'Please sit still',
@@ -44,7 +44,7 @@ TIPS = {'Lights on': 'Standard white: selects 3500 K and light-level input 1000 
         'Room': 'Everyday lighting and static presets. Touch a slider; no Apply button is needed.',
         'Experiment': 'Instructions, practice time and named annotations. No sensor recording starts.',
         'System': 'Panel resources and advertised room services. Presence does not prove sensor health.',
-        'Original controls': 'Restores the trial baseline, then shows the existing room program.',
+        'Legacy': 'Restores the starting lighting, then shows the original room controls.',
         'Blank screen': 'Shows black pixels. Hold still for 2 seconds to return; the backlight remains on.',
         'Settings': 'Appearance, date/time and screen options. Changes last for this trial.',
         'About panel': 'Panel credits and source repository. No room settings change.',
@@ -169,7 +169,7 @@ class Panel(object):
                 if self.journal:
                     self.journal.close()
                 raise ValueError('Shorten profile %s text to fit the touch layout' % key)
-        self.root.title('LESA interactive room panel (beta)')
+        self.root.title('LESA Smart Conference Room (beta)')
         if (self.root.winfo_screenwidth(), self.root.winfo_screenheight()) != (1280, 800) and not args.windowed:
             self.root.destroy()
             raise ValueError('Expected 1280x800; use --windowed for local review')
@@ -323,7 +323,7 @@ class Panel(object):
             brand = self.label(self.banner, 'LESA', 30)
             brand.config(fg=ACCENT)
             brand.pack(side='left', padx=(0, 18))
-        self.label(self.banner, 'Interactive room (beta)', 21).pack(side='left')
+        self.label(self.banner, 'Smart Conference Room · Beta', 21).pack(side='left')
         self.clock = self.label(self.banner, size=17, muted=True)
         self.clock.pack(side='right', padx=12)
         self.button(self.banner, 'Theme: ' + self.theme_choice.title(), self.cycle_theme).pack(side='right')
@@ -334,7 +334,7 @@ class Panel(object):
         self.nav.grid_propagate(False)
         self.nav_buttons = {}
         for index, (text, mode) in enumerate([('Room', 'room'), ('Experiment', 'experiment'),
-                           ('System', 'health'), ('Original controls', 'original')]):
+                           ('System', 'health'), ('Legacy', 'original')]):
             self.nav.columnconfigure(index, weight=1, uniform='nav')
             button = self.button(self.nav, text, lambda mode=mode: self.show(mode))
             button.config(image=self.icon(mode, self.ink), compound='left')
@@ -343,7 +343,6 @@ class Panel(object):
         self.nav.rowconfigure(0, weight=1)
         self.footer = tk.Frame(self.root, bg=self.bg, height=88)
         self.footer.pack_propagate(False)
-        self.label(self.footer, 'LESA  /  Smart Conference Room', 10, True).pack(side='bottom', anchor='w')
         self.button(self.footer, 'Blank screen', lambda: self.show('black')).pack(side='right', pady=8)
         self.button(self.footer, 'Settings', lambda: self.show('settings')).pack(side='right', padx=10, pady=8)
         status = self.label(self.footer, size=17, muted=True)
@@ -359,15 +358,21 @@ class Panel(object):
         for child in self.dock.winfo_children():
             child.destroy()
         self.dock.configure(bg=self.bg)
-        top = tk.Frame(self.dock, bg=self.bg, height=44)
-        top.pack(fill='x', padx=24)
+        top = tk.Frame(self.dock, bg=self.bg, height=70)
+        top.pack(fill='x', padx=24, pady=(8, 6))
         top.pack_propagate(False)
-        self.label(top, 'LESA   /   Original room controls', 19).pack(side='left')
-        self.label(top, 'Choose a mode below to return', 17, True).pack(side='right')
+        if self.artwork and (self.theme == 'light' or getattr(self.args, 'dark_brand', 'wordmark') == 'original'):
+            tk.Label(top, image=self.artwork, bg='white', bd=0, padx=8).pack(side='left', padx=(0, 18))
+        else:
+            brand = self.label(top, 'LESA', 30)
+            brand.config(fg=ACCENT)
+            brand.pack(side='left', padx=(0, 18))
+        self.label(top, 'Smart Conference Room · Legacy', 21).pack(side='left')
+        self.label(top, 'Tap Beta to return', 17, True).pack(side='right')
         nav = tk.Frame(self.dock, bg=self.bg, height=64)
         nav.pack(fill='both', expand=True, padx=24, pady=(0, 4))
-        for index, (text, mode) in enumerate([('Room', 'room'), ('Experiment', 'experiment'),
-                           ('System', 'health'), ('Original controls', 'original')]):
+        for index, (text, mode) in enumerate([('Beta', 'room'), ('Experiment', 'experiment'),
+                           ('System', 'health'), ('Legacy', 'original')]):
             nav.columnconfigure(index, weight=1, uniform='dock')
             button = self.button(nav, text, lambda mode=mode: self.show(mode), mode == 'original')
             button.config(image=self.icon(mode, 'white' if mode == 'original' else self.ink), compound='left')
@@ -385,7 +390,7 @@ class Panel(object):
             self.trial_deadline = None
         if mode == 'original' and self.worker:
             self.release_target = 'original'
-            self.status_text.set('Waiting for light adapter cleanup before showing Original controls...')
+            self.status_text.set('Finishing lighting control before opening Legacy...')
             if self.light_state not in ('ready', 'applying', 'connecting'):
                 if not self.worker.stdin.closed:
                     self.worker.stdin.close()
@@ -406,7 +411,7 @@ class Panel(object):
         self.mode, self.section = mode, 'basic'
         if self.light_state != 'failed' and not self.pending:
             messages = {'health': 'Live panel readings. No system settings change.',
-                        'room': 'Drag a slider or tap a preset. Trial changes restore before Original controls or exit.',
+                        'room': 'Drag a slider or tap a preset. Lighting restores before opening Legacy or exit.',
                         'experiment': 'Practice only. Activity buttons save panel annotations; recorder not connected.',
                         'settings': 'Settings apply to this trial. Hold one spot for 2 seconds to leave a blank screen.',
                         'about': 'Panel credits and source repository. No room settings change.'}
@@ -432,7 +437,7 @@ class Panel(object):
             self.root.withdraw()
             self.dock.deiconify()
             self.dock.update_idletasks()
-            self.dock.geometry('1280x112+0+0')
+            self.dock.geometry('1280x144+0+0')
             self.dock.lift()
             return
         self.root.deiconify()
@@ -579,7 +584,7 @@ class Panel(object):
 
     def apply(self, action, **arguments):
         if self.mode != 'room' or self.light_state not in ('ready', 'applying') or self.release_target or self.closing:
-            self.status_text.set('Lighting unavailable. Use Original controls or ask staff.')
+            self.status_text.set('Lighting unavailable. Use Legacy or ask staff.')
             return
         # Immutable complete intent, one unsent selection shared by all light controls.
         arguments = json.loads(json.dumps(arguments))
@@ -610,7 +615,7 @@ class Panel(object):
         if not self.request(action, arguments):
             self.light_state = 'failed'
             self.cancel_intent()
-            self.light_text.set('Lighting adapter unavailable. Use Original controls or ask staff.')
+            self.light_text.set('Lighting adapter unavailable. Use Legacy or ask staff.')
         self.update_light_buttons()
 
     def update_light_buttons(self):
@@ -799,7 +804,7 @@ class Panel(object):
             side='left', padx=12, pady=8)
         self.row_buttons(self.body, [('Back to Room', lambda: self.show('room'), False),
                                      ('About panel', lambda: self.show('about'), False),
-                                     ('Return to Original' if self.keep_switcher else 'End trial and restore',
+                                     ('Legacy' if self.keep_switcher else 'End trial and restore',
                                       lambda: self.close('exit'), False)])
 
     def about_view(self):
@@ -852,10 +857,11 @@ class Panel(object):
         self.light_state = 'connecting'
         self.light_text.set('Checking starting drive settings on 10 lights...')
         self.worker_buffer = ''
-        self.request('acquire')
+        self.worker_ready = False
 
     def request(self, action, arguments=None):
-        if self.pending or not self.worker or self.worker.poll() is not None:
+        if (self.pending or not self.worker or self.worker.poll() is not None or
+                not getattr(self, 'worker_ready', False)):
             return False
         self.request_seq += 1
         item = {'version': 1, 'request_id': self.run_id + ':' + str(self.request_seq),
@@ -903,6 +909,11 @@ class Panel(object):
                     response = json.loads(line)
                 except ValueError:
                     continue
+                if (response.get('version') == 1 and response.get('state') == 'initialized' and
+                        not self.worker_ready and self.light_state == 'connecting'):
+                    self.worker_ready = True
+                    self.request('release' if self.release_target or self.closing else 'acquire')
+                    continue
                 if not self.pending or response.get('request_id') != self.pending['request_id']:
                     continue
                 if response.get('version') != 1 or response.get('state') not in ('ready', 'completed', 'released', 'failed'):
@@ -928,7 +939,7 @@ class Panel(object):
                 elif state == 'failed':
                     self.release_target = None
                     self.cancel_intent()
-                    self.status_text.set(detail + ' / Use Original controls or ask staff.')
+                    self.status_text.set(detail + ' / Use Legacy or ask staff.')
                 elif self.queued_intent and self.intent_timer is None:
                     self.dispatch_intent()
                 self.update_light_buttons()

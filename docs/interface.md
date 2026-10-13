@@ -42,7 +42,10 @@ another experiment owns import, clock association and participant handling.
 ## Local light helper
 
 The UI launches one subprocess using inherited, validated deployment ROS settings.
-Pipes carry JSON lines. Requests have:
+After initialization, the helper sends `{"version": 1, "state": "initialized"}`.
+The UI then sends a fresh acquire request, or release if navigation already ended
+the trial. It ignores duplicate initialization messages. Pipes carry JSON lines.
+Requests have:
 
 ```json
 {
@@ -67,8 +70,8 @@ Unknown extra fields are ignored; unsupported versions are refused.
 
 Only one request is in flight. Requests are capped at 4096 bytes; buffers at
 8192 bytes. Requests older than the ten-second lease are refused. Both processes
-use the same host monotonic clock. There are no unsolicited status messages in
-this version. Recovery receipts include baseline and request/result records.
+use the same host monotonic clock. Initialization is the only unsolicited message.
+Recovery receipts include baseline and request/result records.
 
 The same helper has a separate `--status-only` command. It reads the ROS master's
 service graph through one XML-RPC call, then exits without a ROS node or fixture
