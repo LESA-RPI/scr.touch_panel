@@ -35,6 +35,8 @@ CHANNEL_COLOURS = ('#4764bc', '#337cb9', '#2198c2', '#86a83b', '#c69c32', '#d47d
 PALETTES = {'dark': ('#111b24', '#192a38', '#f2f6f8', '#aabfcc', '#17455c'),
             'light': ('#ffffff', '#ffffff', '#12384b', '#476373', '#daeff9')}
 ACCENT = '#0072b2'
+NAVIGATION = [('Room', 'room'), ('Visitor', 'visitor'), ('Practice', 'experiment'),
+              ('System', 'health'), ('Legacy', 'original')]
 DEFAULT_PROFILE = {'title': 'Room activity practice', 'sensors': 'Ceiling and colour sensors',
                    'stages': ['Leave the room empty', 'Please sit still',
                               'Make small seated movements', 'Walk around the room',
@@ -363,8 +365,7 @@ class Panel(object):
         self.nav.pack_propagate(False)
         self.nav.grid_propagate(False)
         self.nav_buttons = {}
-        for index, (text, mode) in enumerate([('Room', 'room'), ('Visitor', 'visitor'), ('Practice', 'experiment'),
-                           ('System', 'health'), ('Legacy', 'original')]):
+        for index, (text, mode) in enumerate(NAVIGATION):
             self.nav.columnconfigure(index, weight=1, uniform='nav')
             button = self.button(self.nav, text, lambda mode=mode: self.show(mode))
             button.config(image=self.icon(mode, self.ink), compound='left')
@@ -401,12 +402,12 @@ class Panel(object):
         self.label(top, 'Tap Beta to return', 17, True).pack(side='right')
         nav = tk.Frame(self.dock, bg=self.bg, height=64)
         nav.pack(fill='both', expand=True, padx=24, pady=(0, 4))
-        for index, (text, mode) in enumerate([('Beta', 'room'), ('Experiment', 'experiment'),
-                           ('System', 'health'), ('Legacy', 'original')]):
+        for index, (text, mode) in enumerate(NAVIGATION):
+            text = 'Beta' if mode == 'room' else text
             nav.columnconfigure(index, weight=1, uniform='dock')
             button = self.button(nav, text, lambda mode=mode: self.show(mode), mode == 'original')
             button.config(image=self.icon(mode, 'white' if mode == 'original' else self.ink), compound='left')
-            button.grid(row=0, column=index, sticky='nsew', padx=(0, 10 if index < 3 else 0))
+            button.grid(row=0, column=index, sticky='nsew', padx=(0, 10 if index < 4 else 0))
         nav.rowconfigure(0, weight=1)
 
     def cycle_theme(self):
