@@ -93,8 +93,16 @@ The 2026-10-10 deployment check started one beta and one unchanged original
 application. Real screen events verified navigation and fresh Fid admission.
 Launching again kept both process identities unchanged. An authorized reboot
 then left the cabinet unreachable, with a reported blank screen and blinking
-cursor. Boot startup remains unverified. The cause is unresolved; undervoltage
-was active before reboot. No packages, firmware or ROS services were changed.
+cursor. On 2026-10-13 the original card booted again: SSH confirmed the installed
+Ubuntu 16.04.4/Lubuntu and ROS Kinetic, and the researcher saw the new panel.
+Undervoltage and earlier SD I/O errors remain; this does not establish reliable
+startup or validate a replacement image. Current private application/configuration
+backups passed local and cloud verification. A later runtime-file read failed
+with SD I/O errors; it is incomplete and must not be used to restore libraries.
+No packages, firmware or ROS services were changed.
+
+[Backup and rebuild guidance](WORKFLOWS.md#backup-and-rebuild) separates the panel
+source, private deployment, system image and external room-service dependencies.
 
 New panel author: **Diyanko Bhowmik**, with Codex assistance. Independent agent
 reviews and a researcher-supplied Claude brief informed the design. Original
