@@ -1,7 +1,8 @@
 """Light writes require a restorable baseline and matching fixture feedback."""
 from types import SimpleNamespace
-from io import BytesIO
+from io import BytesIO, StringIO
 import json
+import threading
 
 import pytest
 
@@ -10,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'app'))
 import scr_touch_panel as panel
 import scr_touch_panel_lights as adapter
+import event_journal
 
 
 class Room:
@@ -234,3 +236,114 @@ def test_slow_adapter_initialization_sends_fresh_request_once_and_honors_exit(mo
         state.worker_buffer = json.dumps({'version': 1, 'state': 'initialized'}) + '\n'
         state.poll_worker()
         assert commands() == sent
+
+
+def journal_panel(journal, path):
+    state = panel.Panel.__new__(panel.Panel)
+    state.journal, state.args = journal, SimpleNamespace(journal=path)
+    state.sequence, state.stage, state.started = 0, 0, panel.monotonic()
+    state.mode, state.run_id, state.boot_id = 'experiment', 'trial', None
+    state.profile, state.pending_annotation = panel.DEFAULT_PROFILE, None
+    state.annotation_text = SimpleNamespace(value='', set=lambda value: setattr(state.annotation_text, 'value', value))
+    state.status_text = SimpleNamespace(value='', set=lambda value: setattr(state.status_text, 'value', value))
+    return state
+
+
+def test_journal_fsync_does_not_block_emit_and_saved_waits_for_durable_ack(tmp_path, monkeypatch):
+    entered, release = threading.Event(), threading.Event()
+    def blocked_fsync(unused):
+        entered.set()
+        if not release.wait(3):
+            raise OSError('Test fsync gate timed out')
+    monkeypatch.setattr(event_journal.os, 'fsync', blocked_fsync)
+    path = tmp_path / 'events.jsonl'
+    journal = event_journal.EventJournal(str(path), StringIO())
+    state = journal_panel(journal, str(path))
+    try:
+        state.emit('practice_started')
+        state.mark('Activity started')
+        assert entered.wait(2)
+        state.emit('instruction_selected')  # Returns while fsync remains blocked.
+        state.poll_journal()
+        assert state.annotation_text.value == 'Saving annotation: Activity started'
+        journal.close()  # Close requests drainage without joining the writer.
+        assert not journal.done.is_set()
+    finally:
+        release.set()
+        journal.close()
+        assert journal.done.wait(3)
+        journal.thread.join(1)
+    state.poll_journal()
+    assert state.annotation_text.value.startswith('Saved on panel: Activity started')
+    assert journal.error is None and not journal.thread.is_alive()
+    records = [json.loads(line) for line in path.read_text().splitlines()]
+    assert [item['sequence'] for item in records] == [1, 2, 3]
+    assert [item['event'] for item in records] == ['practice_started', 'annotation', 'instruction_selected']
+
+
+def test_journal_backlog_is_bounded_and_accepted_records_drain_in_order():
+    entered, release = threading.Event(), threading.Event()
+    class BlockedOutput(StringIO):
+        def write(self, value):
+            entered.set()
+            if not release.wait(3):
+                raise OSError('Test output gate timed out')
+            return super().write(value)
+    output = BlockedOutput()
+    journal = event_journal.EventJournal(None, output, capacity=2)
+    try:
+        journal.append('first\n', 1)
+        assert entered.wait(2)
+        journal.append('second\n', 2)
+        journal.append('third\n', 3)
+        with pytest.raises(IOError, match='queue is full'):
+            journal.append('rejected\n', 4)
+        assert journal.pending.qsize() == 2
+        with pytest.raises(IOError):
+            journal.append('also rejected\n', 5)
+    finally:
+        journal.close()
+        release.set()
+        assert journal.done.wait(3)
+        journal.thread.join(1)
+    assert output.getvalue() == 'first\nsecond\nthird\n'
+    assert not journal.thread.is_alive()
+
+
+def test_journal_failures_never_claim_unsaved_annotations_are_saved(tmp_path, monkeypatch, capsys):
+    class FailedOutput:
+        def write(self, unused):
+            raise OSError('Injected output failure')
+        def flush(self):
+            raise AssertionError('Failed write must not be flushed')
+    for kind in ('persist', 'output-only', 'mirror'):
+        path = None if kind == 'output-only' else str(tmp_path / (kind + '.jsonl'))
+        def fsync(unused):
+            if kind == 'persist':
+                raise OSError('Injected persistence failure')
+        monkeypatch.setattr(event_journal.os, 'fsync', fsync)
+        output = StringIO() if kind == 'persist' else FailedOutput()
+        journal = event_journal.EventJournal(path, output)
+        state = journal_panel(journal, path)
+        try:
+            state.mark('Activity finished')
+        finally:
+            journal.close()
+            assert journal.done.wait(3)
+            journal.thread.join(1)
+        state.closed, state.worker, state.closing = False, None, 'test'
+        destroyed = []
+        state.root = SimpleNamespace(destroy=lambda: destroyed.append(state.annotation_text.value))
+        state.finish_close()  # Final results must be processed before Tk disappears.
+        stderr = capsys.readouterr().err
+        assert state.closed and destroyed == [state.annotation_text.value]
+        assert not journal.thread.is_alive()
+        if kind == 'mirror':
+            assert state.annotation_text.value.startswith('Saved on panel: Activity finished')
+            assert journal.output_error == 'Injected output failure'
+            assert not stderr
+        else:
+            assert state.annotation_text.value.startswith('Annotation not saved:')
+            assert 'Saved on panel' not in state.annotation_text.value
+            assert 'Written to panel output' not in state.annotation_text.value
+            assert 'Panel journal shutdown failed:' in stderr

@@ -20,6 +20,7 @@ import time
 import uuid
 from io import BytesIO
 from scr_touch_panel_lights import PRESETS
+from event_journal import EventJournal
 try:
     import Tkinter as tk
     from tkFont import Font
@@ -157,9 +158,8 @@ class Panel(object):
         self.light_state, self.release_target = 'disconnected', None
         self.light_buttons = []
         self.last_heartbeat, self.request_seq = -10, 0
-        self.journal = None
-        if args.journal:
-            self.journal = os.fdopen(os.open(args.journal, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w')
+        self.journal = EventJournal(args.journal, sys.stdout)
+        self.pending_annotation = None
         self.root = tk.Tk()
         self.icon_cache = {}
         for key, size, width in [('title', 27, 1200), ('sensors', 18, 1130), ('annotations', 19, 270)]:
@@ -217,12 +217,13 @@ class Panel(object):
                       elapsed_s=round(monotonic() - self.started, 3), instruction_index=self.stage,
                       instruction=self.profile['stages'][self.stage], recording=False)
         line = json.dumps(values, sort_keys=True) + '\n'
-        if self.journal:
-            self.journal.write(line)
-            self.journal.flush()
-            os.fsync(self.journal.fileno())
-        sys.stdout.write(line)
-        sys.stdout.flush()
+        try:
+            self.journal.append(line, self.sequence, durable=event == 'annotation')
+        except (IOError, OSError) as error:
+            if event == 'annotation':
+                raise
+            self.status_text.set('Panel journal unavailable: ' + str(error))
+        return self.sequence
 
     def label(self, parent, text='', size=20, muted=False):
         return tk.Label(parent, text=text, font=(FONT, size), fg=self.muted if muted else self.ink,
@@ -669,10 +670,11 @@ class Panel(object):
 
     def mark(self, label='Unexpected event'):
         try:
-            self.emit('annotation', label=label, scope='panel_practice')
-            text = 'Saved on panel' if self.journal else 'Written to panel output only'
-            self.annotation_text.set('%s: %s at %s. Not added to a recording.' % (text, label, time.strftime('%H:%M:%S')))
+            sequence = self.emit('annotation', label=label, scope='panel_practice')
+            self.pending_annotation = (sequence, label, time.strftime('%H:%M:%S'))
+            self.annotation_text.set('Saving annotation: ' + label)
         except (IOError, OSError) as error:
+            self.pending_annotation = None
             self.annotation_text.set('Annotation not saved: ' + str(error))
 
     def previous_stage(self):
@@ -878,9 +880,27 @@ class Panel(object):
         self.pending = item
         return True
 
+    def poll_journal(self):
+        journal = getattr(self, 'journal', None)
+        if journal is None:
+            return
+        for sequence in journal.poll():
+            if self.pending_annotation and sequence == self.pending_annotation[0]:
+                unused, label, timestamp = self.pending_annotation
+                text = 'Saved on panel' if self.args.journal else 'Written to panel output only'
+                self.annotation_text.set('%s: %s at %s. Not added to a recording.' % (text, label, timestamp))
+                self.pending_annotation = None
+        error = journal.error or (journal.output_error if not self.args.journal else None)
+        if error:
+            if self.pending_annotation:
+                self.annotation_text.set('Annotation not saved: ' + error)
+                self.pending_annotation = None
+            self.status_text.set('Panel journal unavailable: ' + error)
+
     def poll_worker(self):
         if self.closed:
             return
+        self.poll_journal()
         self.poll_status()
         worker = self.worker
         if worker:
@@ -1011,12 +1031,19 @@ class Panel(object):
 
     def finish_close(self):
         if not self.closed:
-            self.emit('panel_closed', reason=self.closing or 'mainloop_exit', light_state=self.light_state)
+            if not self.journal.closing:
+                self.emit('panel_closed', reason=self.closing or 'mainloop_exit', light_state=self.light_state)
+                self.journal.close()
+            if not self.journal.done.is_set():
+                self.root.after(50, self.finish_close)
+                return
+            self.poll_journal()
+            if self.journal.error:
+                sys.stderr.write('Panel journal shutdown failed: ' + self.journal.error + '\n')
+                sys.stderr.flush()
             self.closed = True
             if self.worker:
                 self.worker.stdin.close()
-            if self.journal:
-                self.journal.close()
             self.root.destroy()
 
 
@@ -1068,6 +1095,8 @@ def main(argv=None):
             if panel.worker:
                 panel.worker.stdin.close()
                 panel.worker.wait()
+            panel.journal.close()
+            panel.journal.thread.join(timeout=2)
             panel.finish_close()
     return 0
 

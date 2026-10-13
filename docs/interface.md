@@ -32,7 +32,12 @@ The boot identity is null where the operating system does not provide it.
 
 Events include panel open/close, mode/theme/clock changes, practice start/pause,
 instruction selection, named annotation, and lighting request/result.
-Annotations are acknowledged after flush and fsync; storage failure is reported.
+One background writer preserves event order through a bounded 128-event queue.
+Ordinary event journal and console writes run outside the Tk thread. Events are flushed
+without a per-click fsync; annotation batches and final shutdown are synced.
+Annotations show Saving until their flush/fsync acknowledgement arrives; storage
+failure or a full queue is reported. Recent ordinary events can be lost on abrupt
+power failure. The lighting helper's separate durable recovery receipts are unchanged.
 This is a panel practice journal, not canonical sensor-recording metadata.
 
 A future recorder adapter must provide actual recorder state and timestamp

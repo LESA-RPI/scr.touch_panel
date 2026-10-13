@@ -109,6 +109,12 @@ Preserve the private deployment values and receipts. Do not overwrite legacy cod
 Keep journals, host configuration, participant data and screenshots private.
 Do not delete logs or disable services merely because they look unused.
 
+Panel event logging uses one background thread and a bounded queue. Annotations
+show Saving before Saved; do not interpret Saving as persistence confirmation.
+Close drains the writer asynchronously after lighting cleanup. Ordinary navigation
+does not wait for SD-card fsync. Hardware-command recovery receipts remain synced
+in the separate light helper.
+
 Theme times use the panel process's configured timezone. Auto changes wait for
 60 seconds without a touch and do not occur in Experiment. Settings use familiar
 appearance, date/time, schedule and screen rows. Font and study defaults are launch
