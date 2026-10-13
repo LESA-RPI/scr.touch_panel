@@ -66,6 +66,20 @@ sensor or blind health. Experiment practice saves panel annotations with
 `recording: false`. A two-second stationary press leaves the black screen;
 black pixels do not turn off its backlight.
 
+**Visitor** shows a large clock, short room instructions and optional local
+weather. **Practice** names the existing experiment practice page; it does not
+start a recorder. Room scenes retain Fid, Sat and Dul names shared with Legacy.
+Lighting feedback distinguishes selection, sending and confirmed controller
+drive settings. Confirmation does not measure optical brightness.
+
+The installed launcher saves theme, clock style, help tips and theme schedule
+in a private appearance file. It saves no light settings or recording state.
+Weather uses [Open-Meteo](https://open-meteo.com/en/docs), with a location set
+outside Git. Requests run in a separate helper and refresh at most every 15
+minutes while Visitor is open. Failed refreshes retain clearly labelled old
+data. Weather is model data, independent of room sensors and light control.
+See [appearance and weather setup](WORKFLOWS.md#appearance-and-weather).
+
 ## Restore or provision hardware
 
 For the installed legacy system, obtain the verified private recovery image and

@@ -47,7 +47,12 @@ if ! $original_running; then
     kill -0 "$classic_pid" 2>/dev/null || { echo 'Original panel failed to start; inspect original.log' >&2; exit 1; }
 fi
 run_dir=$(mktemp -d "$cache/panel-XXXXXXXX")
+set -- --preferences "${SCR_PANEL_PREFERENCES:-$HOME/.config/scr-panel/appearance.json}"
+if test -n "${SCR_WEATHER_LATITUDE:-}" && test -n "${SCR_WEATHER_LONGITUDE:-}"; then
+    set -- "$@" --weather-latitude "$SCR_WEATHER_LATITUDE" --weather-longitude "$SCR_WEATHER_LONGITUDE" \
+        --weather-name "${SCR_WEATHER_NAME:-Local area}"
+fi
 exec "$panel_python" -B "$app_dir/scr_touch_panel.py" \
     --keep-switcher --start-mode "$start_mode" --live-lights --theme auto --duration 0 \
     --adapter-python "$adapter_python" \
-    --journal "$run_dir/events.jsonl" >>"$cache/switcher.log" 2>&1
+    --journal "$run_dir/events.jsonl" "$@" >>"$cache/switcher.log" 2>&1

@@ -1,0 +1,102 @@
+"""Small appearance preferences; atomic writes stay off the Tk thread."""
+import json
+import os
+import tempfile
+import threading
+
+
+def validated(value):
+    if not isinstance(value, dict):
+        raise ValueError('Expected an appearance settings object')
+    allowed = {'theme': ('auto', 'light', 'dark'), 'clock_format': ('12', '24'),
+               'tips': ('on', 'off')}
+    result = {}
+    for key, choices in allowed.items():
+        if key in value:
+            if value[key] not in choices:
+                raise ValueError('Invalid ' + key)
+            result[key] = value[key]
+    for key in ('light_at', 'dark_at'):
+        if key in value:
+            if type(value[key]) is not int or not 0 <= value[key] < 1440:
+                raise ValueError('Invalid ' + key)
+            result[key] = value[key]
+    if result.get('light_at', 420) == result.get('dark_at', 1140):
+        raise ValueError('Theme schedule times must differ')
+    return result
+
+
+def load(path, defaults=None):
+    if not path or not os.path.exists(path):
+        return {}, None
+    try:
+        with open(path) as stream:
+            text = stream.read(4097)
+        if len(text) > 4096:
+            raise ValueError('Appearance settings are too large')
+        value = validated(json.loads(text))
+        if defaults:
+            merged = dict(defaults)
+            merged.update(value)
+            validated(merged)
+        return value, None
+    except (IOError, OSError, ValueError) as error:
+        return {}, str(error)
+
+
+class Preferences(object):
+    """One worker, one pending snapshot; keep only the latest selection."""
+    def __init__(self, path):
+        self.path = path
+        self.condition = threading.Condition()
+        self.pending = None
+        self.error = None
+        self.closing = False
+        self.done = threading.Event()
+        self.thread = threading.Thread(target=self._run, name='scr-panel-preferences')
+        self.thread.daemon = True
+        self.thread.start()
+
+    def save(self, value):
+        value = validated(value)
+        with self.condition:
+            if self.closing:
+                return
+            self.pending = value
+            self.condition.notify()
+
+    def close(self):
+        with self.condition:
+            self.closing = True
+            self.condition.notify()
+
+    def _run(self):
+        try:
+            while True:
+                with self.condition:
+                    while self.pending is None and not self.closing:
+                        self.condition.wait()
+                    if self.pending is None:
+                        return
+                    value, self.pending = self.pending, None
+                temporary = None
+                try:
+                    directory = os.path.dirname(os.path.abspath(self.path))
+                    if not os.path.isdir(directory):
+                        os.makedirs(directory)
+                    descriptor, temporary = tempfile.mkstemp(prefix='.appearance-', dir=directory)
+                    with os.fdopen(descriptor, 'w') as stream:
+                        json.dump(value, stream, sort_keys=True)
+                        stream.write('\n')
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                    getattr(os, 'replace', os.rename)(temporary, self.path)
+                    temporary = None
+                    self.error = None
+                except (IOError, OSError) as error:
+                    self.error = str(error)
+                finally:
+                    if temporary:
+                        os.unlink(temporary)
+        finally:
+            self.done.set()

@@ -58,6 +58,38 @@ Blank screen displays black pixels. A stationary two-second press returns to the
 previous view; movement beyond 40 pixels cancels. The backlight remains powered.
 Use qualified display-power control for experiments needing complete darkness.
 
+## Appearance and weather
+
+The launcher uses `~/.config/scr-panel/appearance.json` for theme, clock style,
+help tips and light/dark schedule. Set `SCR_PANEL_PREFERENCES` to change its
+location. Saved appearance choices override CLI appearance defaults. Writes
+are atomic and use one background worker with one pending snapshot. Invalid
+files fall back to defaults and show a warning; they cannot start recordings
+or restore light settings. Remove this private file to reset appearance.
+A direct preview saves preferences only when `--preferences PATH` is supplied.
+
+Weather is optional. Set these private values in `deployment.env`:
+
+```sh
+SCR_WEATHER_LATITUDE=42.7284
+SCR_WEATHER_LONGITUDE=-73.6918
+SCR_WEATHER_NAME="Troy, NY"
+```
+
+These example coordinates represent the Troy city area, not the panel's exact
+position. Other installations must choose their own location. Without both
+coordinates, Visitor shows weather as unconfigured. Direct previews accept
+`--weather-latitude`, `--weather-longitude` and `--weather-name`.
+
+The [Open-Meteo forecast API](https://open-meteo.com/en/docs) provides temperature,
+condition, sunrise and sunset in the panel timezone. The public endpoint needs
+no API key for its free non-commercial use; review its terms for other uses.
+The panel displays attribution and model time. It starts one helper at most
+every 15 minutes while Visitor is open, bounds its response to 32 KiB and kills
+the helper after eight seconds. Requests never use the Tk thread. A failed
+refresh labels the last available data; data older than 30 minutes has an age
+warning. Weather never drives lights, screen themes or experiment timing.
+
 ## Startup and rollback
 
 The client does not install or change OS services. The deployment launcher

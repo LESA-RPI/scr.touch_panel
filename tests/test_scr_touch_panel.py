@@ -12,6 +12,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'app'))
 import scr_touch_panel as panel
 import scr_touch_panel_lights as adapter
 import event_journal
+import preferences
+import weather
 
 
 class Room:
@@ -114,6 +116,57 @@ def test_profile_is_data_only_and_scheduled_theme_handles_midnight(tmp_path):
     assert panel.scheduled_theme(20 * 60, 7 * 60, 19 * 60) == 'dark'
     assert panel.scheduled_theme(23 * 60, 19 * 60, 7 * 60) == 'light'
     assert panel.scheduled_theme(12 * 60, 19 * 60, 7 * 60) == 'dark'
+
+
+def test_preferences_restore_appearance_only_and_survive_invalid_input(tmp_path, monkeypatch):
+    path = tmp_path / 'appearance.json'
+    assert preferences.load(str(path)) == ({}, None)
+    writer = preferences.Preferences(str(path))
+    value = {'theme': 'dark', 'clock_format': '12', 'tips': 'off', 'light_at': 420, 'dark_at': 1140}
+    entered, unblock = threading.Event(), threading.Event()
+    original = preferences.os.fsync
+    def slow_sync(fd):
+        entered.set()
+        assert unblock.wait(2)
+        original(fd)
+    monkeypatch.setattr(preferences.os, 'fsync', slow_sync)
+    writer.save(value)
+    assert entered.wait(2)
+    # New UI selections do not wait for storage; the latest snapshot wins.
+    for theme in ('light', 'auto', 'dark'):
+        writer.save(dict(value, theme=theme))
+    unblock.set()
+    writer.close()
+    assert writer.done.wait(2)
+    assert preferences.load(str(path)) == (value, None)
+    path.write_text('{"theme":"light","lights":"on","recording":true}')
+    assert preferences.load(str(path))[0] == {'theme': 'light'}
+    path.write_text('{"theme":"invalid"}')
+    assert preferences.load(str(path))[0] == {}
+    assert preferences.load(str(path))[1]
+    path.write_text('{"light_at":480}')
+    assert preferences.load(str(path), {'light_at': 420, 'dark_at': 480})[1]
+    path.write_text('x' * 5000)
+    assert preferences.load(str(path))[1]
+
+
+def test_weather_timeout_preserves_last_success_without_touching_lights(monkeypatch):
+    state = panel.Panel.__new__(panel.Panel)
+    state.weather_worker = SimpleNamespace(poll=lambda: None, kill=lambda: stopped.append(True))
+    state.weather_started = 0
+    stopped = []
+    monkeypatch.setattr(panel, 'monotonic', lambda: 9)
+    state.poll_weather()
+    assert stopped == [True]
+    state.weather_worker = SimpleNamespace(poll=lambda: 1, stdout=BytesIO(b'{"error":"timeout"}'), stderr=None)
+    state.weather_last_text = 'Last successful weather'
+    shown = []
+    state.weather_text = SimpleNamespace(set=shown.append)
+    state.poll_weather()
+    assert state.weather_worker is None
+    assert 'refresh failed' in shown[-1] and state.weather_last_text in shown[-1]
+    assert 'Sunrise 06:30' in weather.summary({'current': {'temperature_2m': 50, 'weather_code': 2,
+        'time': '2026-10-13T12:00'}, 'daily': {'sunrise': ['2026-10-13T06:30'], 'sunset': ['2026-10-13T18:00']}})
 
 
 def test_latest_touch_intent_is_copied_serialized_and_cancelled_before_release(monkeypatch):

@@ -21,6 +21,7 @@ import uuid
 from io import BytesIO
 from scr_touch_panel_lights import PRESETS
 from event_journal import EventJournal
+from preferences import Preferences, load as load_preferences
 try:
     import Tkinter as tk
     from tkFont import Font
@@ -42,12 +43,14 @@ DEFAULT_PROFILE = {'title': 'Room activity practice', 'sensors': 'Ceiling and co
 TIPS = {'Lights on': 'Standard white: selects 3500 K and light-level input 1000 for all lights.',
         'Lights off': 'Sends zero drive to all light channels. The panel screen stays on.',
         'Advanced controls': 'Adjust eight colour-channel drives. Values are controller percentages, not measured light.',
-        'Room': 'Everyday lighting and static presets. Touch a slider; no Apply button is needed.',
+        'Room': 'Everyday lighting. Changes send automatically after your touch settles.',
+        'Visitor': 'Room introduction and a large clock. Opening this page does not change lighting.',
+        'Practice': 'Practice instructions and annotations only. No sensor recording starts.',
         'Experiment': 'Instructions, practice time and named annotations. No sensor recording starts.',
         'System': 'Panel resources and advertised room services. Presence does not prove sensor health.',
         'Legacy': 'Restores the starting lighting, then shows the original room controls.',
         'Blank screen': 'Shows black pixels. Hold still for 2 seconds to return; the backlight remains on.',
-        'Settings': 'Appearance, date/time and screen options. Changes last for this trial.',
+        'Settings': 'Appearance, date/time and screen options. Appearance choices can be saved on this device.',
         'About panel': 'Panel credits and source repository. No room settings change.',
         'Start practice': 'Starts the practice timer only. It does not start sensor collection.',
         'Next instruction': 'Shows the next instruction. The final instruction does not wrap.',
@@ -137,6 +140,14 @@ def scheduled_theme(now, light_at, dark_at):
 class Panel(object):
     def __init__(self, args):
         self.args, self.profile = args, profile(args.profile)
+        saved, preference_error = load_preferences(getattr(args, 'preferences', None),
+                                                  {'light_at': args.light_at, 'dark_at': args.dark_at})
+        for key, value in saved.items():
+            setattr(args, key, value)
+        self.preferences = Preferences(args.preferences) if getattr(args, 'preferences', None) else None
+        self.preference_error = preference_error
+        self.weather_worker, self.weather_started = None, None
+        self.weather_checked, self.weather_good, self.weather_last_text = -900, None, None
         self.started, self.run_id, self.sequence = monotonic(), uuid.uuid4().hex, 0
         self.boot_id, self.last_touch = boot_identity(), -60
         self.clock_24 = getattr(args, 'clock_format', '24') == '24'
@@ -184,6 +195,9 @@ class Panel(object):
         self.channel_values = [tk.IntVar(value=value) for value in PRESETS['Fid']]
         self.status_text = tk.StringVar(value='Touch a slider or preset to change the lights. Recorder not connected.')
         self.light_text = tk.StringVar(value='Lighting not connected - controls are unavailable')
+        self.visitor_time, self.visitor_date = tk.StringVar(), tk.StringVar()
+        self.preference_text = tk.StringVar(value=self.preference_summary())
+        self.weather_text = tk.StringVar(value='Not configured. A location is needed.')
         self.annotation_text = tk.StringVar(value=('Annotations belong to the panel journal, separate from recordings.'
                                                   if args.journal else 'Annotations go to panel output only. No recording starts.'))
         self.artwork = None
@@ -241,8 +255,8 @@ class Panel(object):
     def show_tip(self, text):
         if self.help_on and not self.pending and self.light_state != 'failed':
             tip = TIPS.get(text)
-            if text.endswith(' preset'):
-                tip = 'Applies the existing ' + text + ' to all lights. Its name matches Original controls.'
+            if text in ('Fid', 'Sat', 'Dul'):
+                tip = 'Applies the room\'s ' + text + ' spectral scene to all lights. The name matches Legacy.'
             if text in self.profile['annotations']:
                 tip = 'Saves "' + text + '" as a panel annotation. It is not a recording label yet.'
             if tip:
@@ -250,6 +264,7 @@ class Panel(object):
 
     def toggle_tips(self):
         self.help_on = not self.help_on
+        self.save_preferences()
         self.render()
         self.emit('help_selected', enabled=self.help_on)
 
@@ -278,6 +293,20 @@ class Panel(object):
                 line(((6, 17), (11, 17), (14, 10), (18, 21), (22, 15), (26, 15)))
                 line(((16, 24), (16, 29)))
                 line(((10, 29), (22, 29)))
+            elif kind in ('visitor', 'clock'):
+                draw.ellipse((12, 12, 84, 84), outline=colour, width=6)
+                line(((16, 8), (16, 16), (22, 19)))
+            elif kind == 'on':
+                draw.ellipse((24, 9, 72, 63), outline=colour, width=6)
+                line(((11, 21), (21, 21)))
+                line(((11, 25), (21, 25)))
+                line(((13, 29), (19, 29)))
+            elif kind == 'off':
+                draw.ellipse((18, 18, 78, 78), outline=colour, width=6)
+                line(((7, 25), (25, 7)))
+            elif kind == 'scene':
+                for x, y in ((4, 4), (18, 4), (4, 18), (18, 18)):
+                    rect((x, y, x + 9, y + 9))
             else:
                 line(((13, 5), (4, 14), (13, 23)))
                 line(((5, 14), (26, 14), (26, 27)))
@@ -292,9 +321,9 @@ class Panel(object):
         row.pack(fill='x', pady=6)
         row.pack_propagate(False)
         buttons = []
-        for text, action, accent in items:
+        for index, (text, action, accent) in enumerate(items):
             button = self.button(row, text, action, accent)
-            button.pack(side='left', fill='both', expand=True, padx=(0, 10))
+            button.pack(side='left', fill='both', expand=True, padx=(0, 10 if index < len(items) - 1 else 0))
             buttons.append(button)
         return buttons
 
@@ -334,12 +363,12 @@ class Panel(object):
         self.nav.pack_propagate(False)
         self.nav.grid_propagate(False)
         self.nav_buttons = {}
-        for index, (text, mode) in enumerate([('Room', 'room'), ('Experiment', 'experiment'),
+        for index, (text, mode) in enumerate([('Room', 'room'), ('Visitor', 'visitor'), ('Practice', 'experiment'),
                            ('System', 'health'), ('Legacy', 'original')]):
             self.nav.columnconfigure(index, weight=1, uniform='nav')
             button = self.button(self.nav, text, lambda mode=mode: self.show(mode))
             button.config(image=self.icon(mode, self.ink), compound='left')
-            button.grid(row=0, column=index, sticky='nsew', padx=(0, 10 if index < 3 else 0))
+            button.grid(row=0, column=index, sticky='nsew', padx=(0, 10 if index < 4 else 0))
             self.nav_buttons[mode] = button
         self.nav.rowconfigure(0, weight=1)
         self.footer = tk.Frame(self.root, bg=self.bg, height=88)
@@ -412,9 +441,10 @@ class Panel(object):
         self.mode, self.section = mode, 'basic'
         if self.light_state != 'failed' and not self.pending:
             messages = {'health': 'Live panel readings. No system settings change.',
-                        'room': 'Drag a slider or tap a preset. Lighting restores before opening Legacy or exit.',
+                        'room': 'Touch a slider or scene. Lighting restores before opening Legacy or exit.',
+                        'visitor': 'Visitor view does not change lighting. Recording status is unavailable here.',
                         'experiment': 'Practice only. Activity buttons save panel annotations; recorder not connected.',
-                        'settings': 'Settings apply to this trial. Hold one spot for 2 seconds to leave a blank screen.',
+                        'settings': 'Appearance settings belong to this device; they do not change room lighting.',
                         'about': 'Panel credits and source repository. No room settings change.'}
             if mode in messages:
                 self.status_text.set(messages[mode])
@@ -487,19 +517,94 @@ class Panel(object):
         right.pack(side='right', fill='both')
         right.pack_propagate(False)
         self.slider_group(left, 'White-light colour', self.cct, 1600, 10000, 100, 'K  /  warm to cool')
-        self.slider_group(left, 'Light level', self.intensity, 0, 1900, 25, 'lookup units')
+        self.slider_group(left, 'Light level', self.intensity, 0, 1900, 25, 'controller units')
         self.label(left, 'Changes send automatically; the latest selection wins.\n'
                    'Light level is a controller value, not measured brightness.', 17, True).pack(anchor='w')
-        self.label(right, 'Presets and demonstrations', 21).pack(anchor='w', pady=(0, 8))
-        self.light_buttons.extend(self.row_buttons(right, [('Lights on', self.lights_on, False),
-                                 ('Lights off', lambda: self.preset('Off'), False)]))
-        self.light_buttons.extend(self.row_buttons(right, [(name + ' preset', lambda name=name: self.preset(name), False)
-                                                           for name in ('Fid', 'Sat')]))
-        self.light_buttons.extend(self.row_buttons(right, [('Dul preset', lambda: self.preset('Dul'), False),
-                                                           ('Advanced controls', self.channel_view, False)])[:1])
-        self.label(right, 'Three existing spectral presets.\nChoose one to apply it to all lights.', 17, True).pack(anchor='w', pady=5)
+        self.label(right, 'Room scenes', 21).pack(anchor='w', pady=(0, 8))
+        on_off = self.row_buttons(right, [('Lights on', self.lights_on, False),
+                                        ('Lights off', lambda: self.preset('Off'), False)])
+        for button, kind in zip(on_off, ('on', 'off')):
+            button.config(image=self.icon(kind, ACCENT), compound='left')
+        self.light_buttons.extend(on_off)
+        self.label(right, 'Spectral scenes', 17, True).pack(anchor='w', pady=(12, 0))
+        scenes = self.row_buttons(right, [(name, lambda name=name: self.preset(name), False)
+                                         for name in ('Fid', 'Sat', 'Dul')])
+        for button in scenes:
+            button.config(image=self.icon('scene', ACCENT), compound='left')
+        self.light_buttons.extend(scenes)
+        self.label(right, 'Three room scenes, named as in Legacy.\nAsk the host which scene suits your activity.', 17, True).pack(anchor='w', pady=8)
+        advanced = self.row_buttons(right, [('Advanced controls', self.channel_view, False)])[0]
+        advanced.config(image=self.icon('room', ACCENT), compound='left')
         self.label(right, 'Blinds disabled: window covers fitted.', 16, True).pack(anchor='w', pady=4)
         self.update_light_buttons()
+
+    def visitor_view(self):
+        self.label(self.body, 'Welcome to LESA', 28).pack(anchor='w', pady=(0, 16))
+        row = tk.Frame(self.body, bg=self.bg)
+        row.pack(fill='both', expand=True)
+        left = tk.Frame(row, bg=self.control, width=710)
+        right = tk.Frame(row, bg=self.bg, width=478)
+        left.pack(side='left', fill='both', expand=True, padx=(0, 24))
+        right.pack(side='right', fill='both')
+        right.pack_propagate(False)
+        clock = self.label(left, size=76)
+        clock.config(textvariable=self.visitor_time, anchor='center')
+        clock.pack(fill='x', pady=(54, 6))
+        date = self.label(left, size=25, muted=True)
+        date.config(textvariable=self.visitor_date, anchor='center')
+        date.pack(fill='x', pady=(0, 32))
+        self.label(left, 'Room clock · local time', 23).pack(anchor='center')
+        self.label(right, 'Explore the room', 23).pack(anchor='w', pady=(10, 12))
+        self.label(right, 'Room: change white-light colour and level.\nLegacy: open the original room controls.\nPractice: try instructions and annotations.',
+                   18).pack(anchor='w', pady=(0, 18))
+        self.row_buttons(right, [('Open room controls', lambda: self.show('room'), True)])
+        self.label(right, 'Weather · ' + getattr(self.args, 'weather_name', 'Local area'), 21).pack(anchor='w', pady=(20, 8))
+        weather = self.label(right, size=17, muted=True)
+        weather.config(textvariable=self.weather_text, wraplength=478)
+        weather.pack(anchor='w')
+        self.start_weather()
+        self.label(right, 'Recording status unavailable.\nAsk the researcher.', 18, True).pack(anchor='w', pady=(18, 0))
+
+    def start_weather(self):
+        now = monotonic()
+        if (self.weather_worker or now - self.weather_checked < 900 or
+                getattr(self.args, 'weather_latitude', None) is None):
+            return
+        self.weather_checked, self.weather_started = now, now
+        if not self.weather_last_text:
+            self.weather_text.set('Loading weather...')
+        command = [sys.executable, '-B', os.path.join(os.path.dirname(__file__), 'weather.py'),
+                   str(self.args.weather_latitude), str(self.args.weather_longitude), self.args.timezone]
+        try:
+            self.weather_worker = subprocess.Popen(command, close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+                                                   if hasattr(subprocess, 'DEVNULL') else subprocess.PIPE)
+        except OSError:
+            self.weather_text.set('Weather unavailable. Room controls still work.')
+
+    def poll_weather(self):
+        worker = getattr(self, 'weather_worker', None)
+        if not worker:
+            return
+        if worker.poll() is None:
+            if monotonic() - self.weather_started > 8:
+                worker.kill()
+            return
+        try:
+            reply = json.loads(worker.stdout.read(4097).decode('utf-8'))
+            text = reply.get('text')
+            text_types = (str,) if sys.version_info[0] == 3 else (basestring,)
+            if not isinstance(text, text_types) or len(text) > 400:
+                raise ValueError('Invalid weather reply')
+            self.weather_last_text, self.weather_good = text, monotonic()
+            self.weather_text.set(text)
+        except (ValueError, IOError):
+            self.weather_text.set(('Last available weather (refresh failed):\n' + self.weather_last_text)
+                                  if self.weather_last_text else 'Weather unavailable. Room controls still work.')
+        finally:
+            worker.stdout.close()
+            if worker.stderr:
+                worker.stderr.close()
+            self.weather_worker = None
 
     def slider_group(self, parent, title, variable, low, high, step, unit):
         group = tk.Frame(parent, bg=self.surface, height=156)
@@ -609,7 +714,7 @@ class Panel(object):
         if self.intent_timer is not None:
             self.root.after_cancel(self.intent_timer)
         self.intent_timer = self.root.after(250, self.dispatch_intent)
-        self.light_text.set('Selection queued; waiting for your touch to settle...')
+        self.light_text.set('Selected - waiting for your touch to settle...')
 
     def cancel_intent(self):
         if self.intent_timer is not None:
@@ -627,7 +732,7 @@ class Panel(object):
             return
         action, arguments = intent[:2]
         self.light_state = 'applying'
-        self.light_text.set('Applying selected settings...')
+        self.light_text.set('Sending - waiting for light-controller confirmation...')
         self.status_text.set('Applying lighting. Please wait for fixture drive confirmation.')
         if not self.request(action, arguments):
             self.light_state = 'failed'
@@ -802,7 +907,10 @@ class Panel(object):
         self.status_worker = None
 
     def settings_view(self):
-        self.label(self.body, 'Panel settings', 28).pack(anchor='w', pady=(0, 12))
+        self.label(self.body, 'Panel settings', 28).pack(anchor='w', pady=(0, 4))
+        saved = self.label(self.body, size=16, muted=True)
+        saved.config(textvariable=self.preference_text)
+        saved.pack(anchor='w', pady=(0, 8))
         appearance = self.setting_row('Appearance', 'Choose a theme')
         self.row_buttons(appearance, [('Auto', lambda: self.choose_theme('auto'), self.theme_choice == 'auto'),
                                      ('Light', lambda: self.choose_theme('light'), self.theme_choice == 'light'),
@@ -849,11 +957,13 @@ class Panel(object):
 
     def toggle_clock(self):
         self.clock_24 = not self.clock_24
+        self.save_preferences()
         self.render()
         self.emit('clock_format_selected', format='24' if self.clock_24 else '12')
 
     def choose_theme(self, choice):
         self.theme_choice, self.theme = choice, None
+        self.save_preferences()
         self.set_theme()
         self.emit('theme_selected', choice=choice, resolved=self.theme)
 
@@ -861,9 +971,24 @@ class Panel(object):
         value = (getattr(self.args, key) + delta) % 1440
         if value != (self.args.dark_at if key == 'light_at' else self.args.light_at):
             setattr(self.args, key, value)
+            self.save_preferences()
             self.emit('theme_schedule_changed', light_at=self.args.light_at, dark_at=self.args.dark_at)
             self.set_theme()
             self.render()
+
+    def preference_summary(self):
+        error = (self.preferences.error if self.preferences else None) or self.preference_error
+        if error:
+            return 'Appearance settings could not be saved or loaded; current choices still work.'
+        return ('Appearance choices save automatically on this device.' if self.preferences else
+                'Preview preferences last for this session. No room settings are saved.')
+
+    def save_preferences(self):
+        if self.preferences:
+            self.preference_error = None
+            self.preferences.save({'theme': self.theme_choice, 'clock_format': '24' if self.clock_24 else '12',
+                                   'tips': 'on' if self.help_on else 'off',
+                                   'light_at': self.args.light_at, 'dark_at': self.args.dark_at})
 
     def start_worker(self):
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scr_touch_panel_lights.py')
@@ -918,6 +1043,7 @@ class Panel(object):
             return
         self.poll_journal()
         self.poll_status()
+        self.poll_weather()
         worker = self.worker
         if worker:
             if worker.poll() is None and not worker.stdin.closed and monotonic() - self.last_heartbeat >= 2:
@@ -964,6 +1090,8 @@ class Panel(object):
                 state = response['state']
                 self.light_state = {'completed': 'ready', 'released': 'disconnected'}.get(state, state)
                 detail = response.get('detail', 'Lighting ready; starting preset: ' + response.get('baseline', '?'))
+                if state == 'completed':
+                    detail = 'Confirmed - ' + detail
                 self.light_text.set(detail)
                 self.status_text.set(detail)
                 if action == 'release':
@@ -1021,6 +1149,13 @@ class Panel(object):
             return
         self.set_theme()
         self.clock.config(text=time.strftime('%a %d %b') + '  ' + time.strftime('%H:%M' if self.clock_24 else '%I:%M %p'))
+        self.visitor_time.set(time.strftime('%H:%M') if self.clock_24 else time.strftime('%I:%M %p').lstrip('0'))
+        self.visitor_date.set(time.strftime('%A, %d %B %Y'))
+        self.preference_text.set(self.preference_summary())
+        if self.mode == 'visitor':
+            self.start_weather()
+            if self.weather_good is not None and monotonic() - self.weather_good > 1800:
+                self.weather_text.set('Weather older than 30 minutes:\n' + self.weather_last_text)
         self.update_session()
         self.update_health()
         self.root.after(1000, self.tick)
@@ -1032,6 +1167,8 @@ class Panel(object):
             self.show('original')
             return
         self.closing = reason
+        if getattr(self, 'weather_worker', None) and self.weather_worker.poll() is None:
+            self.weather_worker.kill()
         if self.status_worker and self.status_worker.poll() is None:
             self.status_worker.terminate()
         self.cancel_intent()
@@ -1047,6 +1184,20 @@ class Panel(object):
 
     def finish_close(self):
         if not self.closed:
+            if getattr(self, 'preferences', None):
+                self.preferences.close()
+                if not self.preferences.done.is_set():
+                    self.root.after(50, self.finish_close)
+                    return
+            if getattr(self, 'weather_worker', None):
+                if self.weather_worker.poll() is None:
+                    self.weather_worker.kill()
+                    self.root.after(50, self.finish_close)
+                    return
+                self.weather_worker.stdout.close()
+                if self.weather_worker.stderr:
+                    self.weather_worker.stderr.close()
+                self.weather_worker = None
             if not self.journal.closing:
                 self.emit('panel_closed', reason=self.closing or 'mainloop_exit', light_state=self.light_state)
                 self.journal.close()
@@ -1056,6 +1207,9 @@ class Panel(object):
             self.poll_journal()
             if self.journal.error:
                 sys.stderr.write('Panel journal shutdown failed: ' + self.journal.error + '\n')
+                sys.stderr.flush()
+            if getattr(self, 'preferences', None) and self.preferences.error:
+                sys.stderr.write('Appearance settings shutdown failed: ' + self.preferences.error + '\n')
                 sys.stderr.flush()
             self.closed = True
             if self.worker:
@@ -1070,6 +1224,10 @@ def main(argv=None):
     parser.add_argument('--start-mode', choices=['room', 'original'], default='room', help='Initial view with --keep-switcher')
     parser.add_argument('--profile', help='Data-only JSON: title, sensors, stages, annotations')
     parser.add_argument('--journal', help='New private JSONL UI journal; never an existing recording context file')
+    parser.add_argument('--preferences', help='Private appearance JSON file; saved choices override appearance CLI defaults')
+    parser.add_argument('--weather-latitude', type=float, help='Optional model weather location, -90..90 degrees')
+    parser.add_argument('--weather-longitude', type=float, help='Optional model weather location, -180..180 degrees')
+    parser.add_argument('--weather-name', default='Local area', help='Short display name for the configured weather location')
     parser.add_argument('--logo', default=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                                                       'assets', 'lesa-logo.jpeg'), help='Original local logo; no asset is modified')
     parser.add_argument('--theme', choices=['auto', 'light', 'dark'], default='auto')
@@ -1087,6 +1245,10 @@ def main(argv=None):
     parser.add_argument('--live-lights', action='store_true', help='Existing ROS environment; requires --journal and fresh owner check')
     parser.add_argument('--windowed', action='store_true', help='Local 1280x800 review without screen-size enforcement')
     args = parser.parse_args(argv)
+    if ((args.weather_latitude is None) != (args.weather_longitude is None) or
+            args.weather_latitude is not None and
+            not (-90 <= args.weather_latitude <= 90 and -180 <= args.weather_longitude <= 180)):
+        parser.error('Weather needs both valid latitude and longitude')
     global FONT
     FONT = args.font
     if (math.isnan(args.duration) or math.isinf(args.duration) or
