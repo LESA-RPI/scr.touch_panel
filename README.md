@@ -80,6 +80,14 @@ minutes while Visitor is open. Failed refreshes retain clearly labelled old
 data. Weather is model data, independent of room sensors and light control.
 See [appearance and weather setup](WORKFLOWS.md#appearance-and-weather).
 
+The UI uses Cantarell when installed; `--font` selects another installed family.
+Settings → About shows the family Tk actually renders, including any fallback.
+Light mode keeps a white surface and neutral controls. Dark mode uses charcoal
+and grayscale surfaces, with blue accents. Settings keeps categories beside one
+detail pane. Lighting uses large selection values and a fixed feedback area.
+Visitor shows a daylight timeline only for valid sunrise/sunset dates; the bar
+updates once per minute without animation. Stale weather stays labelled.
+
 ## Restore or provision hardware
 
 For the installed legacy system, obtain the verified private recovery image and

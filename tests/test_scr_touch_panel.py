@@ -2,6 +2,7 @@
 from types import SimpleNamespace
 from io import BytesIO, StringIO
 import json
+import datetime
 import threading
 
 import pytest
@@ -165,8 +166,22 @@ def test_weather_timeout_preserves_last_success_without_touching_lights(monkeypa
     state.poll_weather()
     assert state.weather_worker is None
     assert 'refresh failed' in shown[-1] and state.weather_last_text in shown[-1]
-    assert 'Sunrise 06:30' in weather.summary({'current': {'temperature_2m': 50, 'weather_code': 2,
+    data = weather.summary({'current': {'temperature_2m': 50, 'weather_code': 2,
         'time': '2026-10-13T12:00'}, 'daily': {'sunrise': ['2026-10-13T06:30'], 'sunset': ['2026-10-13T18:00']}})
+    assert data['temperature_c'] == 10 and data['sunrise'].endswith('06:30')
+    state.weather_worker = SimpleNamespace(poll=lambda: 0, stdout=BytesIO(json.dumps(data).encode()), stderr=None)
+    state.update_weather = lambda **kwargs: None
+    state.poll_weather()
+    assert state.weather_reading == weather.validate(data)
+    assert state.weather_good == 9 and 'model 2026-10-13 12:00' in shown[-1]
+    day = weather.daylight(data, datetime.datetime(2026, 10, 13, 12, 0))
+    assert 0 < day['fraction'] < 1 and day['label'] == 'Sun sets in 6 h 00 min'
+    assert weather.daylight(data, datetime.datetime(2026, 10, 13, 5, 0))['fraction'] == 0
+    assert 'rises' in weather.daylight(data, datetime.datetime(2026, 10, 13, 5, 0))['label']
+    assert weather.daylight(data, datetime.datetime(2026, 10, 13, 19, 0))['fraction'] == 1
+    assert weather.daylight(data, datetime.datetime(2026, 10, 14, 12, 0)) is None
+    with pytest.raises(ValueError):
+        weather.validate(dict(data, temperature_f=float('nan')))
 
 
 def test_latest_touch_intent_is_copied_serialized_and_cancelled_before_release(monkeypatch):

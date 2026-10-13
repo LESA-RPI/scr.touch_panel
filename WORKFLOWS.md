@@ -90,6 +90,15 @@ the helper after eight seconds. Requests never use the Tk thread. A failed
 refresh labels the last available data; data older than 30 minutes has an age
 warning. Weather never drives lights, screen themes or experiment timing.
 
+The weather helper and UI ship together: its JSON contains numeric temperatures,
+condition/code and dated sunrise, sunset and model timestamps. The UI validates
+these fields before displaying them. Daylight progress is clamped before sunrise
+and after sunset; it is hidden when the timestamps refer to another date.
+After sunset, the card says night rather than calculating tomorrow from old data.
+Settings → About reports the rendered font. Cantarell is already installed on
+the qualified Raspberry Pi OS image; other hosts may select another family with
+`--font`. A requested font name alone does not establish what Tk rendered.
+
 ## Startup and rollback
 
 The client does not install or change OS services. The deployment launcher
