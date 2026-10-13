@@ -1,0 +1,2 @@
+# Modern standalone beta UI only. Keep the installed legacy ROS environment separate.
+Pillow>=10,<13

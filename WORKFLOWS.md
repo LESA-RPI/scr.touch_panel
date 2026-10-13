@@ -113,3 +113,47 @@ Theme times use the panel process's configured timezone. Auto changes wait for
 60 seconds without a touch and do not occur in Experiment. Settings use familiar
 appearance, date/time, schedule and screen rows. Font and study defaults are launch
 configuration; no separate settings service is needed.
+
+## Backup and rebuild
+
+The Git repository preserves panel source. It does not preserve the installed
+operating system, private configuration or the room's custom ROS workspace.
+Keep private recovery archives outside Git, with capture dates, source identity,
+scope, read errors, archive size and SHA-256. Verify the downloaded backup too.
+
+Preserve these layers before changing a working deployment:
+
+1. Original application and assets, beta release and launcher.
+2. Custom catkin source and generated workspace, including service definitions,
+   clients, launch files and fixture lookup data.
+3. User startup/settings, private deployment environment, SSH configuration,
+   LightDM configuration, networking and display/touch settings.
+4. Boot files, partition layout/identifiers, kernel/modules and installed package
+   versions. Old package lists alone do not guarantee old binaries remain available.
+5. A full-device image with its read-error map, repair provenance and checksums.
+
+A live archive captures files at different times. A live image of a writable root
+is not a consistent clone. Preserve any warnings and unreadable ranges. For a
+consistent new device image, use clean shutdown and offline read-only acquisition
+after the essential files are secured. Repair a separate copy; preserve the source.
+Do not overlay an incomplete runtime archive, even if its transfer hash matches.
+
+The fastest legacy restore uses a verified system image on known-good replacement
+media. Check written bytes before booting. Match the saved root/boot identifiers
+to the chosen SD or USB medium. Keep the original card disconnected during the
+replacement test. Restore the current private application/configuration layer
+only after comparing it with the image's files and installed versions.
+
+A fresh OS is a migration. The original UI uses Python 2/Tkinter, Pillow and
+custom ROS 1 clients. Preserve their service definitions and wire MD5s before
+porting. Rebuild generated bindings for the chosen interpreter; verify service
+types and wire MD5s before enabling writes. The ROS master, native light/blind
+servers and HTTP demo/status endpoints are external dependencies. A Pi image
+does not back them up. Use the room's existing deployment owner and contracts.
+
+Restore acceptance requires desktop login, touch alignment, exactly one original
+and beta process, touch-only switching, read-only service/status checks, and an
+authorized light-control/restoration trial. Verify original blinds and HTTP demo
+controls through their existing owners when the room permits those actions.
+Confirm power/storage health before an unattended reboot test. Record untested
+behavior explicitly.

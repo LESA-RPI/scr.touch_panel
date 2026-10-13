@@ -47,6 +47,7 @@ TIPS = {'Lights on': 'Standard white: selects 3500 K and light-level input 1000 
         'Original controls': 'Restores the trial baseline, then shows the existing room program.',
         'Blank screen': 'Shows black pixels. Hold still for 2 seconds to return; the backlight remains on.',
         'Settings': 'Appearance, date/time and screen options. Changes last for this trial.',
+        'About panel': 'Panel credits and source repository. No room settings change.',
         'Start practice': 'Starts the practice timer only. It does not start sensor collection.',
         'Next instruction': 'Shows the next instruction. The final instruction does not wrap.',
         'End trial and restore': 'Restores confirmed trial changes and returns to the original program.'}
@@ -168,7 +169,7 @@ class Panel(object):
                 if self.journal:
                     self.journal.close()
                 raise ValueError('Shorten profile %s text to fit the touch layout' % key)
-        self.root.title('LESA interactive room panel')
+        self.root.title('LESA interactive room panel (beta)')
         if (self.root.winfo_screenwidth(), self.root.winfo_screenheight()) != (1280, 800) and not args.windowed:
             self.root.destroy()
             raise ValueError('Expected 1280x800; use --windowed for local review')
@@ -192,7 +193,8 @@ class Panel(object):
             # Viewport of the supplied 900-square logo. Keep its original pixels and colours.
             if artwork.size == (900, 900):
                 artwork = artwork.crop((55, 160, 780, 578))
-            artwork.thumbnail((116, 66), Image.ANTIALIAS)
+            resampling = getattr(Image, 'Resampling', Image)
+            artwork.thumbnail((116, 66), resampling.LANCZOS)
             buffer = BytesIO()
             artwork.save(buffer, format='PNG')
             self.artwork = tk.PhotoImage(data=base64.b64encode(buffer.getvalue()).decode('ascii'))
@@ -278,7 +280,7 @@ class Panel(object):
             else:
                 line(((13, 5), (4, 14), (13, 23)))
                 line(((5, 14), (26, 14), (26, 27)))
-            image = image.resize((32, 32), Image.ANTIALIAS)
+            image = image.resize((32, 32), getattr(Image, 'Resampling', Image).LANCZOS)
             buffer = BytesIO()
             image.save(buffer, format='PNG')
             self.icon_cache[key] = tk.PhotoImage(data=base64.b64encode(buffer.getvalue()).decode('ascii'))
@@ -321,7 +323,7 @@ class Panel(object):
             brand = self.label(self.banner, 'LESA', 30)
             brand.config(fg=ACCENT)
             brand.pack(side='left', padx=(0, 18))
-        self.label(self.banner, 'Interactive room', 21).pack(side='left')
+        self.label(self.banner, 'Interactive room (beta)', 21).pack(side='left')
         self.clock = self.label(self.banner, size=17, muted=True)
         self.clock.pack(side='right', padx=12)
         self.button(self.banner, 'Theme: ' + self.theme_choice.title(), self.cycle_theme).pack(side='right')
@@ -341,7 +343,7 @@ class Panel(object):
         self.nav.rowconfigure(0, weight=1)
         self.footer = tk.Frame(self.root, bg=self.bg, height=88)
         self.footer.pack_propagate(False)
-        self.label(self.footer, 'Diyanko Bhowmik  /  LESA', 10, True).pack(side='bottom', anchor='w')
+        self.label(self.footer, 'LESA  /  Smart Conference Room', 10, True).pack(side='bottom', anchor='w')
         self.button(self.footer, 'Blank screen', lambda: self.show('black')).pack(side='right', pady=8)
         self.button(self.footer, 'Settings', lambda: self.show('settings')).pack(side='right', padx=10, pady=8)
         status = self.label(self.footer, size=17, muted=True)
@@ -406,7 +408,8 @@ class Panel(object):
             messages = {'health': 'Live panel readings. No system settings change.',
                         'room': 'Drag a slider or tap a preset. Trial changes restore before Original controls or exit.',
                         'experiment': 'Practice only. Activity buttons save panel annotations; recorder not connected.',
-                        'settings': 'Settings apply to this trial. Hold one spot for 2 seconds to leave a blank screen.'}
+                        'settings': 'Settings apply to this trial. Hold one spot for 2 seconds to leave a blank screen.',
+                        'about': 'Panel credits and source repository. No room settings change.'}
             if mode in messages:
                 self.status_text.set(messages[mode])
         self.render()
@@ -795,8 +798,18 @@ class Panel(object):
         self.label(screen, 'Hold one spot for 2 seconds to return.\nBlack pixels leave the backlight on.', 18, True).pack(
             side='left', padx=12, pady=8)
         self.row_buttons(self.body, [('Back to Room', lambda: self.show('room'), False),
+                                     ('About panel', lambda: self.show('about'), False),
                                      ('Return to Original' if self.keep_switcher else 'End trial and restore',
                                       lambda: self.close('exit'), False)])
+
+    def about_view(self):
+        self.label(self.body, 'About this panel', 28).pack(anchor='w', pady=(0, 20))
+        self.label(self.body, 'LESA interactive room panel (beta)', 24).pack(anchor='w', pady=(0, 12))
+        self.label(self.body, 'Built by Diyanko Bhowmik', 21).pack(anchor='w', pady=(0, 8))
+        self.label(self.body, 'With Codex assistance. Original contributors are retained in repository history.',
+                   17, True).pack(anchor='w', pady=(0, 18))
+        self.label(self.body, 'Source: github.com/LESA-RPI/scr.touch_panel', 18, True).pack(anchor='w', pady=(0, 24))
+        self.button(self.body, 'Back to Settings', lambda: self.show('settings')).pack(anchor='w')
 
     def setting_row(self, title, detail, height=84):
         row = tk.Frame(self.body, bg=self.surface, height=height)
