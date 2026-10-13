@@ -123,7 +123,8 @@ def test_preferences_restore_appearance_only_and_survive_invalid_input(tmp_path,
     path = tmp_path / 'appearance.json'
     assert preferences.load(str(path)) == ({}, None)
     writer = preferences.Preferences(str(path))
-    value = {'theme': 'dark', 'clock_format': '12', 'tips': 'off', 'light_at': 420, 'dark_at': 1140}
+    value = {'theme': 'dark', 'clock_format': '12', 'tips': 'off', 'light_at': 420,
+             'dark_at': 1140, 'temperature_unit': 'c'}
     entered, unblock = threading.Event(), threading.Event()
     original = preferences.os.fsync
     def slow_sync(fd):
@@ -144,6 +145,8 @@ def test_preferences_restore_appearance_only_and_survive_invalid_input(tmp_path,
     assert preferences.load(str(path))[0] == {'theme': 'light'}
     path.write_text('{"theme":"invalid"}')
     assert preferences.load(str(path))[0] == {}
+    assert preferences.load(str(path))[1]
+    path.write_text('{"temperature_unit":"kelvin"}')
     assert preferences.load(str(path))[1]
     path.write_text('{"light_at":480}')
     assert preferences.load(str(path), {'light_at': 420, 'dark_at': 480})[1]
@@ -225,6 +228,15 @@ def test_latest_touch_intent_is_copied_serialized_and_cancelled_before_release(m
     state.pending, state.light_state = None, 'ready'
     state.dispatch_intent()
     assert sent[-1] == ('cct', {'cct': 5000, 'intensity': 1050})
+    state.confirmed_light = 'Fid scene'
+    feedback = []
+    state.light_text = SimpleNamespace(set=feedback.append)
+    state.apply('cct', cct=4500, intensity=1000)
+    assert 'Selected: 4500 K input / level 1000' in feedback[-1]
+    assert 'Last confirmed drive: Fid scene' in feedback[-1]
+    # A new selection does not overwrite the previous successful readback.
+    assert state.confirmed_light == 'Fid scene'
+    assert panel.light_selection('channels', {'values': list(adapter.PRESETS['Sat'])}) == 'Sat scene'
     state.apply('channels', values=[30] * 8)
     state.cancel_intent()
     state.root.fire()
@@ -304,6 +316,32 @@ def test_slow_adapter_initialization_sends_fresh_request_once_and_honors_exit(mo
         state.worker_buffer = json.dumps({'version': 1, 'state': 'initialized'}) + '\n'
         state.poll_worker()
         assert commands() == sent
+
+
+def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch):
+    state = panel.Panel.__new__(panel.Panel)
+    state.closed, state.closing, state.worker_ready = False, None, True
+    state.worker = SimpleNamespace(stdin=BytesIO(), stdout=object(), poll=lambda: None)
+    state.last_heartbeat = panel.monotonic()
+    state.light_state, state.confirmed_light = 'applying', 'Fid scene'
+    state.pending = {'request_id': 'one', 'action': 'cct', 'arguments': {'cct': 3500, 'intensity': 1000}}
+    state.release_target = state.queued_intent = state.intent_timer = None
+    state.poll_journal = state.poll_status = state.poll_weather = state.update_light_buttons = lambda: None
+    state.emit = lambda *args, **kwargs: None
+    state.root = SimpleNamespace(after=lambda *args: None)
+    shown = []
+    state.light_text = SimpleNamespace(set=shown.append)
+    state.status_text = SimpleNamespace(set=lambda value: None)
+    monkeypatch.setattr(panel.select, 'select', lambda *args: ([], [], []))
+    reply = {'version': 1, 'request_id': 'other', 'state': 'completed',
+             'detail': 'Drive settings confirmed on 10 lights'}
+    state.worker_buffer = json.dumps(reply) + '\n'
+    state.poll_worker()
+    assert state.confirmed_light == 'Fid scene' and state.pending
+    state.worker_buffer = json.dumps(dict(reply, request_id='one')) + '\n'
+    state.poll_worker()
+    assert state.confirmed_light == '3500 K input / level 1000'
+    assert state.pending is None and 'Last confirmed drive: 3500 K input / level 1000' in shown[-1]
 
 
 def journal_panel(journal, path):

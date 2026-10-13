@@ -140,6 +140,17 @@ def scheduled_theme(now, light_at, dark_at):
     return 'light' if light else 'dark'
 
 
+def light_selection(action, arguments):
+    """Describe requested controller inputs; never imply optical measurement."""
+    if action == 'cct':
+        return '%d K input / level %d' % (arguments['cct'], arguments['intensity'])
+    values = tuple(arguments['values'])
+    for name, preset in PRESETS.items():
+        if values == preset:
+            return name + ' scene'
+    return 'Custom eight-channel mix'
+
+
 class Panel(object):
     def __init__(self, args):
         self.args, self.profile = args, profile(args.profile)
@@ -156,6 +167,7 @@ class Panel(object):
         self.started, self.run_id, self.sequence = monotonic(), uuid.uuid4().hex, 0
         self.boot_id, self.last_touch = boot_identity(), -60
         self.clock_24 = getattr(args, 'clock_format', '24') == '24'
+        self.temperature_unit = getattr(args, 'temperature_unit', 'f')
         self.help_on = getattr(args, 'tips', 'on') == 'on'
         self.status_worker, self.status_started, self.room_status_at = None, None, -60
         self.room_status = 'Room services: not checked'
@@ -172,6 +184,7 @@ class Panel(object):
         self.queued_intent, self.intent_timer, self.slider_drag = None, None, None
         self.view_generation = 0
         self.light_state, self.release_target = 'disconnected', None
+        self.confirmed_light = 'Not checked'
         self.light_buttons = []
         self.last_heartbeat, self.request_seq = -10, 0
         self.journal = EventJournal(args.journal, sys.stdout)
@@ -250,6 +263,19 @@ class Panel(object):
     def label(self, parent, text='', size=20, muted=False):
         return tk.Label(parent, text=text, font=(FONT, size), fg=self.muted if muted else self.ink,
                         bg=parent.cget('bg'), anchor='w', justify='left')
+
+    def wrap_label(self, label):
+        """Wrap to allocated width, including narrower settings/weather cards."""
+        label.config(wraplength=600)
+        def fit(event):
+            width = max(1, event.width - 8)
+            if label.winfo_pixels(str(label.cget('wraplength'))) != width:
+                label.config(wraplength=width)
+        label.bind('<Configure>', fit)
+        return label
+
+    def lighting_feedback(self, message):
+        self.light_text.set(message + '\nLast confirmed drive: ' + getattr(self, 'confirmed_light', 'Not checked'))
 
     def button(self, parent, text, action, accent=False):
         button = tk.Button(parent, text=text, command=action, font=(FONT, 19),
@@ -385,7 +411,8 @@ class Panel(object):
         self.button(self.footer, 'Blank screen', lambda: self.show('black')).pack(side='right', pady=8)
         self.button(self.footer, 'Settings', lambda: self.show('settings')).pack(side='right', padx=10, pady=8)
         status = self.label(self.footer, size=17, muted=True)
-        status.config(textvariable=self.status_text, wraplength=770)
+        status.config(textvariable=self.status_text)
+        self.wrap_label(status)
         status.pack(side='left', fill='both', expand=True)
         self.body = tk.Frame(self.root, bg=self.bg)
         self.build_dock()
@@ -520,34 +547,34 @@ class Panel(object):
 
     def room_view(self):
         self.label(self.body, 'Room lighting', 28).pack(anchor='w')
-        self.label(self.body, 'Adjust colour and level, or choose a room scene.', 18, True).pack(anchor='w', pady=(0, 16))
+        self.label(self.body, 'Adjust colour and level, or choose a room scene.', 18, True).pack(anchor='w', pady=(0, 8))
         row = tk.Frame(self.body, bg=self.bg)
         row.pack(fill='both', expand=True)
         left, right = tk.Frame(row, bg=self.bg), tk.Frame(row, bg=self.bg, width=464)
         left.pack(side='left', fill='both', expand=True, padx=(0, 24))
         right.pack(side='right', fill='both')
         right.pack_propagate(False)
-        self.slider_group(left, 'White-light colour', self.cct, 1600, 10000, 100, 'K')
-        self.slider_group(left, 'Light level', self.intensity, 0, 1900, 25, 'controller units')
-        state = self.label(left, size=17, muted=True)
-        state.config(textvariable=self.light_text, wraplength=730, height=2)
-        state.pack(anchor='w', pady=(0, 4))
+        self.slider_group(left, 'White-light colour · selected', self.cct, 1600, 10000, 100, 'K')
+        self.slider_group(left, 'Light level · selected', self.intensity, 0, 1900, 25, 'controller units')
+        state = self.label(left, size=16, muted=True)
+        state.config(textvariable=self.light_text, height=3)
+        self.wrap_label(state).pack(fill='x', pady=(0, 4))
         self.label(right, 'Room scenes', 21).pack(anchor='w', pady=(0, 8))
         on_off = self.row_buttons(right, [('Lights on', self.lights_on, False),
                                         ('Lights off', lambda: self.preset('Off'), False)])
         for button, kind in zip(on_off, ('on', 'off')):
             button.config(image=self.icon(kind, self.icon_colour), compound='left')
         self.light_buttons.extend(on_off)
-        self.label(right, 'Spectral scenes', 17, True).pack(anchor='w', pady=(12, 0))
+        self.label(right, 'Spectral scenes', 17, True).pack(anchor='w', pady=(8, 0))
         scenes = self.row_buttons(right, [(name, lambda name=name: self.preset(name), False)
                                          for name in ('Fid', 'Sat', 'Dul')])
         for button in scenes:
             button.config(image=self.icon('scene', self.icon_colour), compound='left')
         self.light_buttons.extend(scenes)
-        self.label(right, 'Scene names match Legacy.', 17, True).pack(anchor='w', pady=(8, 8))
+        self.label(right, 'Scene codes match Legacy.', 17, True).pack(anchor='w', pady=(4, 4))
         advanced = self.row_buttons(right, [('Advanced controls', self.channel_view, False)])[0]
         advanced.config(image=self.icon('room', self.icon_colour), compound='left')
-        self.label(right, 'Values are not measured brightness.', 17, True).pack(anchor='w', pady=(10, 0))
+        self.row_buttons(right, [('What do these do?', self.open_lighting_help, False)])
         self.update_light_buttons()
 
     def visitor_view(self):
@@ -582,18 +609,18 @@ class Panel(object):
         temperature = self.label(reading, size=68)
         temperature.config(textvariable=self.weather_temperature, font=(FONT, 68, 'bold'))
         temperature.pack(side='left')
-        self.label(reading, 'F', 24, True).pack(side='left', anchor='s', pady=18, padx=4)
+        self.label(reading, self.temperature_unit.upper(), 24, True).pack(side='left', anchor='s', pady=18, padx=4)
         condition = self.label(right, size=23)
-        condition.config(textvariable=self.weather_condition, wraplength=550)
-        condition.pack(anchor='w')
+        condition.config(textvariable=self.weather_condition)
+        self.wrap_label(condition).pack(fill='x')
         self.daylight_label = self.label(right, size=21)
         self.daylight_label.pack(anchor='w', pady=(18, 2))
         self.daylight_canvas = tk.Canvas(right, height=84, bg=self.surface, highlightthickness=0)
         self.daylight_canvas.pack(fill='x')
         self.daylight_canvas.bind('<Configure>', lambda event: self.update_weather(force=True))
         status = self.label(right, size=15, muted=True)
-        status.config(textvariable=self.weather_text, wraplength=550, height=2)
-        status.pack(anchor='w', pady=(6, 0))
+        status.config(textvariable=self.weather_text, height=2)
+        self.wrap_label(status).pack(fill='x', pady=(6, 0))
         self.update_weather(force=True)
         self.start_weather()
 
@@ -612,8 +639,9 @@ class Panel(object):
         if not data:
             self.daylight_label.config(text='Daylight times unavailable')
             return
-        self.weather_temperature.set(u'%.0f°' % data['temperature_f'])
-        self.weather_condition.set(u'%s · %.0f°C' % (data['condition'], data['temperature_c']))
+        primary = data['temperature_c'] if self.temperature_unit == 'c' else data['temperature_f']
+        self.weather_temperature.set(u'%.0f°' % primary)
+        self.weather_condition.set(data['condition'])
         code, colour = data['code'], self.icon_colour
         if code in (0, 1):
             self.weather_symbol.create_oval(25, 18, 57, 50, outline=colour, width=3)
@@ -684,7 +712,7 @@ class Panel(object):
             self.weather_worker = None
 
     def slider_group(self, parent, title, variable, low, high, step, unit):
-        group = tk.Frame(parent, bg=self.surface, height=176, highlightbackground=self.border, highlightthickness=1)
+        group = tk.Frame(parent, bg=self.surface, height=166, highlightbackground=self.border, highlightthickness=1)
         group.pack(fill='x', pady=(0, 4))
         group.pack_propagate(False)
         self.label(group, title, 20).pack(anchor='w', padx=16, pady=(8, 0))
@@ -707,7 +735,7 @@ class Panel(object):
         scale = tk.Scale(group, variable=variable, from_=low, to=high, resolution=step, orient='horizontal',
                          bg=self.surface, troughcolor=self.control, activebackground=ACCENT,
                          highlightthickness=0, bd=0, width=44, sliderlength=64, showvalue=False)
-        scale.pack(fill='x', padx=16, pady=(7, 0))
+        scale.pack(fill='x', padx=16, pady=(2, 0))
         self.bind_slider(scale, 'cct')
         self.light_buttons.extend([minus, plus, scale])
 
@@ -787,7 +815,7 @@ class Panel(object):
         if self.intent_timer is not None:
             self.root.after_cancel(self.intent_timer)
         self.intent_timer = self.root.after(250, self.dispatch_intent)
-        self.light_text.set('Selected - waiting for your touch to settle...')
+        self.lighting_feedback('Selected: ' + light_selection(action, arguments) + ' / waiting to send')
 
     def cancel_intent(self):
         if self.intent_timer is not None:
@@ -805,7 +833,7 @@ class Panel(object):
             return
         action, arguments = intent[:2]
         self.light_state = 'applying'
-        self.light_text.set('Sending - waiting for light-controller confirmation...')
+        self.lighting_feedback('Sending: ' + light_selection(action, arguments) + ' / awaiting confirmation')
         self.status_text.set('Applying lighting. Please wait for fixture drive confirmation.')
         if not self.request(action, arguments):
             self.light_state = 'failed'
@@ -821,16 +849,15 @@ class Panel(object):
 
     def experiment_view(self):
         title = self.label(self.body, self.profile['title'], 27)
-        title.config(wraplength=1200)
-        title.pack(anchor='w')
+        self.wrap_label(title).pack(fill='x')
         tk.Label(self.body, text='PRACTICE ONLY   /   Nothing is being recorded', font=(FONT, 20),
                  bg='#fff2db', fg='#6e4b0b', padx=16, pady=8).pack(anchor='w', pady=(0, 6))
-        area = tk.Frame(self.body, bg=self.surface, height=228)
+        area = tk.Frame(self.body, bg=self.surface, height=208)
         area.pack(fill='x', pady=6)
         area.pack_propagate(False)
-        self.stage_label = self.label(area, size=32)
-        self.stage_label.config(wraplength=1130, height=2)
-        self.stage_label.pack(anchor='w', padx=22, pady=(8, 2))
+        self.stage_label = self.label(area, size=30)
+        self.stage_label.config(height=2)
+        self.wrap_label(self.stage_label).pack(fill='x', padx=22, pady=(8, 2))
         status = tk.Frame(area, bg=self.surface, height=60)
         status.pack(fill='x', padx=22)
         status.pack_propagate(False)
@@ -839,8 +866,7 @@ class Panel(object):
         self.timer_label = self.label(status, size=30)
         self.timer_label.pack(side='right')
         metadata = self.label(area, 'Profile describes: ' + self.profile['sensors'], 16, True)
-        metadata.config(wraplength=1130)
-        metadata.pack(anchor='w', padx=22, pady=(0, 8))
+        self.wrap_label(metadata).pack(fill='x', padx=22, pady=(0, 4))
         self.row_buttons(self.body, [('Start practice', self.start_preview, True),
                                      ('Pause practice', self.stop_preview, False),
                                      ('Previous instruction', self.previous_stage, False),
@@ -848,8 +874,8 @@ class Panel(object):
         self.row_buttons(self.body, [(label, lambda label=label: self.mark(label), False)
                                     for label in self.profile['annotations']])
         annotation = self.label(self.body, size=16, muted=True)
-        annotation.config(textvariable=self.annotation_text)
-        annotation.pack(anchor='w')
+        annotation.config(textvariable=self.annotation_text, height=2)
+        self.wrap_label(annotation).pack(fill='x')
         self.update_session()
 
     def start_preview(self):
@@ -916,8 +942,7 @@ class Panel(object):
         self.power_label = self.label(self.body, size=19)
         self.power_label.pack(anchor='w', pady=(0, 8))
         self.services_label = self.label(self.body, size=17, muted=True)
-        self.services_label.config(wraplength=1200)
-        self.services_label.pack(anchor='w', pady=(0, 8))
+        self.wrap_label(self.services_label).pack(fill='x', pady=(0, 8))
         self.label(self.body, 'Live readings refresh every 5 seconds. Load average is not CPU percent.', 18, True).pack(anchor='w', pady=10)
         self.update_health()
 
@@ -986,7 +1011,7 @@ class Panel(object):
         self.label(self.body, 'Panel settings', 28).pack(anchor='w', pady=(0, 4))
         saved = self.label(self.body, size=16, muted=True)
         saved.config(textvariable=self.preference_text)
-        saved.pack(anchor='w', pady=(0, 8))
+        self.wrap_label(saved).pack(fill='x', pady=(0, 8))
         row = tk.Frame(self.body, bg=self.bg)
         row.pack(fill='both', expand=True)
         categories = tk.Frame(row, bg=self.bg, width=304)
@@ -994,7 +1019,7 @@ class Panel(object):
         categories.pack_propagate(False)
         detail = tk.Frame(row, bg=self.surface, highlightbackground=self.border, highlightthickness=1)
         detail.pack(side='right', fill='both', expand=True)
-        for title, key in [('Appearance', 'appearance'), ('Date & time', 'clock'),
+        for title, key in [('Appearance', 'appearance'), ('Date & weather', 'clock'),
                            ('Help & guidance', 'help'), ('Screen', 'screen'), ('About', 'about')]:
             self.row_buttons(categories, [(title, lambda key=key: self.choose_settings(key), self.settings_category == key)])
         content = tk.Frame(detail, bg=self.surface)
@@ -1012,27 +1037,35 @@ class Panel(object):
                 for text, field, delta in [('Light −1 h', 'light_at', -60), ('Light +1 h', 'light_at', 60),
                                            ('Dark −1 h', 'dark_at', -60), ('Dark +1 h', 'dark_at', 60)]])
             note = self.label(content, 'Auto waits for idle time. Practice keeps its theme.', 17, True)
-            note.config(wraplength=820)
-            note.pack(anchor='w', pady=(8, 0))
+            self.wrap_label(note).pack(fill='x', pady=(8, 0))
         elif key == 'clock':
-            self.label(content, 'Date & time', 25).pack(anchor='w', pady=(0, 14))
-            self.label(content, time.strftime('%A, %d %B %Y'), 23).pack(anchor='w', pady=(0, 12))
-            self.label(content, getattr(self.args, 'timezone', 'System timezone'), 18, True).pack(anchor='w', pady=(0, 20))
+            self.label(content, 'Date & weather', 25).pack(anchor='w', pady=(0, 8))
+            self.label(content, time.strftime('%A, %d %B %Y'), 23).pack(anchor='w', pady=(0, 6))
+            self.label(content, getattr(self.args, 'timezone', 'System timezone'), 18, True).pack(anchor='w', pady=(0, 10))
             self.row_buttons(content, [(name + '-hour', lambda name=name: self.choose_clock(name),
                                        self.clock_24 == (name == '24')) for name in ('12', '24')])
-            self.label(content, 'Clock format changes this panel only.', 17, True).pack(anchor='w', pady=12)
+            self.label(content, 'Weather temperature', 21).pack(anchor='w', pady=(6, 4))
+            self.row_buttons(content, [(label, lambda unit=unit: self.choose_temperature(unit),
+                                       self.temperature_unit == unit)
+                                      for label, unit in [(u'Celsius (°C)', 'c'), (u'Fahrenheit (°F)', 'f')]])
+            self.label(content, 'Display units only. No room settings change.', 17, True).pack(anchor='w', pady=8)
         elif key == 'help':
             self.label(content, 'Help & guidance', 25).pack(anchor='w', pady=(0, 14))
-            note = self.label(content, 'Show a short explanation when you touch a control.\nTurn tips off for a quieter interface.', 20)
-            note.config(wraplength=820)
-            note.pack(anchor='w', pady=(0, 20))
+            note = self.label(content, 'Tips explain controls in the bottom message area.', 18)
+            self.wrap_label(note).pack(fill='x', pady=(0, 8))
             self.row_buttons(content, [('Tips on', lambda: self.choose_tips(True), self.help_on),
                                        ('Tips off', lambda: self.choose_tips(False), not self.help_on)])
+            note = self.label(content,
+                'White-light colour: lower K is warmer; higher K is cooler.\n'
+                'Light level: controller input, not measured brightness.\n'
+                'Fid / Sat / Dul: saved eight-channel mixtures from Legacy.\n'
+                'Selected values send automatically after your touch settles.\n'
+                'Last confirmed drive shows the latest successful readback.', 18)
+            self.wrap_label(note).pack(fill='x', pady=(12, 8))
         elif key == 'screen':
             self.label(content, 'Screen', 25).pack(anchor='w', pady=(0, 14))
             note = self.label(content, 'Blank screen shows black pixels.\nHold one spot for 2 seconds to return.\nThe display backlight remains powered.', 20)
-            note.config(wraplength=820)
-            note.pack(anchor='w', pady=(0, 20))
+            self.wrap_label(note).pack(fill='x', pady=(0, 20))
             self.row_buttons(content, [('Blank screen', lambda: self.show('black'), False)])
         else:
             self.about_contents(content)
@@ -1051,6 +1084,18 @@ class Panel(object):
         self.render()
         self.emit('clock_format_selected', format=format)
 
+    def choose_temperature(self, unit):
+        if unit == self.temperature_unit:
+            return
+        self.temperature_unit = unit
+        self.save_preferences()
+        self.render()
+        self.emit('temperature_unit_selected', unit=unit)
+
+    def open_lighting_help(self):
+        self.settings_category = 'help'
+        self.show('settings')
+
     def choose_tips(self, enabled):
         if enabled == self.help_on:
             return
@@ -1068,8 +1113,7 @@ class Panel(object):
         self.label(parent, 'Smart Conference Room · Beta', 23).pack(anchor='w', pady=(0, 12))
         self.label(parent, 'Built by Diyanko Bhowmik', 21).pack(anchor='w', pady=(0, 8))
         note = self.label(parent, 'With Codex assistance. Original contributors are retained in repository history.', 17, True)
-        note.config(wraplength=820)
-        note.pack(anchor='w', pady=(0, 18))
+        self.wrap_label(note).pack(fill='x', pady=(0, 18))
         self.label(parent, 'Source: github.com/LESA-RPI/scr.touch_panel', 18, True).pack(anchor='w', pady=(0, 24))
         self.label(parent, 'Rendered font: ' + self.font_family, 18, True).pack(anchor='w')
 
@@ -1107,6 +1151,7 @@ class Panel(object):
         if self.preferences:
             self.preference_error = None
             self.preferences.save({'theme': self.theme_choice, 'clock_format': '24' if self.clock_24 else '12',
+                                   'temperature_unit': self.temperature_unit,
                                    'tips': 'on' if self.help_on else 'off',
                                    'light_at': self.args.light_at, 'dark_at': self.args.dark_at})
 
@@ -1118,7 +1163,8 @@ class Panel(object):
                                         '--expected-master', self.args.expected_master],
                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stderr, close_fds=True)
         self.light_state = 'connecting'
-        self.light_text.set('Checking starting drive settings on 10 lights...')
+        self.confirmed_light = 'Not checked'
+        self.lighting_feedback('Checking starting drive settings on 10 lights...')
         self.worker_buffer = ''
         self.worker_ready = False
 
@@ -1205,14 +1251,20 @@ class Panel(object):
                     self.status_text.set('Invalid adapter reply; lights disabled. Ask staff.')
                     worker.stdin.close()
                     continue
-                action, self.pending = self.pending['action'], None
+                completed_request, self.pending = self.pending, None
+                action = completed_request['action']
                 self.emit('light_result', result=response)
                 state = response['state']
                 self.light_state = {'completed': 'ready', 'released': 'disconnected'}.get(state, state)
                 detail = response.get('detail', 'Lighting ready; starting preset: ' + response.get('baseline', '?'))
                 if state == 'completed':
+                    self.confirmed_light = light_selection(action, completed_request['arguments'])
                     detail = 'Confirmed - ' + detail
-                self.light_text.set(detail)
+                elif state == 'ready':
+                    self.confirmed_light = response.get('baseline', '?') + ' scene'
+                elif state == 'released':
+                    self.confirmed_light = 'Session ended'
+                self.lighting_feedback(detail)
                 self.status_text.set(detail)
                 if action == 'release':
                     if state == 'failed':
@@ -1233,7 +1285,7 @@ class Panel(object):
                     self.pending = None
                     self.light_state = 'failed'
                     self.status_text.set('Light adapter stopped. Result unconfirmed; further commands disabled.')
-                    self.light_text.set('Lighting disconnected; check the retained receipt')
+                    self.lighting_feedback('Disconnected. Last result below is historical; ask staff.')
                 self.worker = None
                 target, self.release_target = self.release_target, None
                 if self.closing:
@@ -1359,6 +1411,7 @@ def main(argv=None):
     parser.add_argument('--dark-at', type=clock_minutes, default=1140, help='Local HH:MM, default 19:00')
     parser.add_argument('--timezone', default='America/New_York', help='Process-local timezone for schedule and clock')
     parser.add_argument('--clock-format', choices=['12', '24'], default='24', help='Clock style; also adjustable in Settings')
+    parser.add_argument('--temperature-unit', choices=['c', 'f'], default='f', help='Weather display unit; also adjustable in Settings')
     parser.add_argument('--font', default='Cantarell', help='An installed font family; default Cantarell')
     parser.add_argument('--tips', choices=['on', 'off'], default='on', help='Short touch explanations; also switchable in the header')
     parser.add_argument('--dark-brand', choices=['wordmark', 'original'], default='wordmark',

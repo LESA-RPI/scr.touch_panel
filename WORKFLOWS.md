@@ -61,12 +61,15 @@ Use qualified display-power control for experiments needing complete darkness.
 ## Appearance and weather
 
 The launcher uses `~/.config/scr-panel/appearance.json` for theme, clock style,
-help tips and light/dark schedule. Set `SCR_PANEL_PREFERENCES` to change its
+weather temperature units, help tips and light/dark schedule. Set `SCR_PANEL_PREFERENCES` to change its
 location. Saved appearance choices override CLI appearance defaults. Writes
 are atomic and use one background worker with one pending snapshot. Invalid
 files fall back to defaults and show a warning; they cannot start recordings
 or restore light settings. Remove this private file to reset appearance.
 A direct preview saves preferences only when `--preferences PATH` is supplied.
+Settings → Date & weather selects Celsius or Fahrenheit. Old preference files
+default to Fahrenheit. Direct previews can use `--temperature-unit c` or `f`.
+Switching units converts cached data; it does not fetch again or change room controls.
 
 Weather is optional. Set these private values in `deployment.env`:
 

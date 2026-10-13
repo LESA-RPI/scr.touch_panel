@@ -70,9 +70,12 @@ black pixels do not turn off its backlight.
 weather. **Practice** names the existing experiment practice page; it does not
 start a recorder. Room scenes retain Fid, Sat and Dul names shared with Legacy.
 Lighting feedback distinguishes selection, sending and confirmed controller
-drive settings. Confirmation does not measure optical brightness.
+drive settings. Large values are labelled selected; the feedback area retains
+the last confirmed drive inputs until matching readback arrives. It is a historical
+confirmation, not continuous monitoring or measured optical brightness.
+**What do these do?** opens a short lighting guide without changing lights.
 
-The installed launcher saves theme, clock style, help tips and theme schedule
+The installed launcher saves theme, clock style, weather temperature units, help tips and theme schedule
 in a private appearance file. It saves no light settings or recording state.
 Weather uses [Open-Meteo](https://open-meteo.com/en/docs), with a location set
 outside Git. Requests run in a separate helper and refresh at most every 15
@@ -87,6 +90,8 @@ and grayscale surfaces, with blue accents. Settings keeps categories beside one
 detail pane. Lighting uses large selection values and a fixed feedback area.
 Visitor shows a daylight timeline only for valid sunrise/sunset dates; the bar
 updates once per minute without animation. Stale weather stays labelled.
+Settings → Date & weather switches Celsius/Fahrenheit without another API call.
+Prose wraps to allocated card width; feedback and annotation areas reserve space.
 
 ## Restore or provision hardware
 
