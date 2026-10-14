@@ -1,51 +1,19 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Smart Conference Room · Status</title>
-  <link rel="stylesheet" href="/styles.css">
-  <script src="/status.js" defer></script>
-</head>
-<body>
-  <header class="shell header">
-    <div class="brand"><img src="/logo.jpg" alt="LESA — Lighting Enabled Systems & Applications"></div>
-    <div class="heading"><h1>Smart Conference Room</h1><p>Room overview · Read-only</p><span class="beta">Browser trial</span></div>
-  </header>
-  <main class="shell">
-    <p id="source-description" class="source-note">Checking where these readings come from…</p>
-    <section class="overview" aria-label="Room time and connection">
-      <div class="clock-card"><p class="eyebrow">Troy time · Device clock</p><div id="clock" class="clock">—</div><p id="date">—</p></div>
-      <div class="connection-card">
-        <p class="eyebrow">Page updates</p>
-        <div id="connection" class="connection" role="status">Checking…</div>
-        <p id="freshness">Waiting for the first snapshot.</p>
-        <p class="muted">Updates every 30 seconds while this page is visible.</p>
-      </div>
-    </section>
-    <section aria-labelledby="room-heading">
-      <div class="section-heading"><h2 id="room-heading">Room connections</h2><span class="tag">View only</span></div>
-      <p class="section-note">Listed connections are offered by the room computer. This does not confirm physical device health or recording.</p>
-      <div class="service-grid">
-        <article class="card" data-service="Lighting"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6m-5 3h4M8 13a6 6 0 1 1 8 0l-1 3H9z"/></svg><h3>Lighting</h3><p class="service-state">Not checked</p><p class="muted">Existing room lighting interface</p></article>
-        <article class="card" data-service="Blinds"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 8h16M4 12h16M4 16h16M18 4v15"/></svg><h3>Blinds</h3><p class="service-state">Not checked</p><p class="muted">Existing blind control interface</p></article>
-        <article class="card" data-service="Environment"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14V5a3 3 0 0 1 6 0v9a5 5 0 1 1-6 0m3-8v11m5-11h3m-3 4h3"/></svg><h3>Environment</h3><p class="service-state">Not checked</p><p class="muted">Temperature and humidity interfaces</p></article>
-        <article class="card" data-service="Time-of-flight"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9V3h6m6 0h6v6m0 6v6h-6m-6 0H3v-6m5-3h8m-4-4v8"/></svg><h3>Time-of-flight</h3><p class="service-state">Not checked</p><p class="muted">Distance sensing interfaces</p></article>
-      </div>
-      <p id="room-note" class="observation">No room connection has been checked yet.</p>
-    </section>
-    <details class="help diagnostics">
-      <summary id="host-label">Computer diagnostics</summary>
-      <p class="section-note">Actual readings from the computer serving this page, rather than room-wide measurements. No sample values are generated.</p>
-      <div class="host-grid">
-        <article class="card"><h3>Memory available</h3><p id="memory" class="value">—</p><p id="memory-note" class="muted">Not checked</p></article>
-        <article class="card"><h3>Temperature</h3><p id="temperature" class="value">—</p><p class="muted">Host processor, when available</p></article>
-        <article class="card"><h3>Power</h3><p id="power" class="power-value">Not checked</p><p id="uptime" class="muted">Uptime unavailable</p></article>
-      </div>
-    </details>
-    <details class="help"><summary>What does this page tell me?</summary><p>It reads computer resources and, when configured, the room ROS service list. It does not call device services, operate lights or blinds, inspect recordings, or restart anything. “Service listed” means the expected interface names are registered, not that a physical device is healthy.</p><p>For room controls, use the cabinet panel with the room host. If information is stale or unavailable, coordinate with staff; this page provides no recovery actions.</p></details>
-  </main>
-  <footer class="shell footer"><span>LESA Smart Conference Room</span><span>Read-only · No room actions</span></footer>
-  <noscript><p class="shell">JavaScript is needed to show live status. This page has no room-control actions.</p></noscript>
-</body>
-</html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Smart Conference Room · Overview</title><link rel="stylesheet" href="/styles.css"><script src="/status.js" defer></script></head>
+<body data-view="overview">
+<header class="shell header"><div class="brand"><img src="/logo.jpg" alt="LESA — Lighting Enabled Systems & Applications"></div><div class="heading"><h1>Smart Conference Room</h1><p>Lighting, sensing and research</p></div><span class="trial">Read-only trial</span></header>
+<nav class="shell navigation" aria-label="Main navigation"><a href="/" aria-current="page">Overview</a><a href="/diagnostics">Diagnostics</a><a href="/guide">Guide</a></nav>
+<main class="shell">
+<section class="intro"><h2>A place to explore the room.</h2><p>Discover what the room can do. For demonstrations or experiments, start with the room host.</p></section>
+<section class="overview" aria-label="Time and outdoor weather">
+<article class="clock-card"><p class="eyebrow">Troy, New York</p><div id="clock" class="clock">—</div><p id="date">—</p><p class="small">Time from your device</p></article>
+<article class="weather-card"><div class="weather-heading"><p class="eyebrow">Outdoors in Troy</p><svg class="weather-icon" viewBox="0 0 64 48" aria-hidden="true"><circle cx="42" cy="15" r="9"/><path d="M42 1v3m0 22v3M28 15h3m22 0h3M32 5l3 3m14 14 3 3M52 5l-3 3"/><path d="M18 41h28a10 10 0 0 0 0-20 14 14 0 0 0-26-1 11 11 0 0 0-2 21z"/></svg></div><div class="weather-reading"><strong id="weather-temperature">—</strong><span id="weather-condition">Loading weather…</span></div><p id="weather-secondary" class="muted">Outdoor model data, separate from room sensors.</p><div class="daylight" id="daylight"><div class="daylight-labels"><span id="sunrise">Sunrise —</span><span id="sunset">Sunset —</span></div><div class="daylight-track"><div id="daylight-fill"></div></div><p id="daylight-note">Daylight information unavailable</p></div><p id="weather-source" class="small">Weather is optional. Missing data is not replaced with sample values.</p></article>
+</section>
+<section aria-labelledby="explore-heading"><div class="section-heading"><h2 id="explore-heading">Explore the room</h2><a href="/guide">Visitor guide <span aria-hidden="true">↗</span></a></div><div class="capabilities">
+<article class="feature"><span class="feature-label warm">Lighting</span><h3>Change the atmosphere</h3><p>Warm and cool white light, plus existing colour scenes. Try them with the host at the cabinet panel.</p></article>
+<article class="feature"><span class="feature-label blue">Sensing</span><h3>Understand the space</h3><p>The room brings together environmental and activity sensing for demonstrations and research.</p></article>
+<article class="feature"><span class="feature-label green">Research</span><h3>Bring an idea to life</h3><p>Experiments can combine room equipment and recordings. Coordinate with staff before starting a study.</p></article>
+</div></section>
+<p id="preview-note" class="preview-note">Design trial · This browser view does not operate room equipment.</p>
+</main><footer class="shell footer"><span>LESA</span><span>Use the cabinet panel with the room host for controls.</span></footer>
+</body></html>

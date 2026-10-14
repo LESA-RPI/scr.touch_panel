@@ -55,18 +55,18 @@ The updated branch has different navigation and additional features.
 Run `python -B browser/serve.py` with Python 3.11 or newer, then open the printed
 local URL. No packages, build tools or room hardware are required. The page shows
 room time, this host's resources and optional advertised room-service availability.
-It uses the supplied main LESA logo, neutral surfaces and blue accents. Appearance
-follows the browser's light/dark preference without a page selector. Diagnostics
-are collapsed below the room overview; storage is not shown. A host-only preview
-identifies its readings as coming from the preview computer. These are actual host
-readings, not generated demonstration values. Phone, tablet and desktop layouts scroll
+Overview introduces lighting, sensing and research, with clock and optional outdoor
+weather. Diagnostics is a separate view for actual host readings and room-interface
+registrations. Guide explains room use and failures. All three share fixed navigation,
+the original main LESA logo and a white surface. There are no appearance switches,
+storage cards or technical status on Overview. Phone, tablet and desktop layouts scroll
 normally rather than shrinking or clipping content.
 
 For room-network access and the approved ROS master, use the explicit addresses
 in [browser operation](WORKFLOWS.md#read-only-browser-status). The default is
 loopback-only. This is a separate visitor status page with no controls or recorder
 metadata; it does not change the cabinet panel or its launcher. Service presence
-is not device health. Browser control and staff access remain future work.
+is not device health. Browser control and staff authentication remain future work.
 
 | Need | Reference |
 |---|---|

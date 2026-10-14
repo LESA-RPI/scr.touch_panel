@@ -126,14 +126,16 @@ python -B browser/serve.py
 
 # Room host: substitute verified private interface/master addresses.
 python -B browser/serve.py --bind PANEL_PRIVATE_IP --port 8768 \
-  --label "Cabinet Pi" --master http://ROOM_PRIVATE_IP:11311
+  --label "Cabinet Pi" --master http://ROOM_PRIVATE_IP:11311 \
+  --weather-latitude 42.7284 --weather-longitude -73.6918
 ```
 
 The server binds one explicit private IPv4 address, not all interfaces. Open the
 printed literal-IP URL; Host/Origin checks intentionally refuse other hostnames.
 No router forwarding, firewall changes or public hosting are part of this setup.
 There is no sign-in: anyone able to reach it can view the limited status payload.
-Keep it on the trusted room network. This does not secure existing ROS services.
+The touch-panel Pi hosts this trial, accessible from the room's SCR_AP LAN. Keep
+it on that trusted network. This does not secure existing ROS services.
 
 One sampler refreshes host resources and the ROS master's `getSystemState` graph
 every 30 seconds, independent of visitor count. It registers no node, starts no
@@ -143,11 +145,14 @@ HTTP requests have a four-second absolute deadline and a two-second idle timeout
 Requests serve only an in-memory snapshot and explicitly listed static assets.
 No directory listing, arbitrary file access, CORS or write endpoints are provided.
 
-Host readings describe the server computer, not every room computer. The page
-names that source explicitly; a host-only preview is labelled as such. Diagnostics
-start collapsed, storage is not displayed, and appearance follows the browser's
-light/dark preference without a page selector. The supplied main logo is unchanged;
-its blank margins are trimmed only by the page layout. The clock
+Overview has no technical status; `/diagnostics` shows host resources and room
+registrations, and `/guide` explains use and failures. They share fixed navigation,
+the same cached API and a white surface. There are no appearance switches or storage
+cards. A diagnostic view is an audience choice, not a staff permission boundary.
+Host readings describe the server computer, not every room computer. Diagnostics
+names that source explicitly; a host-only preview is labelled as such.
+The supplied main logo is unchanged; its blank margins are trimmed only by layout.
+The clock
 shows Troy's America/New_York time using the viewing device's clock. Service cards
 show advertised/partly advertised/not advertised registrations, not physical health
 or recording state. After failure, previous observations retain their original
@@ -161,6 +166,19 @@ the foreground process with Ctrl+C, or stop only its verified PID if launched in
 the background. No lighting restoration is needed because it owns no lights.
 Reboot persistence is deliberately not configured. Validate small screens,
 keyboard navigation, failure age and resource use before broader deployment.
+
+Outdoor weather reuses `app/weather.py`, the panel's validated Open-Meteo helper.
+The sampler refreshes at most once per 15 minutes, with an eight-second subprocess
+deadline and 32 KiB response limit. Failures retain the last successful values
+and their observation age; old or failed data is labelled and its daylight bar
+hidden. Coordinates above describe Troy, not indoor room conditions. No generated
+values are substituted when weather is unavailable. It is independent of room ROS.
+
+Keep presentation dependent on `docs/interface.md`, not on ROS service paths. The
+server's host, graph and weather functions are the current source boundary; the
+browser uses the normalized versioned JSON and freshness fields. A future backend
+can replace a source behind that boundary without rewriting each view. Add an
+adapter only for a real new source; a plugin framework is not needed for this trial.
 
 ## Backup and rebuild
 

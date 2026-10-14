@@ -82,6 +82,10 @@ blinds, HVAC or acquisition data, and does not assess IRMA recorder health.
 UTC `sampled_at`, monotonic `sample_age_s`, `host` resources and a `room` observation.
 The endpoint reads a cached snapshot; it never initiates a room query.
 
+Overview, Diagnostics and Guide share this contract. They do not depend on ROS
+paths or client libraries. Diagnostics is currently readable by anyone on the
+trusted LAN; choosing a view does not grant a role or permission to control devices.
+
 Host fields are `memory_available_mib`, `memory_total_mib`, `disk_available_gib`,
 `disk_used_percent`, `uptime_s`, `temperature_c` and `power`. Unsupported readings
 are null; power is `unavailable`, `no_warning`, `warning_earlier` or `warning_now`.
@@ -94,6 +98,15 @@ until one succeeds. The fixed service groups have `name` and `state`: `advertise
 `partial` or `not_advertised`. A failed read retains the previous observations and
 their age; clients must not display them as current availability. Host/graph
 observations older than 90 seconds are stale. Clock time is not sensor timing.
+
+Optional `weather` has `state` (`unconfigured`, `available`, `unavailable`),
+`observed_at`, monotonic `observation_age_s` and `data`. Data uses the shared
+`app/weather.py` fields: `temperature_f`, `temperature_c`, `condition`, `code`,
+`sunrise`, `sunset` and `model_time`. Provider times are dated local Troy times;
+`observed_at` is UTC receipt time, not an acquisition timestamp. Weather failures
+retain values and their original age. Clients label failed/old values and hide
+daylight for another date or observations older than 30 minutes. Weather is model
+data independent of indoor sensors. Older clients may ignore this additional field.
 
 The sampler makes only `getSystemState` requests to a privately configured master.
 POST/PUT/PATCH/DELETE/OPTIONS return 405; other routes are an explicit static-asset

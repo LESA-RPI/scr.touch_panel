@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Smart Conference Room · Diagnostics</title><link rel="stylesheet" href="/styles.css"><script src="/status.js" defer></script></head>
+<body data-view="diagnostics">
+<header class="shell header"><div class="brand"><img src="/logo.jpg" alt="LESA — Lighting Enabled Systems & Applications"></div><div class="heading"><h1>Smart Conference Room</h1><p>Diagnostics for room staff</p></div><span class="trial">Read-only trial</span></header>
+<nav class="shell navigation" aria-label="Main navigation"><a href="/">Overview</a><a href="/diagnostics" aria-current="page">Diagnostics</a><a href="/guide">Guide</a></nav>
+<main class="shell"><section class="intro"><h2>What is connected, and what is known?</h2><p>These readings help separate a page problem, a room connection problem and a host warning. They do not establish physical device health.</p></section>
+<p id="source-description" class="source-note">Checking the data source…</p>
+<div class="diagnostic-summary"><div><p class="eyebrow">Browser → status host</p><p id="connection" class="connection" role="status">Checking…</p><p id="freshness" class="muted">Waiting for a dated snapshot.</p></div><div><p class="eyebrow">Status host → room computer</p><p id="room-connection" class="connection">Not checked</p><p id="room-note" class="muted">Service registrations only.</p></div></div>
+<section aria-labelledby="room-heading"><div class="section-heading"><h2 id="room-heading">Room interfaces</h2><a href="/guide#troubleshooting">Understanding failures ↗</a></div><div class="service-grid">
+<article class="card" data-service="Lighting"><h3>Lighting</h3><p class="service-state">Not checked</p><p class="muted">Required lighting interfaces</p></article>
+<article class="card" data-service="Blinds"><h3>Blinds</h3><p class="service-state">Not checked</p><p class="muted">Required blind interfaces</p></article>
+<article class="card" data-service="Environment"><h3>Environment</h3><p class="service-state">Not checked</p><p class="muted">Temperature and humidity interfaces</p></article>
+<article class="card" data-service="Time-of-flight"><h3>Time-of-flight</h3><p class="service-state">Not checked</p><p class="muted">Distance sensing interfaces</p></article></div></section>
+<section aria-labelledby="host-heading"><div class="section-heading"><h2 id="host-heading">Status host</h2><span id="host-label" class="small">—</span></div><p class="section-note">Actual resources on the computer hosting this website. No generated demonstration readings.</p><div class="host-grid">
+<article class="card"><h3>Memory available</h3><p id="memory" class="value">—</p><p id="memory-note" class="muted">Not checked</p></article>
+<article class="card"><h3>Processor temperature</h3><p id="temperature" class="value">—</p><p class="muted">Host processor only</p></article>
+<article class="card"><h3>Power</h3><p id="power" class="power-value">Not checked</p><p id="uptime" class="muted">Uptime unavailable</p></article></div></section>
+<p class="preview-note">No commands run from this page. Coordinate with the room owner before recovery or maintenance.</p>
+</main><footer class="shell footer"><span>LESA</span><span>Readings retain their age after a failed update.</span></footer></body></html>

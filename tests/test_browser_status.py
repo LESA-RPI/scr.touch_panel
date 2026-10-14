@@ -126,3 +126,25 @@ def test_explicit_network_configuration():
                   'http://user:secret@192.168.1.5:11311', 'http://192.168.1.5:11311?redirect=x'):
         with pytest.raises(ValueError):
             status.master_url(value)
+
+
+def test_weather_cache_preserves_provenance_on_failure():
+    value = {'temperature_f': 60, 'temperature_c': 15.6, 'condition': 'Cloudy',
+             'code': 3, 'sunrise': '2026-10-14T07:00', 'sunset': '2026-10-14T18:00',
+             'model_time': '2026-10-14T12:00'}
+    snapshot = status.Snapshot('Test host', weather_location=(42.7, -73.7))
+    reply = type('Reply', (), {'stdout': json.dumps(value)})()
+    with patch.object(status, 'host_status', return_value={}), patch.object(status.subprocess, 'run', return_value=reply) as fetch:
+        snapshot.collect()
+        original = snapshot.read()['weather']['observed_at']
+        snapshot.collect()
+        assert fetch.call_count == 1  # Multiple samplings do not multiply weather requests.
+        snapshot.weather_attempt -= 901
+        snapshot.weather_time -= 1900
+        fetch.side_effect = OSError('Offline')
+        snapshot.collect()
+    result = snapshot.read()['weather']
+    assert result['state'] == 'unavailable'
+    assert result['observed_at'] == original
+    assert result['data'] == value
+    assert result['observation_age_s'] >= 1900

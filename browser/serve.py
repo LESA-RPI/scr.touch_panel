@@ -28,6 +28,7 @@ GROUPS = {
 }
 ASSETS = {'/': ('index.html', 'text/html'), '/styles.css': ('styles.css', 'text/css'),
           '/status.js': ('status.js', 'text/javascript'),
+          '/diagnostics': ('diagnostics.html', 'text/html'), '/guide': ('guide.html', 'text/html'),
           '/logo.jpg': ('lesa-logo.jpeg', 'image/jpeg')}
 
 
@@ -117,15 +118,38 @@ def bounded_graph(master):
 
 
 class Snapshot:
-    def __init__(self, label, master=None):
+    def __init__(self, label, master=None, weather_location=None):
         self.label, self.master = label, master
         self.lock = threading.Lock()
         self.data = None
         self.sample_time = self.graph_time = None
         self.last_graph = None
         self.last_graph_utc = None
+        self.weather_location = weather_location
+        self.weather_time = self.weather_attempt = None
+        self.weather_data = None
+        self.weather_utc = None
+        self.weather_state = 'unconfigured' if weather_location is None else 'unavailable'
+
+    def collect_weather(self):
+        if self.weather_location is None or (self.weather_attempt is not None and time.monotonic() - self.weather_attempt < 900):
+            return
+        self.weather_attempt = time.monotonic()
+        try:
+            result = subprocess.run([sys.executable, '-B', str(ROOT.parent / 'app/weather.py'),
+                                     *map(str, self.weather_location), 'America/New_York'],
+                                    capture_output=True, text=True, timeout=8, check=True)
+            value = json.loads(result.stdout)
+            if 'error' in value or 'temperature_f' not in value:
+                raise ValueError('Weather unavailable')
+            self.weather_data = value
+            self.weather_time, self.weather_utc = time.monotonic(), utc()
+            self.weather_state = 'available'
+        except (OSError, ValueError, subprocess.SubprocessError):
+            self.weather_state = 'unavailable'
 
     def collect(self):
+        self.collect_weather()
         host = host_status()
         graph = {'state': 'unconfigured', 'observed_at': None, 'services': []}
         graph_time = self.graph_time
@@ -138,7 +162,10 @@ class Snapshot:
                 graph['state'] = 'unavailable'
             graph.update(services=self.last_graph or [], observed_at=self.last_graph_utc)
         data = {'version': 1, 'read_only': True, 'host_label': self.label,
-                'sampled_at': utc(), 'host': host, 'room': graph}
+                'sampled_at': utc(), 'host': host, 'room': graph,
+                'weather': {'state': self.weather_state, 'data': self.weather_data,
+                            'observed_at': self.weather_utc,
+                            'observation_age_s': None if self.weather_time is None else round(time.monotonic() - self.weather_time, 1)}}
         with self.lock:
             self.data, self.sample_time, self.graph_time = data, time.monotonic(), graph_time
 
@@ -148,6 +175,9 @@ class Snapshot:
             result['sample_age_s'] = max(0, round(time.monotonic() - self.sample_time, 1))
             result['room'] = dict(result['room'])
             result['room']['observation_age_s'] = None if self.graph_time is None else max(0, round(time.monotonic() - self.graph_time, 1))
+            result['weather'] = dict(result['weather'])
+            if result['weather']['observation_age_s'] is not None:
+                result['weather']['observation_age_s'] += result['sample_age_s']
             return result
 
     def run(self, stopped):
@@ -228,6 +258,8 @@ def main():
     parser.add_argument('--port', type=int, default=8768)
     parser.add_argument('--label', default='Dashboard host', help='Public host label; no private experiment metadata')
     parser.add_argument('--master', help='Approved private ROS master URL; omit for host-only status')
+    parser.add_argument('--weather-latitude', type=float, help='Optional public outdoor-weather location')
+    parser.add_argument('--weather-longitude', type=float)
     parser.add_argument('--probe-master', help=argparse.SUPPRESS)
     args = parser.parse_args()
     try:
@@ -239,9 +271,14 @@ def main():
         if args.probe_master:
             print(json.dumps(service_graph(master_url(args.probe_master))))
             return
+        if (args.weather_latitude is None) != (args.weather_longitude is None):
+            raise ValueError('Weather needs both latitude and longitude')
+        if args.weather_latitude is not None and not (-90 <= args.weather_latitude <= 90 and -180 <= args.weather_longitude <= 180):
+            raise ValueError('Weather coordinates are out of range')
     except ValueError as error:
         parser.error(str(error))
-    snapshot = Snapshot(args.label, args.master)
+    location = None if args.weather_latitude is None else (args.weather_latitude, args.weather_longitude)
+    snapshot = Snapshot(args.label, args.master, location)
     snapshot.collect()
     server = HTTPServer((args.bind, args.port), Handler)
     server.expected_host = '%s:%d' % server.server_address
