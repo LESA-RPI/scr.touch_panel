@@ -9,23 +9,23 @@
 </head>
 <body>
   <header class="shell header">
-    <div class="brand"><img src="/logo.png" alt="LESA — Lighting Enabled Systems & Applications"></div>
-    <div class="heading"><h1>Smart Conference Room</h1><p>Read-only room status <span class="beta">Beta</span></p></div>
-    <label class="theme">Appearance<select id="theme"><option value="auto">Automatic</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+    <div class="brand"><img src="/logo.jpg" alt="LESA — Lighting Enabled Systems & Applications"></div>
+    <div class="heading"><h1>Smart Conference Room</h1><p>Room overview · Read-only</p><span class="beta">Browser trial</span></div>
   </header>
   <main class="shell">
+    <p id="source-description" class="source-note">Checking where these readings come from…</p>
     <section class="overview" aria-label="Room time and connection">
-      <div class="clock-card"><p class="eyebrow">Troy, New York · Room time</p><div id="clock" class="clock">—</div><p id="date">—</p></div>
+      <div class="clock-card"><p class="eyebrow">Troy time · Device clock</p><div id="clock" class="clock">—</div><p id="date">—</p></div>
       <div class="connection-card">
-        <p class="eyebrow">Status connection</p>
+        <p class="eyebrow">Page updates</p>
         <div id="connection" class="connection" role="status">Checking…</div>
         <p id="freshness">Waiting for the first snapshot.</p>
         <p class="muted">Updates every 30 seconds while this page is visible.</p>
       </div>
     </section>
     <section aria-labelledby="room-heading">
-      <div class="section-heading"><h2 id="room-heading">Room services</h2><span class="tag">View only</span></div>
-      <p class="section-note">These services advertise what the room computer offers. Presence does not prove that a device is working or recording.</p>
+      <div class="section-heading"><h2 id="room-heading">Room connections</h2><span class="tag">View only</span></div>
+      <p class="section-note">Listed connections are offered by the room computer. This does not confirm physical device health or recording.</p>
       <div class="service-grid">
         <article class="card" data-service="Lighting"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6m-5 3h4M8 13a6 6 0 1 1 8 0l-1 3H9z"/></svg><h3>Lighting</h3><p class="service-state">Not checked</p><p class="muted">Existing room lighting interface</p></article>
         <article class="card" data-service="Blinds"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 8h16M4 12h16M4 16h16M18 4v15"/></svg><h3>Blinds</h3><p class="service-state">Not checked</p><p class="muted">Existing blind control interface</p></article>
@@ -34,17 +34,16 @@
       </div>
       <p id="room-note" class="observation">No room connection has been checked yet.</p>
     </section>
-    <section aria-labelledby="host-heading">
-      <div class="section-heading"><h2 id="host-heading">Dashboard host</h2><span id="host-label" class="tag">Status server</span></div>
-      <p class="section-note">Resources on the computer serving this page. These readings do not describe the whole room.</p>
+    <details class="help diagnostics">
+      <summary id="host-label">Computer diagnostics</summary>
+      <p class="section-note">Actual readings from the computer serving this page, rather than room-wide measurements. No sample values are generated.</p>
       <div class="host-grid">
         <article class="card"><h3>Memory available</h3><p id="memory" class="value">—</p><p id="memory-note" class="muted">Not checked</p></article>
-        <article class="card"><h3>Storage free</h3><p id="storage" class="value">—</p><p id="storage-note" class="muted">System disk</p></article>
         <article class="card"><h3>Temperature</h3><p id="temperature" class="value">—</p><p class="muted">Host processor, when available</p></article>
         <article class="card"><h3>Power</h3><p id="power" class="power-value">Not checked</p><p id="uptime" class="muted">Uptime unavailable</p></article>
       </div>
-    </section>
-    <details class="help"><summary>What does this page tell me?</summary><p>It reads host resources and, when configured, the room ROS service list. It does not call device services, operate lights or blinds, inspect recordings, or restart anything. “Advertised” means the expected service names are registered, not that a physical device is healthy.</p><p>For room controls, use the cabinet panel with the room host. If information is stale or unavailable, coordinate with staff; this page provides no recovery actions.</p></details>
+    </details>
+    <details class="help"><summary>What does this page tell me?</summary><p>It reads computer resources and, when configured, the room ROS service list. It does not call device services, operate lights or blinds, inspect recordings, or restart anything. “Service listed” means the expected interface names are registered, not that a physical device is healthy.</p><p>For room controls, use the cabinet panel with the room host. If information is stale or unavailable, coordinate with staff; this page provides no recovery actions.</p></details>
   </main>
   <footer class="shell footer"><span>LESA Smart Conference Room</span><span>Read-only · No room actions</span></footer>
   <noscript><p class="shell">JavaScript is needed to show live status. This page has no room-control actions.</p></noscript>

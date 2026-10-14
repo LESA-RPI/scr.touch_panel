@@ -28,7 +28,7 @@ GROUPS = {
 }
 ASSETS = {'/': ('index.html', 'text/html'), '/styles.css': ('styles.css', 'text/css'),
           '/status.js': ('status.js', 'text/javascript'),
-          '/logo.png': ('../lesa_banner.png', 'image/png')}
+          '/logo.jpg': ('lesa-logo.jpeg', 'image/jpeg')}
 
 
 def utc():
@@ -185,7 +185,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def respond(self, status, data=b'', content_type='text/plain'):
         self.send_response(status)
-        self.send_header('Content-Type', content_type + ('; charset=utf-8' if content_type != 'image/png' else ''))
+        self.send_header('Content-Type', content_type + ('' if content_type.startswith('image/') else '; charset=utf-8'))
         self.send_header('Content-Length', str(len(data)))
         self.send_header('Cache-Control', 'no-store')
         self.send_header('X-Content-Type-Options', 'nosniff')

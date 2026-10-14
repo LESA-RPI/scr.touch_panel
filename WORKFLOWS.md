@@ -143,7 +143,11 @@ HTTP requests have a four-second absolute deadline and a two-second idle timeout
 Requests serve only an in-memory snapshot and explicitly listed static assets.
 No directory listing, arbitrary file access, CORS or write endpoints are provided.
 
-Host readings describe the server computer, not every room computer. The clock
+Host readings describe the server computer, not every room computer. The page
+names that source explicitly; a host-only preview is labelled as such. Diagnostics
+start collapsed, storage is not displayed, and appearance follows the browser's
+light/dark preference without a page selector. The supplied main logo is unchanged;
+its blank margins are trimmed only by the page layout. The clock
 shows Troy's America/New_York time using the viewing device's clock. Service cards
 show advertised/partly advertised/not advertised registrations, not physical health
 or recording state. After failure, previous observations retain their original

@@ -83,6 +83,9 @@ def test_http_boundary_and_cache(server):
         assert headers['Cache-Control'] == 'no-store'
         assert 'Access-Control-Allow-Origin' not in headers
         assert "frame-ancestors 'none'" in headers['Content-Security-Policy']
+        code, image, headers = request(server, 'GET', '/logo.jpg')
+        assert code == 200 and image.startswith(b'\xff\xd8')
+        assert headers['Content-Type'] == 'image/jpeg'
         for method in ('POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'):
             assert request(server, method, '/api/status')[0] == 405
         for path in ('/../README.md', '/api/status?master=http://other', '/deployment.env'):

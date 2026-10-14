@@ -1,12 +1,9 @@
 'use strict';
 const byId = id => document.getElementById(id);
-const theme = byId('theme');
 const systemTheme = matchMedia('(prefers-color-scheme: dark)');
 function applyTheme() {
-  document.documentElement.dataset.theme = theme.value === 'auto' ? (systemTheme.matches ? 'dark' : 'light') : theme.value;
+  document.documentElement.dataset.theme = systemTheme.matches ? 'dark' : 'light';
 }
-try { theme.value = ['auto', 'light', 'dark'].includes(localStorage.getItem('scr-status-theme')) ? localStorage.getItem('scr-status-theme') : 'auto'; } catch (_) {}
-theme.addEventListener('change', () => { applyTheme(); try { localStorage.setItem('scr-status-theme', theme.value); } catch (_) {} });
 systemTheme.addEventListener('change', applyTheme);
 applyTheme();
 
@@ -24,14 +21,16 @@ function render() {
   const elapsed = Math.max(0, (performance.now() - receivedAt) / 1000);
   const sampleAge = snapshot.sample_age_s + elapsed;
   const stale = failed || sampleAge > 90;
-  badge(byId('connection'), failed ? 'Last snapshot · connection lost' : stale ? 'Snapshot stale' : 'Status page connected', stale ? 'warning' : 'good');
-  byId('freshness').textContent = `Host snapshot ${age(sampleAge)}${stale ? ' · not current' : ''}.`;
+  badge(byId('connection'), failed ? 'Page connection lost' : stale ? 'Readings are stale' : 'Updating normally', stale ? 'warning' : 'good');
+  byId('freshness').textContent = `Computer readings ${age(sampleAge)}${stale ? ' · not current' : ''}.`;
   const host = snapshot.host, room = snapshot.room;
-  byId('host-label').textContent = snapshot.host_label;
+  byId('host-label').textContent = `${snapshot.host_label} · diagnostics`;
+  byId('source-description').textContent = room.state === 'unconfigured' ?
+    `Host-only preview · These readings come from ${snapshot.host_label}, not the room. No room connection is configured.` :
+    `Readings from ${snapshot.host_label} · Room connections are checked separately below.`;
+  byId('source-description').className = `source-note ${room.state === 'unconfigured' ? 'preview-note' : ''}`;
   byId('memory').textContent = number(host.memory_available_mib) ? `${host.memory_available_mib} MiB` : 'Unavailable';
   byId('memory-note').textContent = number(host.memory_total_mib) ? `Available of ${host.memory_total_mib} MiB total` : 'Not supported on this host';
-  byId('storage').textContent = number(host.disk_available_gib) ? `${host.disk_available_gib} GiB` : 'Unavailable';
-  byId('storage-note').textContent = number(host.disk_used_percent) ? `System disk · ${host.disk_used_percent}% used` : 'System disk';
   byId('temperature').textContent = number(host.temperature_c) ? `${host.temperature_c.toFixed(1)} °C` : 'Unavailable';
   const power = {warning_now: 'Low voltage now', warning_earlier: 'Earlier low voltage', no_warning: 'No voltage warning', unavailable: 'Not available'};
   byId('power').textContent = power[host.power] || 'Not available';
@@ -40,7 +39,7 @@ function render() {
   const graphStale = stale || room.state !== 'available' || !number(room.observation_age_s) || room.observation_age_s + elapsed > 90;
   document.querySelectorAll('[data-service]').forEach(card => {
     const service = room.services.find(item => item.name === card.dataset.service);
-    const labels = {advertised: 'Advertised', partial: 'Partly advertised', not_advertised: 'Not advertised'};
+    const labels = {advertised: 'Service listed', partial: 'Some services listed', not_advertised: 'Not listed'};
     const label = service ? labels[service.state] || 'Not checked' : 'Not checked';
     badge(card.querySelector('.service-state'), service && graphStale ? `Previous: ${label.toLowerCase()}` : label,
       graphStale ? '' : service?.state === 'advertised' ? 'good' : 'warning');

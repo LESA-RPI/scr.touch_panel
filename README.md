@@ -50,13 +50,16 @@ The updated branch has different navigation and additional features.
 
 ## Install, maintain or restore
 
-### Read-only browser status
+### Browser room overview (read-only trial)
 
 Run `python -B browser/serve.py` with Python 3.11 or newer, then open the printed
 local URL. No packages, build tools or room hardware are required. The page shows
 room time, this host's resources and optional advertised room-service availability.
-It shares the panel's LESA logo, neutral surfaces and blue accents; light/dark
-appearance is saved only in that browser. Phone, tablet and desktop layouts scroll
+It uses the supplied main LESA logo, neutral surfaces and blue accents. Appearance
+follows the browser's light/dark preference without a page selector. Diagnostics
+are collapsed below the room overview; storage is not shown. A host-only preview
+identifies its readings as coming from the preview computer. These are actual host
+readings, not generated demonstration values. Phone, tablet and desktop layouts scroll
 normally rather than shrinking or clipping content.
 
 For room-network access and the approved ROS master, use the explicit addresses
