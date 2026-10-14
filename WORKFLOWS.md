@@ -1,8 +1,9 @@
 # Panel operation
 
-The root `main.py` is the original room application. Keep its installed checkout,
-working directory and ROS environment intact. The new `app/` client runs above
-it. Do not replace the installed legacy files.
+The root `main.py` is the Legacy room application; `app/` provides Beta and its
+touch switcher. Keep the installed Legacy checkout, working directory and ROS
+environment intact. README owns the user overview; this guide owns operating
+procedures. `docs/interface.md` owns data and adapter contracts.
 
 ## Before connected control
 
@@ -25,7 +26,7 @@ python -B app/scr_touch_panel.py --duration 600 --live-lights \
 
 Acquire requires two matching scans and one uniform Fid, Sat, Dul or Off preset.
 Arbitrary drive words and Standard white baselines are refused because their
-exact restore path is not qualified. Use Original controls to establish an
+exact restore path is not qualified. Use Legacy to establish an
 admitted baseline when no other study holds lighting, then re-enter Room.
 
 One Tk process owns display interaction. One helper owns this trial's ROS calls.
@@ -39,7 +40,7 @@ Room exposes everyday sliders and static presets. Advanced controls opens the
 channel editor; Back returns directly. All light controls share one latest
 selection queue. Wait for confirmation to distinguish a selection from a result.
 
-Original controls waits for confirmed restoration and helper exit before showing
+Legacy waits for confirmed restoration and helper exit before showing
 the legacy program. Its matching navigation strip supports touch-only return.
 That strip covers the legacy banner, not its actuator buttons.
 
@@ -162,14 +163,16 @@ Exec=/bin/bash /absolute/path/to/current/app/start_panel.sh
 Terminal=false
 ```
 
-The launcher uses `--keep-switcher --duration 0`. Settings, Escape and a window
-close return to Original after helper cleanup; the touch strip remains. Returning
+The launcher uses `--keep-switcher --duration 0`. Legacy, Escape and a window
+close return to Legacy after helper cleanup; the touch strip remains. Returning
 to Room checks a fresh baseline. If restoration is uncertain, inspect the receipt
 before changing lights. Signal shutdown still stops the switcher.
 
-User autostart runs only after login. Where unattended boot is required, back up
-the existing LightDM configuration before adding a seat drop-in with
-`autologin-user` and `autologin-user-timeout=0`. This grants local desktop access.
+User autostart runs only after desktop login. Check the actual display manager
+and session before enabling autologin; use that OS's supported configuration.
+On older LightDM deployments, back up the configuration before adding a seat
+drop-in with `autologin-user` and `autologin-user-timeout=0`. These settings do
+not configure a different display manager. Autologin grants local desktop access.
 Confirm the configured user/session and perform an authorized reboot test.
 
 Rollback: send SIGTERM to the observed beta PID and wait for its helper to exit.

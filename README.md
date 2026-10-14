@@ -1,177 +1,109 @@
 # SCR room touch panel
 
-The cabinet touch panel controls the LESA Smart Conference Room and explains
-its features. Beta is the newer interface; Legacy opens the original controls.
+Touch controls and room guidance for the LESA Smart Conference Room. **Legacy**
+is the original room application. **Beta** adds a newer interface and touch access
+to Legacy. Beta does not yet cover every Legacy feature.
+
+The fresh Raspberry Pi OS setup and current Beta improvements are under review
+in [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1), on
+`experiment/fresh-pi-setup-20261013`. `main` remains the earlier baseline until
+promotion. An installed cabinet may run a different commit; check its release
+identity before maintenance.
 
 ## For room users
 
-| Screen | What you can do |
+| Screen | Purpose |
 |---|---|
 | Room | Adjust lighting or choose an existing scene |
-| Visitor | See the clock/weather and open the room demo guide |
-| Practice | Try instructions and annotations; this does not start sensor recording |
+| Visitor | See clock/weather and the room demo guide |
+| Practice | Try instructions and annotations; no sensor recording starts |
 | System | See panel readings, connection information and troubleshooting |
-| Legacy | Use the original controls and return to Beta by touch |
+| Settings | Set appearance, time/weather units and idle timeout; find credits |
+| Legacy | Open the original controls and return to Beta by touch |
 
-Light changes send automatically. Large values show your selection; the message
-below shows the last confirmed settings and their age. **Ready** means the panel's
-lighting connection is available, not that every room sensor is healthy.
+Light changes send automatically. Large values show your selection; the feedback
+area shows the last confirmed controller settings and their age. **Ready** means
+the lighting adapter is available. It does not confirm every room sensor is healthy
+or measure physical brightness. **What do these do?** explains the controls.
 
-After five minutes without use, the clock/weather view appears. One touch returns
-to the prior screen without pressing its controls. Change this under **Settings →
-Screen**. Appearance, clock and weather units are also in Settings.
+The clock/weather view appears after five idle minutes by default. Its first wake
+touch returns to the prior page without activating controls. **Settings → Screen**
+offers Off, 1, 5 or 15 minutes. Idle does not interrupt Practice, Legacy, held
+touches, pending commands or uncertain lighting. Preferences save appearance and
+idle choices, not light settings or recording state.
 
-If a light result is uncertain, stop changing lights and ask the room host.
-**System → Troubleshooting** explains checks and operator commands. It does not
-run those commands. Opening Legacy restores the Beta session's starting scene.
-The demo guide explains features without operating room devices.
+Opening Legacy restores Beta's starting light scene before handing over control.
+If a result is uncertain, stop changing lights and ask the room host. **System →
+Troubleshooting** shows checks and operator instructions; it does not execute
+commands. The visitor guide also operates no devices. A two-second stationary
+press leaves the black screen; black pixels do not turn off the backlight.
 
-## For installation and maintenance
+## Try Beta without room hardware
 
-The sections below retain technical setup, dependencies and operating limits.
-[WORKFLOWS.md](WORKFLOWS.md) owns startup, recovery and room procedures;
-[docs/interface.md](docs/interface.md) owns data and adapter contracts.
-[AGENTS.md](AGENTS.md) gives concise guidance for agents and contributors.
-These references are also for experienced human maintainers.
-
-The original application and Beta have separate entrypoints:
-
-| Version | Entrypoint | Purpose |
-|---|---|---|
-| Legacy (original) | [main.py](main.py) | Existing lighting, blinds and demo controls; requires the installed room environment |
-| Beta | [app/scr_touch_panel.py](app/scr_touch_panel.py) | Lighting, status, settings and practice, with touch access to Legacy |
-
-The original source remains unchanged. Beta complements it; complete feature
-parity is a promotion requirement, not a current claim. Project-X is an optional
-consumer and maintains its recorder integration separately.
-
-## Start with a local beta preview
-
-Use a desktop Python 3.11 or newer with Tk available. `python -m tkinter` checks
-Tk and opens its version window ([Python documentation](https://docs.python.org/3/library/tkinter.html)).
-On a new Linux desktop, install the distribution's Tk and virtual-environment
-packages first. On Windows, use `python` instead of `python3` below and activate
-the environment with `.venv\Scripts\Activate.ps1`.
+Use Python 3.11 or newer with Tk. `python -m tkinter` checks Tk availability.
+On Linux, install the distribution's Tk and virtual-environment packages if
+needed. The commands below select the reviewed development branch explicitly:
 
 ```sh
 git clone https://github.com/LESA-RPI/scr.touch_panel.git
 cd scr.touch_panel
+git switch experiment/fresh-pi-setup-20261013
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r app/requirements.txt
 python -B app/scr_touch_panel.py --windowed --duration 600 --theme light
 ```
 
-This preview does not move room devices or start recording. Lighting is disabled
-until a connected adapter is admitted. The installed panel layout is 1280 × 800;
-`--windowed` permits desktop review on other screens. It is a Tk desktop client;
-browser/tablet clients are future work.
+On Windows, use `python` in place of `python3` and activate with
+`.venv\Scripts\Activate.ps1`. This preview moves no room devices and starts no
+recording. The cabinet layout is 1280 × 800. Other hardware needs its own font,
+layout and touch checks. Browser/tablet clients are planned, not implemented.
 
-## Use the installed room panel
+## Install, operate or restore
 
-On the cabinet, **Legacy** opens the original controls. Its touch navigation strip
-returns to **Beta**. Both applications remain separate. Credits are under
-**Settings → About panel**. The light theme uses a white background with blue
-controls; navigation remains in the same position across modes.
+| Need | Reference |
+|---|---|
+| Fresh Raspberry Pi OS installation | [Fresh setup](WORKFLOWS.md#fresh-raspberry-pi-os) |
+| Enable connected lighting | [Ownership and connection checks](WORKFLOWS.md#before-connected-control) |
+| Autostart, switch modes or roll back | [Startup](WORKFLOWS.md#startup-and-rollback) and [recovery](WORKFLOWS.md#switching-and-recovery) |
+| Configure theme, font or weather | [Appearance and weather](WORKFLOWS.md#appearance-and-weather) |
+| Rebuild after hardware or storage failure | [Backup and rebuild](WORKFLOWS.md#backup-and-rebuild) |
+| Add an experiment or client | [Interface contracts](docs/interface.md) and [future surfaces](WORKFLOWS.md#additional-surfaces--agreed-direction) |
+| Contribute code or documentation | [Contributor and agent guidance](AGENTS.md) |
 
-The fresh Raspberry Pi OS installation uses distribution Python 3.11/Tk/Pillow.
-Older Ubuntu deployments used Python 2.7. Keep those environments separate and
-validate compatibility before changing them; do not apply modern preview packages
-to an older installed stack.
-The launcher [app/start_panel.sh](app/start_panel.sh) reads private deployment
-settings, sources the custom ROS workspace, starts one original application if
-needed, and opens Beta. Setup, autostart and rollback are in
-[the operating guide](WORKFLOWS.md#startup-and-rollback).
+The fresh Pi 3 deployment uses Raspberry Pi OS Legacy 32-bit Bookworm with
+distribution Python 3.11, Tk 8.6 and Pillow 9.4. Desktop preview dependencies are
+separate; do not install them over system packages. The older Ubuntu installation
+used Python 2.7. The launcher retains that default for compatibility; the fresh
+setup explicitly selects Python 3 for both applications and the ROS helper.
 
-Connected control requires the existing room ROS master and custom SCR service
-bindings. The UI and ROS helper can use different interpreters. A modern UI does
-not require upgrading the room servers. The current helper defaults to the
-installed Python 2.7 ROS environment. A new interpreter or transport needs
-separate interface validation; ROS 2 is not a drop-in ROS 1 replacement.
+Legacy starts from [main.py](main.py); Beta starts from
+[app/scr_touch_panel.py](app/scr_touch_panel.py). The installed
+[launcher](app/start_panel.sh) reads private deployment settings and starts one
+Legacy application plus Beta. The compatibility wrapper preserves the original
+source. Existing room ROS services and custom bindings are required for control;
+a local ROS master on the panel is not required.
 
-Sliders send the latest selection after 250 ms without movement. The adapter
-requires an exactly restorable Fid, Sat, Dul or Off baseline; it restores that
-baseline before Original controls or exit. Uncertain results disable writes.
-Displayed light levels are controller inputs, not optical measurements.
-Read [connected-control checks](WORKFLOWS.md#before-connected-control) before
-enabling the adapter. Room ownership must also be checked outside this Pi.
+Git preserves source, not a complete system. Obtain private configuration and
+custom client/recovery bundles from the room custodian. Check each archive's
+manifest and read-error record: an incomplete image is not an exact restore.
+Room servers, fixtures and HTTP demo services are separate dependencies.
 
-System reports panel readings and advertised service presence, not physical
-sensor or blind health. Experiment practice saves panel annotations with
-`recording: false`. A two-second stationary press leaves the black screen;
-black pixels do not turn off its backlight.
+## Validation and limits
 
-**Visitor** shows a large clock, short room instructions and optional local
-weather. **Practice** names the existing experiment practice page; it does not
-start a recorder. Room scenes retain Fid, Sat and Dul names shared with Legacy.
-Visitor → Demo guide explains lighting, room controls, sensing and connections.
-The guide is informational and does not operate devices.
-Lighting feedback distinguishes selection, sending and confirmed controller
-drive settings. Large values are labelled selected; the feedback area retains
-the last confirmed drive inputs until matching readback arrives. It is a historical
-confirmation, not continuous monitoring or measured optical brightness.
-Confirmation age updates locally in minutes/hours/days, without querying fixtures.
-**What do these do?** opens a short lighting guide without changing lights.
+Run `python -m pytest tests` with pytest installed. Tests cover contracts,
+restoration, uncertain operations, preferences and idle guards. UI changes also
+need target font, internal text-fit, touch and failure-state checks.
 
-The installed launcher saves theme, clock style, weather temperature units, help tips and theme schedule
-in a private appearance file. It saves no light settings or recording state.
-Weather uses [Open-Meteo](https://open-meteo.com/en/docs), with a location set
-outside Git. Requests run in a separate helper and refresh at most every 15
-minutes while Visitor is open. Failed refreshes retain clearly labelled old
-data. Weather is model data, independent of room sensors and light control.
-See [appearance and weather setup](WORKFLOWS.md#appearance-and-weather).
+Bounded Pi navigation, lighting and autostart trials have passed. Undervoltage,
+prolonged reliability, untested Legacy demos/blinds and replacement hardware
+remain acceptance limits. Service presence is not physical device health. Practice
+journals have `recording: false`; recorder integration needs a separate adapter.
 
-The UI uses Cantarell when installed; `--font` selects another installed family.
-Settings → About shows the family Tk actually renders, including any fallback.
-Light mode keeps a white surface and neutral controls. Dark mode uses charcoal
-and grayscale surfaces, with blue accents. Settings keeps categories beside one
-detail pane. Lighting uses large selection values and a fixed feedback area.
-Visitor shows a daylight timeline only for valid sunrise/sunset dates; the bar
-updates once per minute without animation. Stale weather stays labelled.
-Settings → Date & weather switches Celsius/Fahrenheit without another API call.
-Prose wraps to allocated card width; feedback and annotation areas reserve space.
-Settings → Screen selects an idle clock/weather timeout: Off, 1, 5 or 15 minutes.
-The default is five minutes. One touch returns to the previous page without
-activating its controls. Idle never interrupts Practice, Legacy, black screen,
-held touches, pending lighting commands or uncertain results.
-The header badge combines an icon, text and colour for the lighting adapter state.
-Tap it for System. Ready means the adapter is available; it is not continuous
-device-health monitoring. System → Troubleshooting provides checks and operator
-startup/reboot instructions. Displayed commands are never executed by the panel.
+General panel code belongs here. Project-X owns its optional recorder integration.
+Future clients should share one command owner and preserve experiment ownership.
+Technical contracts remain available to maintainers and agents through the links
+above. Private configuration, captures and incident history stay outside Git.
 
-## Restore or provision hardware
-
-For the installed legacy system, obtain the verified private recovery image and
-current restore guide from the room custodian. They preserve the OS, ROS, custom
-workspace and private startup/network settings. Git alone is not a system backup.
-[Backup and rebuild guidance](WORKFLOWS.md#backup-and-rebuild) covers image checks,
-different SD/USB identifiers, new hardware and acceptance tests.
-
-A fresh OS is a separate migration. Keep current Python/Tk/Pillow for new UI
-deployments, and validate their room adapter independently. ROS 1 has reached
-end of life ([Open Robotics](https://discourse.ros.org/t/ros-noetic-end-of-life-may-31-2025/43160));
-do not treat the old cabinet stack as the default for every future device.
-Do not change the working fleet during migration trials.
-
-The [fresh Raspberry Pi OS procedure](WORKFLOWS.md#fresh-raspberry-pi-os)
-uses distribution Python 3 for both applications and the ROS client. It requires
-the room's custom service bindings, not a ROS master on the panel. Fresh-install
-work is tracked on `experiment/fresh-pi-setup-20261013` until promotion to `main`.
-
-## Maintain and extend
-
-Run `python -m pytest tests` with pytest installed. Checks cover baseline restore,
-uncertain operations, external changes, profiles and dynamic input cancellation.
-The installed Pi has had bounded touch/navigation and connected-light trials;
-replacement boot, prolonged reliability and new hardware still require validation.
-The modern preview has been checked with Python 3.11.10, Tk 8.6 and Pillow 12.0.0.
-
-[The interface contract](docs/interface.md) owns profiles, events and the adapter
-boundary. Keep experiments independent of room controls. Use one cohesive commit
-for a tested change; keep private captures, credentials, temporary tools and
-incident timelines outside this public repository. Preserve published release
-identities when consolidating later documentation history.
-
-Beta author: **Diyanko Bhowmik**, with Codex assistance. Original contributors
-remain in Git history. The supplied LESA logo is retained unchanged; SHA-256:
-`ea6224069408b6cc1e3833793ab7f0d627898ff1c6dd71436818dbc83b4ea13b`.
+Beta: **Diyanko Bhowmik**, with Codex assistance. Original contributors remain in
+Git history. The supplied LESA logo is retained unchanged.
