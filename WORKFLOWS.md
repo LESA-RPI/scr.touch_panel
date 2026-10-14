@@ -102,6 +102,25 @@ Settings → About reports the rendered font. Cantarell is already installed on
 the qualified Raspberry Pi OS image; other hosts may select another family with
 `--font`. A requested font name alone does not establish what Tk rendered.
 
+## Room guide and troubleshooting
+
+Visitor → Demo guide is a four-page introduction. It shares the existing navigation,
+icons and text layout. No demo script or recorder starts when pages change.
+The fixed header badge reflects the existing lighting adapter state, with no extra
+network polling. Its icons and labels distinguish Ready, Sending, Checking,
+Uncertain and Offline. Preview never reports Ready; Legacy shows its own mode.
+
+System → Troubleshooting contains instructions, not remote command buttons.
+[app/panel_guides.py](app/panel_guides.py) owns the concise displayed guidance.
+The room's installed `startROS.py` and `startStatus.py` were inspected on
+2026-10-14: each destroys its existing named tmux session before rebuilding it.
+The Status launcher starts its server before waiting and launching clients.
+These launch paths were not executed or qualified as whole-system recovery.
+Use them only from their installed directories after stopping experiments and
+coordinating shared room ownership. Service autostart on the Ubuntu room computer
+is unverified. A restart can interrupt controls and passive/acquisition consumers.
+Keep the panel's own autostart separate from room-server maintenance.
+
 ## Startup and rollback
 
 The client does not install or change OS services. The deployment launcher

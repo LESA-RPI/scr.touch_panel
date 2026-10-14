@@ -69,6 +69,8 @@ black pixels do not turn off its backlight.
 **Visitor** shows a large clock, short room instructions and optional local
 weather. **Practice** names the existing experiment practice page; it does not
 start a recorder. Room scenes retain Fid, Sat and Dul names shared with Legacy.
+Visitor → Demo guide explains lighting, room controls, sensing and connections.
+The guide is informational and does not operate devices.
 Lighting feedback distinguishes selection, sending and confirmed controller
 drive settings. Large values are labelled selected; the feedback area retains
 the last confirmed drive inputs until matching readback arrives. It is a historical
@@ -92,6 +94,10 @@ Visitor shows a daylight timeline only for valid sunrise/sunset dates; the bar
 updates once per minute without animation. Stale weather stays labelled.
 Settings → Date & weather switches Celsius/Fahrenheit without another API call.
 Prose wraps to allocated card width; feedback and annotation areas reserve space.
+The header badge combines an icon, text and colour for the lighting adapter state.
+Tap it for System. Ready means the adapter is available; it is not continuous
+device-health monitoring. System → Troubleshooting provides checks and operator
+startup/reboot instructions. Displayed commands are never executed by the panel.
 
 ## Restore or provision hardware
 

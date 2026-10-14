@@ -23,6 +23,7 @@ from scr_touch_panel_lights import PRESETS
 from event_journal import EventJournal
 from preferences import Preferences, load as load_preferences
 import weather as weather_data
+from panel_guides import DEMO, SUPPORT, connection
 try:
     import Tkinter as tk
     from tkFont import Font
@@ -164,6 +165,7 @@ class Panel(object):
         self.weather_checked, self.weather_good, self.weather_last_text = -900, None, None
         self.weather_reading, self.weather_rendered_minute = None, None
         self.settings_category = 'appearance'
+        self.guide_page, self.support_page = 0, 0
         self.started, self.run_id, self.sequence = monotonic(), uuid.uuid4().hex, 0
         self.boot_id, self.last_touch = boot_identity(), -60
         self.clock_24 = getattr(args, 'clock_format', '24') == '24'
@@ -268,7 +270,7 @@ class Panel(object):
         """Wrap to allocated width, including narrower settings/weather cards."""
         label.config(wraplength=600)
         def fit(event):
-            width = max(1, event.width - 8)
+            width = max(1, event.width - 2*label.winfo_pixels(str(label.cget('padx'))) - 8)
             if label.winfo_pixels(str(label.cget('wraplength'))) != width:
                 label.config(wraplength=width)
         label.bind('<Configure>', fit)
@@ -330,6 +332,12 @@ class Panel(object):
             elif kind in ('visitor', 'clock'):
                 draw.ellipse((12, 12, 84, 84), outline=colour, width=6)
                 line(((16, 8), (16, 16), (22, 19)))
+            elif kind == 'link-ok':
+                draw.ellipse((12, 12, 84, 84), outline=colour, width=6)
+                line(((8, 16), (14, 22), (24, 10)))
+            elif kind == 'link-off':
+                draw.ellipse((12, 12, 84, 84), outline=colour, width=6)
+                line(((8, 24), (24, 8)))
             elif kind == 'on':
                 draw.ellipse((24, 9, 72, 63), outline=colour, width=6)
                 line(((11, 21), (21, 21)))
@@ -376,6 +384,7 @@ class Panel(object):
         self.bg, self.surface, self.ink, self.muted, self.control = PALETTES[chosen]
         self.border = '#b8c8d4' if chosen == 'light' else '#50565e'
         self.icon_colour = ACCENT if chosen == 'light' else '#6dbce8'
+        self.connection_badges = []
         for child in self.root.winfo_children():
             if child != self.dock:
                 child.destroy()
@@ -389,12 +398,13 @@ class Panel(object):
             brand = self.label(self.banner, 'LESA', 30)
             brand.config(fg=ACCENT)
             brand.pack(side='left', padx=(0, 18))
-        self.label(self.banner, 'Smart Conference Room · Beta', 21).pack(side='left')
+        self.label(self.banner, 'Smart Conference Room · Beta', 20).pack(side='left')
         self.clock = self.label(self.banner, size=17, muted=True)
         self.clock.pack(side='right', padx=12)
         self.button(self.banner, 'Theme: ' + self.theme_choice.title(), self.cycle_theme).pack(side='right')
         self.tips_button = self.button(self.banner, 'Tips: ' + ('On' if self.help_on else 'Off'), self.toggle_tips)
         self.tips_button.pack(side='right', padx=10)
+        self.add_connection_badge(self.banner)
         self.nav = tk.Frame(self.root, bg=self.bg, height=64)
         self.nav.pack_propagate(False)
         self.nav.grid_propagate(False)
@@ -435,6 +445,7 @@ class Panel(object):
             brand.pack(side='left', padx=(0, 18))
         self.label(top, 'Smart Conference Room · Legacy', 21).pack(side='left')
         self.label(top, 'Tap Beta to return', 17, True).pack(side='right')
+        self.add_connection_badge(top, legacy=True)
         nav = tk.Frame(self.dock, bg=self.bg, height=64)
         nav.pack(fill='both', expand=True, padx=24, pady=(0, 4))
         for index, (text, mode) in enumerate(NAVIGATION):
@@ -444,6 +455,27 @@ class Panel(object):
             button.config(image=self.icon(mode, 'white' if mode == 'original' else self.ink), compound='left')
             button.grid(row=0, column=index, sticky='nsew', padx=(0, 10 if index < 4 else 0))
         nav.rowconfigure(0, weight=1)
+
+    def add_connection_badge(self, parent, legacy=False):
+        frame = tk.Frame(parent, bg=self.bg, width=140, height=64)
+        frame.pack(side='right', padx=(8, 0))
+        frame.pack_propagate(False)
+        button = self.button(frame, '', lambda: self.show('health'))
+        button.config(font=(FONT, 15), padx=6, compound='left')
+        button.pack(fill='both', expand=True)
+        self.connection_badges.append((button, legacy))
+        self.update_connection_badges()
+
+    def update_connection_badges(self):
+        text, kind, colour = connection(self.light_state, self.args.live_lights)
+        colours = {'good': '#23794c' if self.theme == 'light' else '#87c6a1',
+                   'waiting': self.icon_colour, 'warning': '#9a650b' if self.theme == 'light' else '#e6ba66',
+                   'neutral': self.muted}
+        for button, legacy in getattr(self, 'connection_badges', []):
+            if button.winfo_exists():
+                label, icon, ink = ('Legacy', 'room', self.muted) if legacy else (text, kind, colours[colour])
+                if button.cget('text') != label:
+                    button.config(text=label, fg=ink, activeforeground=ink, image=self.icon(icon, ink))
 
     def cycle_theme(self):
         self.choose_theme({'auto': 'light', 'light': 'dark', 'dark': 'auto'}[self.theme_choice])
@@ -482,6 +514,8 @@ class Panel(object):
                         'experiment': 'Practice only. Activity buttons save panel annotations; recorder not connected.',
                         'settings': 'Appearance settings belong to this device; they do not change room lighting.',
                         'about': 'Panel credits and source repository. No room settings change.'}
+            messages.update(guide='Explore the room. This guide does not change devices or start recording.',
+                            support='Instructions only. Commands are not executed by this panel.')
             if mode in messages:
                 self.status_text.set(messages[mode])
         self.render()
@@ -492,12 +526,13 @@ class Panel(object):
         self.light_buttons = []
         self.dock.withdraw()
         self.tips_button.config(text='Tips: ' + ('On' if self.help_on else 'Off'))
+        selected_mode = {'guide': 'visitor', 'support': 'health'}.get(self.mode, self.mode)
         for key, button in self.nav_buttons.items():
-            button.config(bg=ACCENT if key == self.mode else self.control,
-                          fg='white' if key == self.mode else self.ink,
-                          activebackground=ACCENT if key == self.mode else self.control,
-                          activeforeground='white' if key == self.mode else self.ink,
-                          image=self.icon(key, 'white' if key == self.mode else self.ink))
+            button.config(bg=ACCENT if key == selected_mode else self.control,
+                          fg='white' if key == selected_mode else self.ink,
+                          activebackground=ACCENT if key == selected_mode else self.control,
+                          activeforeground='white' if key == selected_mode else self.ink,
+                          image=self.icon(key, 'white' if key == selected_mode else self.ink))
         if self.mode == 'original':
             self.root.withdraw()
             self.dock.deiconify()
@@ -600,7 +635,8 @@ class Panel(object):
         date.config(textvariable=self.visitor_date)
         date.pack(anchor='w', pady=(0, 18))
         self.label(left, 'Room changes the lighting.\nLegacy opens the original controls.', 17, True).pack(anchor='w', pady=(0, 12))
-        self.row_buttons(left, [('Open room controls', lambda: self.show('room'), True)])
+        self.row_buttons(left, [('Room controls', lambda: self.show('room'), True),
+                                ('Demo guide', lambda: self.show('guide'), False)])
         self.label(right, 'WEATHER · ' + getattr(self.args, 'weather_name', 'Local area'), 16, True).pack(anchor='w')
         reading = tk.Frame(right, bg=self.surface)
         reading.pack(fill='x', pady=(18, 6))
@@ -925,26 +961,78 @@ class Panel(object):
             self.stage + 1, len(self.profile['stages']), 'Practice running' if self.running else 'Practice paused'))
 
     def health_view(self):
-        self.label(self.body, 'Panel resources', 28).pack(anchor='w', pady=(0, 12))
+        self.label(self.body, 'Panel resources', 28).pack(anchor='w', pady=(0, 4))
         self.health_rows = {}
         for key, title in [('ram', 'Memory'), ('disk', 'Storage')]:
             row = tk.Frame(self.body, bg=self.bg)
-            row.pack(fill='x', pady=8)
+            row.pack(fill='x', pady=4)
             self.label(row, title + ' used', 23).pack(side='left')
             value = self.label(row, size=23)
             value.pack(side='right')
             canvas = tk.Canvas(self.body, height=24, bg=self.surface, bd=0, highlightthickness=0)
-            canvas.pack(fill='x', pady=(0, 14))
+            canvas.pack(fill='x', pady=(0, 10))
             canvas.bind('<Configure>', lambda event: self.update_health())
             self.health_rows[key] = (value, canvas)
         self.health_details = self.label(self.body, size=23)
-        self.health_details.pack(anchor='w', pady=12)
+        self.wrap_label(self.health_details).pack(fill='x', pady=8)
         self.power_label = self.label(self.body, size=19)
         self.power_label.pack(anchor='w', pady=(0, 8))
         self.services_label = self.label(self.body, size=17, muted=True)
         self.wrap_label(self.services_label).pack(fill='x', pady=(0, 8))
-        self.label(self.body, 'Live readings refresh every 5 seconds. Load average is not CPU percent.', 18, True).pack(anchor='w', pady=10)
+        self.label(self.body, 'Readings refresh every 5 seconds. Service presence is not sensor health.', 17, True).pack(anchor='w', pady=4)
+        self.row_buttons(self.body, [('Troubleshooting', lambda: self.show('support'), False),
+                                     ('Demo guide', lambda: self.show('guide'), False)])
         self.update_health()
+
+    def guide_view(self):
+        title, kind, text = DEMO[self.guide_page]
+        self.label(self.body, 'Explore the Smart Conference Room', 27).pack(anchor='w', pady=(0, 10))
+        card = tk.Frame(self.body, bg=self.surface, highlightbackground=self.border, highlightthickness=1)
+        card.pack(fill='both', expand=True)
+        content = tk.Frame(card, bg=self.surface)
+        content.pack(fill='both', expand=True, padx=24, pady=18)
+        row = tk.Frame(content, bg=self.surface)
+        row.pack(fill='x', pady=(0, 14))
+        tk.Label(row, image=self.icon(kind, self.icon_colour), bg=self.surface).pack(side='left', padx=(0, 12))
+        self.label(row, title, 26).pack(side='left')
+        self.label(row, '%d of %d' % (self.guide_page+1, len(DEMO)), 17, True).pack(side='right')
+        self.wrap_label(self.label(content, text, 21)).pack(fill='x')
+        buttons = self.row_buttons(self.body, [('Previous', lambda: self.change_guide(-1), False),
+                                               ('Next', lambda: self.change_guide(1), True),
+                                               ('Room controls', lambda: self.show('room'), False)])
+        buttons[0].config(state='normal' if self.guide_page else 'disabled')
+        buttons[1].config(state='normal' if self.guide_page < len(DEMO)-1 else 'disabled')
+
+    def change_guide(self, delta):
+        self.guide_page = max(0, min(len(DEMO)-1, self.guide_page+delta))
+        self.render()
+
+    def support_view(self):
+        self.label(self.body, 'Room troubleshooting · instructions only', 27).pack(anchor='w', pady=(0, 10))
+        row = tk.Frame(self.body, bg=self.bg)
+        row.pack(fill='both', expand=True)
+        topics = tk.Frame(row, bg=self.bg, width=304)
+        topics.pack(side='left', fill='y', padx=(0, 24))
+        topics.pack_propagate(False)
+        content = tk.Frame(row, bg=self.surface, highlightbackground=self.border, highlightthickness=1)
+        content.pack(side='right', fill='both', expand=True)
+        detail = tk.Frame(content, bg=self.surface)
+        detail.pack(fill='both', expand=True, padx=22, pady=16)
+        for index, (title, kind, text, commands) in enumerate(SUPPORT):
+            button = self.row_buttons(topics, [(title, lambda index=index: self.choose_support(index), index == self.support_page)])[0]
+            button.config(image=self.icon(kind, 'white' if index == self.support_page else self.ink), compound='left')
+        title, kind, text, commands = SUPPORT[self.support_page]
+        self.label(detail, title, 24).pack(anchor='w', pady=(0, 8))
+        self.wrap_label(self.label(detail, text, 18)).pack(fill='x')
+        if commands:
+            code = self.label(detail, commands, 16)
+            code.config(font=('monospace', 15), bg=self.control, padx=10, pady=8)
+            self.wrap_label(code).pack(fill='x', pady=(12, 0))
+
+    def choose_support(self, index):
+        if index != self.support_page:
+            self.support_page = index
+            self.render()
 
     def update_health(self):
         if self.mode != 'health':
@@ -1329,6 +1417,7 @@ class Panel(object):
         self.visitor_time.set(time.strftime('%H:%M') if self.clock_24 else time.strftime('%I:%M %p').lstrip('0'))
         self.visitor_date.set(time.strftime('%A, %d %B %Y'))
         self.preference_text.set(self.preference_summary())
+        self.update_connection_badges()
         if self.mode == 'visitor':
             self.start_weather()
             self.update_weather()
