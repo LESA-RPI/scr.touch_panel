@@ -12,6 +12,17 @@ The original source remains unchanged. Beta complements it; complete feature
 parity is a promotion requirement, not a current claim. Project-X is an optional
 consumer and maintains its recorder integration separately.
 
+## Source status
+
+`main` contains the earlier Ubuntu/Python 2.7 launcher. The fresh Raspberry Pi OS
+setup and newer Beta interface are under review in
+[PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1), on
+`experiment/fresh-pi-setup-20261013`. For that setup, start with
+[the branch README](https://github.com/LESA-RPI/scr.touch_panel/blob/experiment/fresh-pi-setup-20261013/README.md).
+The newer interface calls the original application **Legacy**; this baseline
+uses **Original**. Neither branch identifies which commit a cabinet is running.
+Check the installed release before maintenance.
+
 ## Start with a local beta preview
 
 Use a desktop Python 3.11 or newer with Tk available. `python -m tkinter` checks
@@ -36,10 +47,10 @@ browser/tablet clients are future work.
 
 ## Use the installed room panel
 
-On the cabinet, Settings returns to Original controls. Its touch navigation strip
-returns to Beta. Both applications remain separate. In the latest source, credits
-are under **Settings → About panel**, rather than on the room screen. The cabinet
-still uses release `39ed385`; this credits update awaits deployment.
+In this baseline, Settings returns to Original controls. Its touch navigation
+strip returns to Beta. Both applications remain separate. Credits are under
+**Settings → About panel**. The newer branch has different navigation; use its
+guide when operating that version.
 
 The existing Pi can run the beta with its installed Python 2.7/Tk/Pillow stack.
 Do not apply the modern preview requirements to that legacy environment.
@@ -68,9 +79,10 @@ black pixels do not turn off its backlight.
 
 ## Restore or provision hardware
 
-For the installed legacy system, obtain the verified private recovery image and
-current restore guide from the room custodian. They preserve the OS, ROS, custom
-workspace and private startup/network settings. Git alone is not a system backup.
+Obtain private recovery archives and the current restore guide from the room
+custodian. Check their manifests, scope and read-error records before use; an
+incomplete image is not an exact clone. Preserve the OS, custom ROS workspace and
+private startup/network settings separately. Git alone is not a system backup.
 [Backup and rebuild guidance](WORKFLOWS.md#backup-and-rebuild) covers image checks,
 different SD/USB identifiers, new hardware and acceptance tests.
 
@@ -84,8 +96,8 @@ Do not change the working fleet during migration trials.
 
 Run `python -m pytest tests` with pytest installed. Checks cover baseline restore,
 uncertain operations, external changes, profiles and dynamic input cancellation.
-The installed Pi has had bounded touch/navigation and connected-light trials;
-replacement boot, prolonged reliability and new hardware still require validation.
+Earlier panel trials covered bounded touch/navigation and connected lighting.
++These do not qualify a different release, replacement boot or prolonged reliability.
 The modern preview has been checked with Python 3.11.10, Tk 8.6 and Pillow 12.0.0.
 
 [The interface contract](docs/interface.md) owns profiles, events and the adapter
