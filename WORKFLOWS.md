@@ -245,6 +245,40 @@ This is a room-specific client migration, not a complete server installation.
 The external ROS master, fixture server and legacy HTTP demo runner are separate
 dependencies. Do not infer working demos or physical blind motion from UI startup.
 
+## Additional surfaces — agreed direction
+
+The current client is Tk. A browser gateway/client is planned, not implemented.
+Initial access stays on the room network. Support touch tablets/iPads and keyboard/
+mouse desktops through responsive browser layouts and the same room capabilities.
+Keep navigation, units, feedback and theme semantics consistent across clients;
+screen geometry does not need to be identical.
+
+| Role | Intended access |
+|---|---|
+| Visitor | Room introduction and non-personal status; no device writes |
+| Room user | Everyday lighting when no experiment owns it |
+| Staff | Advanced controls, experiment integration and configuration |
+
+Enforce roles in the backend, not only by hiding buttons. Do not expose personal
+experiment metadata to visitors. These proposed roles do not secure the existing
+legacy ROS services or change the physical Legacy application's access policy.
+
+Use one shared, documented command/state contract and one command owner. Multiple
+clients may observe; independent browser ROS owners must not compete with Tk.
+Reuse the existing adapter and confirmed-readback rules. Migrate ownership only
+after qualifying the new transport and updating its consumers together. Report
+requested, pending, confirmed and uncertain results with age; do not infer physical
+brightness or sensor health from service presence. Connection loss must not cause
+automatic command retries or silent takeover of an experiment.
+
+Prefer standard semantic HTML/CSS, large touch targets and visible keyboard focus.
+Keep weather/help usable when room control is unavailable. Describe capabilities
+and experiment profiles as data; keep Project-X's recorder integration in its own
+repository. Add a versioned HTTP schema when a browser endpoint is implemented.
+Choose packages for that tested workflow; no framework or room-server upgrade is
+required for the current client. README owns setup, WORKFLOWS owns operation,
+and tests/adapter contracts provide the starting point for human and agent changes.
+
 ## Backup and rebuild
 
 The Git repository preserves panel source. It does not preserve the installed
