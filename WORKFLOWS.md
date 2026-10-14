@@ -70,6 +70,15 @@ A direct preview saves preferences only when `--preferences PATH` is supplied.
 Settings → Date & weather selects Celsius or Fahrenheit. Old preference files
 default to Fahrenheit. Direct previews can use `--temperature-unit c` or `f`.
 Switching units converts cached data; it does not fetch again or change room controls.
+Screen settings save `idle_timeout` as 0, 60, 300 or 900 seconds. Old settings
+default to300 seconds; `--idle-timeout` selects the preview default. Idle reuses
+Visitor and its existing weather cache/cadence. It preserves the prior page and
+Advanced channel view. The first wake touch is intercepted before button bindings;
+controls need a subsequent touch. Practice, Legacy, blank screen, active touches,
+pending/queued commands, restoration and uncertain lighting block idle entry.
+Lighting failures leave idle automatically. Confirmation age uses monotonic time
+from matching successful acquire/apply replies; failures never refresh it. It is
+historical feedback, not continuous measurement. No preference saves light state.
 
 Weather is optional. Set these private values in `deployment.env`:
 

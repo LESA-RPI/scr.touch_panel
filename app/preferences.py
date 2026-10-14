@@ -21,6 +21,10 @@ def validated(value):
             if type(value[key]) is not int or not 0 <= value[key] < 1440:
                 raise ValueError('Invalid ' + key)
             result[key] = value[key]
+    if 'idle_timeout' in value:
+        if type(value['idle_timeout']) is not int or value['idle_timeout'] not in (0, 60, 300, 900):
+            raise ValueError('Invalid idle_timeout')
+        result['idle_timeout'] = value['idle_timeout']
     if result.get('light_at', 420) == result.get('dark_at', 1140):
         raise ValueError('Theme schedule times must differ')
     return result

@@ -75,6 +75,7 @@ Lighting feedback distinguishes selection, sending and confirmed controller
 drive settings. Large values are labelled selected; the feedback area retains
 the last confirmed drive inputs until matching readback arrives. It is a historical
 confirmation, not continuous monitoring or measured optical brightness.
+Confirmation age updates locally in minutes/hours/days, without querying fixtures.
 **What do these do?** opens a short lighting guide without changing lights.
 
 The installed launcher saves theme, clock style, weather temperature units, help tips and theme schedule
@@ -94,6 +95,10 @@ Visitor shows a daylight timeline only for valid sunrise/sunset dates; the bar
 updates once per minute without animation. Stale weather stays labelled.
 Settings → Date & weather switches Celsius/Fahrenheit without another API call.
 Prose wraps to allocated card width; feedback and annotation areas reserve space.
+Settings → Screen selects an idle clock/weather timeout: Off, 1, 5 or 15 minutes.
+The default is five minutes. One touch returns to the previous page without
+activating its controls. Idle never interrupts Practice, Legacy, black screen,
+held touches, pending lighting commands or uncertain results.
 The header badge combines an icon, text and colour for the lighting adapter state.
 Tap it for System. Ready means the adapter is available; it is not continuous
 device-health monitoring. System → Troubleshooting provides checks and operator

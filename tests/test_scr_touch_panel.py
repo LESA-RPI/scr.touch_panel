@@ -124,7 +124,7 @@ def test_preferences_restore_appearance_only_and_survive_invalid_input(tmp_path,
     assert preferences.load(str(path)) == ({}, None)
     writer = preferences.Preferences(str(path))
     value = {'theme': 'dark', 'clock_format': '12', 'tips': 'off', 'light_at': 420,
-             'dark_at': 1140, 'temperature_unit': 'c'}
+             'dark_at': 1140, 'temperature_unit': 'c', 'idle_timeout': 900}
     entered, unblock = threading.Event(), threading.Event()
     original = preferences.os.fsync
     def slow_sync(fd):
@@ -148,6 +148,9 @@ def test_preferences_restore_appearance_only_and_survive_invalid_input(tmp_path,
     assert preferences.load(str(path))[1]
     path.write_text('{"temperature_unit":"kelvin"}')
     assert preferences.load(str(path))[1]
+    for invalid in (True, 61, -1, '300'):
+        path.write_text(json.dumps({'idle_timeout': invalid}))
+        assert preferences.load(str(path))[1]
     path.write_text('{"light_at":480}')
     assert preferences.load(str(path), {'light_at': 420, 'dark_at': 480})[1]
     path.write_text('x' * 5000)
@@ -342,6 +345,8 @@ def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch
     state.poll_worker()
     assert state.confirmed_light == '3500 K input / level 1000'
     assert state.pending is None and 'Last confirmed drive: 3500 K input / level 1000' in shown[-1]
+    confirmed_at = state.confirmed_at
+    monkeypatch.setattr(panel, 'monotonic', lambda: confirmed_at + 61)
     raw = []
     state.emit = lambda event, **values: raw.append(values['result'])
     state.cancel_intent = lambda: None
@@ -350,8 +355,56 @@ def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch
     state.worker_buffer = json.dumps(failure) + '\n'
     state.poll_worker()
     assert state.light_state == 'failed' and state.confirmed_light == '3500 K input / level 1000'
+    assert state.confirmed_at == confirmed_at and '1 min ago' in shown[-1]
     assert raw[-1]['detail'] == failure['detail']
     assert len(shown[-1]) < 150 and 'Controls disabled' in shown[-1]
+
+
+def test_idle_guards_and_wake_do_not_dispatch_a_touch(monkeypatch):
+    state = panel.Panel.__new__(panel.Panel)
+    state.idle_timeout, state.mode, state.light_state = 300, 'room', 'ready'
+    state.running = state.press_active = False
+    for name in ('pending', 'queued_intent', 'intent_timer', 'slider_drag', 'release_target', 'closing'):
+        setattr(state, name, None)
+    assert state.idle_eligible()
+    for mode in ('experiment', 'original', 'black', 'visitor'):
+        state.mode = mode
+        assert not state.idle_eligible()
+    state.mode = 'room'
+    for name in ('running', 'press_active', 'pending', 'queued_intent', 'intent_timer',
+                 'slider_drag', 'release_target', 'closing'):
+        setattr(state, name, True)
+        assert not state.idle_eligible()
+        setattr(state, name, False if name in ('running', 'press_active') else None)
+    for light_state in ('connecting', 'applying', 'failed'):
+        state.light_state = light_state
+        assert not state.idle_eligible()
+    state.light_state, state.idle_timeout = 'ready', 0
+    assert not state.idle_eligible()
+    state.idle_timeout, state.last_touch, state.section = 300, 0, 'channels'
+    state.idle_active = False
+    shown, restored, deferred = [], [], []
+    state.show = lambda mode: (shown.append(mode), setattr(state, 'mode', mode))
+    state.channel_view = lambda: restored.append('channels')
+    state.status_text = SimpleNamespace(set=lambda value: None)
+    state.root = SimpleNamespace(focus_set=lambda: None, after_idle=deferred.append)
+    monkeypatch.setattr(panel, 'monotonic', lambda: 299)
+    state.update_idle()
+    assert not shown
+    monkeypatch.setattr(panel, 'monotonic', lambda: 300)
+    state.update_idle()
+    assert shown == ['visitor'] and state.idle_return == ('room', 'channels')
+    assert state.wake_idle(True) == 'break' and not deferred
+    assert state.wake_idle(False) == 'break' and state.mode == 'visitor'
+    deferred.pop()()
+    assert shown == ['visitor', 'room'] and restored == ['channels']
+    assert not state.idle_active and state.last_touch == 300 and not state.press_active
+    assert state.wake_idle(True) is None
+    assert panel.confirmation_age(59, 0) == 'just now'
+    assert panel.confirmation_age(60, 0) == '1 min ago'
+    assert panel.confirmation_age(3600, 0) == '1 h ago'
+    assert panel.confirmation_age(86400, 0) == '1 d ago'
+    assert panel.confirmation_age(500, None) == ''
 
 
 def journal_panel(journal, path):

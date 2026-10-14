@@ -152,6 +152,19 @@ def light_selection(action, arguments):
     return 'Custom eight-channel mix'
 
 
+def confirmation_age(now, confirmed_at):
+    if confirmed_at is None:
+        return ''
+    seconds = max(0, now - confirmed_at)
+    if seconds < 60:
+        return 'just now'
+    if seconds < 3600:
+        return '%d min ago' % (seconds // 60)
+    if seconds < 86400:
+        return '%d h ago' % (seconds // 3600)
+    return '%d d ago' % (seconds // 86400)
+
+
 class Panel(object):
     def __init__(self, args):
         self.args, self.profile = args, profile(args.profile)
@@ -167,7 +180,9 @@ class Panel(object):
         self.settings_category = 'appearance'
         self.guide_page, self.support_page = 0, 0
         self.started, self.run_id, self.sequence = monotonic(), uuid.uuid4().hex, 0
-        self.boot_id, self.last_touch = boot_identity(), -60
+        self.boot_id, self.last_touch = boot_identity(), self.started
+        self.idle_timeout = getattr(args, 'idle_timeout', 300)
+        self.idle_active, self.press_active, self.idle_return = False, False, None
         self.clock_24 = getattr(args, 'clock_format', '24') == '24'
         self.temperature_unit = getattr(args, 'temperature_unit', 'f')
         self.help_on = getattr(args, 'tips', 'on') == 'on'
@@ -187,6 +202,7 @@ class Panel(object):
         self.view_generation = 0
         self.light_state, self.release_target = 'disconnected', None
         self.confirmed_light = 'Not checked'
+        self.confirmed_at, self.light_message = None, 'Lighting not connected'
         self.light_buttons = []
         self.last_heartbeat, self.request_seq = -10, 0
         self.journal = EventJournal(args.journal, sys.stdout)
@@ -211,7 +227,13 @@ class Panel(object):
         self.root.bind('<Escape>', lambda event: self.close('escape'))
         self.root.protocol('WM_DELETE_WINDOW', lambda: self.close('window_close'))
         self.root.bind_all('<ButtonRelease-1>', self.slider_released, add='+')
-        self.root.bind_all('<ButtonPress-1>', lambda event: setattr(self, 'last_touch', monotonic()), add='+')
+        self.root.bind_all('<ButtonPress-1>', lambda event: self.activity(True), add='+')
+        self.root.bind_all('<ButtonRelease-1>', lambda event: self.activity(False), add='+')
+        self.root.bind_all('<KeyPress>', lambda event: self.activity(), add='+')
+        self.root.bind_class('PanelWake', '<ButtonPress-1>', lambda event: self.wake_idle(True))
+        self.root.bind_class('PanelWake', '<ButtonRelease-1>', lambda event: self.wake_idle(False))
+        self.root.bind_class('PanelWake', '<B1-Motion>', lambda event: 'break' if self.idle_active else None)
+        self.root.bind_class('PanelWake', '<KeyPress>', lambda event: self.wake_idle(False))
         self.cct, self.intensity = tk.IntVar(value=3500), tk.IntVar(value=1000)
         self.channel_values = [tk.IntVar(value=value) for value in PRESETS['Fid']]
         self.status_text = tk.StringVar(value='Touch a slider or preset to change the lights. Recorder not connected.')
@@ -277,7 +299,68 @@ class Panel(object):
         return label
 
     def lighting_feedback(self, message):
-        self.light_text.set(message + '\nLast confirmed drive: ' + getattr(self, 'confirmed_light', 'Not checked'))
+        self.light_message = message
+        self.refresh_confirmation_age()
+
+    def refresh_confirmation_age(self):
+        age = confirmation_age(monotonic(), getattr(self, 'confirmed_at', None))
+        suffix = ' / ' + age if age else ''
+        text = (self.light_message + '\nLast confirmed drive: ' +
+                getattr(self, 'confirmed_light', 'Not checked') + suffix)
+        if not hasattr(self.light_text, 'get') or self.light_text.get() != text:
+            self.light_text.set(text)
+
+    def activity(self, pressed=None):
+        self.last_touch = monotonic()
+        if pressed is not None:
+            self.press_active = pressed
+
+    def idle_eligible(self):
+        return (self.idle_timeout > 0 and self.mode in ('room', 'settings', 'health', 'guide', 'support', 'about')
+                and self.light_state in ('ready', 'disconnected') and not self.running
+                and not any((self.pending, self.queued_intent, self.intent_timer, self.slider_drag,
+                             self.release_target, self.closing, self.press_active)))
+
+    def update_idle(self):
+        if self.idle_active:
+            if self.light_state == 'failed':
+                self.return_from_idle()
+            return
+        if self.idle_eligible() and monotonic() - self.last_touch >= self.idle_timeout:
+            self.idle_return = (self.mode, self.section)
+            self.idle_active = True
+            self.show('visitor')
+            self.status_text.set('Idle clock and weather. Touch anywhere to return.')
+            self.root.focus_set()
+
+    def install_wake_bindings(self):
+        def visit(widget):
+            if widget == self.dock:
+                return
+            tags = widget.bindtags()
+            if 'PanelWake' not in tags:
+                widget.bindtags(('PanelWake',) + tags)
+            for child in widget.winfo_children():
+                visit(child)
+        visit(self.root)
+
+    def wake_idle(self, pressed):
+        if not self.idle_active:
+            return None
+        self.activity(pressed)
+        if not pressed:
+            self.root.after_idle(self.return_from_idle)
+        return 'break'
+
+    def return_from_idle(self):
+        if not self.idle_active:
+            return
+        mode, section = self.idle_return
+        self.idle_active, self.idle_return = False, None
+        self.activity(False)
+        self.show(mode)
+        if mode == 'room' and section == 'channels':
+            self.channel_view()
 
     def button(self, parent, text, action, accent=False):
         button = tk.Button(parent, text=text, command=action, font=(FONT, 19),
@@ -483,6 +566,8 @@ class Panel(object):
     def show(self, mode):
         if self.release_target is not None or self.closing:
             return
+        if mode != 'visitor':
+            self.idle_active = False
         self.cancel_intent()
         if mode == 'original':
             self.trial_deadline = None
@@ -561,6 +646,8 @@ class Panel(object):
         if not self.footer.winfo_manager():
             self.footer.pack(side='bottom', fill='x', padx=24, pady=(8, 10))
         self.rebuild_body(getattr(self, self.mode + '_view'))
+        if self.idle_active:
+            self.install_wake_bindings()
         for button in self.footer.winfo_children():
             if isinstance(button, tk.Button) and button.cget('text') == 'Settings':
                 selected = self.mode in ('settings', 'about')
@@ -1151,9 +1238,15 @@ class Panel(object):
                 'Last confirmed drive shows the latest successful readback.', 18)
             self.wrap_label(note).pack(fill='x', pady=(12, 8))
         elif key == 'screen':
-            self.label(content, 'Screen', 25).pack(anchor='w', pady=(0, 14))
-            note = self.label(content, 'Blank screen shows black pixels.\nHold one spot for 2 seconds to return.\nThe display backlight remains powered.', 20)
-            self.wrap_label(note).pack(fill='x', pady=(0, 20))
+            self.label(content, 'Idle clock & weather', 25).pack(anchor='w', pady=(0, 8))
+            self.row_buttons(content, [(label, lambda seconds=seconds: self.choose_idle(seconds),
+                                       self.idle_timeout == seconds)
+                                      for label, seconds in [('Off', 0), ('1 min', 60), ('5 min', 300), ('15 min', 900)]])
+            note = self.label(content, 'One touch returns to the previous page.\nIdle stays off in Practice, Legacy and during light commands.', 17, True)
+            self.wrap_label(note).pack(fill='x', pady=(8, 12))
+            self.label(content, 'Blank screen', 21).pack(anchor='w', pady=(0, 6))
+            note = self.label(content, 'Black pixels only; the backlight stays on.\nHold one spot for 2 seconds to return.', 18)
+            self.wrap_label(note).pack(fill='x', pady=(0, 8))
             self.row_buttons(content, [('Blank screen', lambda: self.show('black'), False)])
         else:
             self.about_contents(content)
@@ -1179,6 +1272,15 @@ class Panel(object):
         self.save_preferences()
         self.render()
         self.emit('temperature_unit_selected', unit=unit)
+
+    def choose_idle(self, seconds):
+        if seconds == self.idle_timeout:
+            return
+        self.idle_timeout = seconds
+        self.activity()
+        self.save_preferences()
+        self.render()
+        self.emit('idle_timeout_selected', seconds=seconds)
 
     def open_lighting_help(self):
         self.settings_category = 'help'
@@ -1240,6 +1342,7 @@ class Panel(object):
             self.preference_error = None
             self.preferences.save({'theme': self.theme_choice, 'clock_format': '24' if self.clock_24 else '12',
                                    'temperature_unit': self.temperature_unit,
+                                   'idle_timeout': self.idle_timeout,
                                    'tips': 'on' if self.help_on else 'off',
                                    'light_at': self.args.light_at, 'dark_at': self.args.dark_at})
 
@@ -1252,6 +1355,7 @@ class Panel(object):
                                        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stderr, close_fds=True)
         self.light_state = 'connecting'
         self.confirmed_light = 'Not checked'
+        self.confirmed_at = None
         self.lighting_feedback('Checking starting drive settings on 10 lights...')
         self.worker_buffer = ''
         self.worker_ready = False
@@ -1352,11 +1456,14 @@ class Panel(object):
                     detail = 'Result unconfirmed. Controls disabled; ask staff.'
                 if state == 'completed':
                     self.confirmed_light = light_selection(action, completed_request['arguments'])
+                    self.confirmed_at = monotonic()
                     detail = 'Confirmed - ' + detail
                 elif state == 'ready':
                     self.confirmed_light = response.get('baseline', '?') + ' scene'
+                    self.confirmed_at = monotonic()
                 elif state == 'released':
                     self.confirmed_light = 'Session ended'
+                    self.confirmed_at = None
                 self.lighting_feedback(detail)
                 self.status_text.set(detail)
                 if action == 'release':
@@ -1418,6 +1525,8 @@ class Panel(object):
         self.visitor_date.set(time.strftime('%A, %d %B %Y'))
         self.preference_text.set(self.preference_summary())
         self.update_connection_badges()
+        self.refresh_confirmation_age()
+        self.update_idle()
         if self.mode == 'visitor':
             self.start_weather()
             self.update_weather()
@@ -1506,6 +1615,8 @@ def main(argv=None):
     parser.add_argument('--timezone', default='America/New_York', help='Process-local timezone for schedule and clock')
     parser.add_argument('--clock-format', choices=['12', '24'], default='24', help='Clock style; also adjustable in Settings')
     parser.add_argument('--temperature-unit', choices=['c', 'f'], default='f', help='Weather display unit; also adjustable in Settings')
+    parser.add_argument('--idle-timeout', type=int, choices=[0, 60, 300, 900], default=300,
+                        help='Idle clock/weather after seconds; 0 disables. Default 300; adjustable in Screen settings')
     parser.add_argument('--font', default='Cantarell', help='An installed font family; default Cantarell')
     parser.add_argument('--tips', choices=['on', 'off'], default='on', help='Short touch explanations; also switchable in the header')
     parser.add_argument('--dark-brand', choices=['wordmark', 'original'], default='wordmark',
