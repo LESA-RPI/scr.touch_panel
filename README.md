@@ -1,35 +1,25 @@
 # SCR room touch panel
 
 Touch controls for the LESA Smart Conference Room. The original application and
-the beta client have separate entrypoints:
+the newer Beta client have separate entrypoints and share the existing room
+services. Beta does not yet cover every original feature.
 
-| Version | Entrypoint | Purpose |
-|---|---|---|
-| Original | [main.py](main.py) | Existing room lighting, blinds and demo controls; requires the installed room environment |
-| Beta | [app/scr_touch_panel.py](app/scr_touch_panel.py) | Lighting, status, settings and experiment practice, with touch access to Original |
+## Choose the version
 
-The original source remains unchanged. Beta complements it; complete feature
-parity is a promotion requirement, not a current claim. Project-X is an optional
-consumer and maintains its recorder integration separately.
+| Version | Source and setup |
+|---|---|
+| Original application | [main.py](main.py); requires the installed custom ROS clients and room environment |
+| Earlier Beta baseline | [app/scr_touch_panel.py](app/scr_touch_panel.py) on `main`; installed launcher expects Ubuntu/Python 2.7 |
+| Fresh Pi OS and current Beta | [Branch README](https://github.com/LESA-RPI/scr.touch_panel/blob/experiment/fresh-pi-setup-20261013/README.md); Python 3 setup and newer interface under review in [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1) |
 
-## Source status
+The newer interface calls the original application **Legacy**. This baseline
+uses **Original**. Check the cabinet's installed release before maintenance;
+the default branch does not identify what is running on a device.
 
-`main` contains the earlier Ubuntu/Python 2.7 launcher. The fresh Raspberry Pi OS
-setup and newer Beta interface are under review in
-[PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1), on
-`experiment/fresh-pi-setup-20261013`. For that setup, start with
-[the branch README](https://github.com/LESA-RPI/scr.touch_panel/blob/experiment/fresh-pi-setup-20261013/README.md).
-The newer interface calls the original application **Legacy**; this baseline
-uses **Original**. Neither branch identifies which commit a cabinet is running.
-Check the installed release before maintenance.
+## Try the baseline without room hardware
 
-## Start with a local beta preview
-
-Use a desktop Python 3.11 or newer with Tk available. `python -m tkinter` checks
-Tk and opens its version window ([Python documentation](https://docs.python.org/3/library/tkinter.html)).
-On a new Linux desktop, install the distribution's Tk and virtual-environment
-packages first. On Windows, use `python` instead of `python3` below and activate
-the environment with `.venv\Scripts\Activate.ps1`.
+Use desktop Python 3.11 or newer with Tk available. `python -m tkinter` checks
+Tk. On Linux, install distribution Tk and virtual-environment packages if needed.
 
 ```sh
 git clone https://github.com/LESA-RPI/scr.touch_panel.git
@@ -40,72 +30,51 @@ python -m pip install -r app/requirements.txt
 python -B app/scr_touch_panel.py --windowed --duration 600 --theme light
 ```
 
-This preview does not move room devices or start recording. Lighting is disabled
-until a connected adapter is admitted. The installed panel layout is 1280 × 800;
-`--windowed` permits desktop review on other screens. It is a Tk desktop client;
-browser/tablet clients are future work.
+On Windows, use `python` in place of `python3` and activate with
+`.venv\Scripts\Activate.ps1`. This preview moves no room devices and starts no
+recording. Desktop requirements are separate from the installed Ubuntu stack.
+For fresh Raspberry Pi OS, use the branch guide above rather than this launcher.
 
-## Use the installed room panel
+## Operate the baseline
 
-In this baseline, Settings returns to Original controls. Its touch navigation
-strip returns to Beta. Both applications remain separate. Credits are under
-**Settings → About panel**. The newer branch has different navigation; use its
-guide when operating that version.
+In this version, Settings returns to Original controls and its touch strip
+returns to Beta. Credits are in Settings. Lighting sliders send automatically;
+confirmation means controller readback, not measured physical brightness.
+Opening Original or exiting waits for restoration of Beta's starting light scene.
+If the result is uncertain, stop changing lights and coordinate with the room host.
 
-The existing Pi can run the beta with its installed Python 2.7/Tk/Pillow stack.
-Do not apply the modern preview requirements to that legacy environment.
-The launcher [app/start_panel.sh](app/start_panel.sh) reads private deployment
-settings, sources the custom ROS workspace, starts one original application if
-needed, and opens Beta. Setup, autostart and rollback are in
-[the operating guide](WORKFLOWS.md#startup-and-rollback).
+Practice annotations have `recording: false`; they do not start a sensor recorder.
+System reports panel readings and advertised services, not physical sensor health.
+A stationary two-second press leaves the black screen; its backlight stays on.
+The updated branch has different navigation and additional features.
 
-Connected control requires the existing room ROS master and custom SCR service
-bindings. The UI and ROS helper can use different interpreters. A modern UI does
-not require upgrading the room servers. The current helper defaults to the
-installed Python 2.7 ROS environment. A new interpreter or transport needs
-separate interface validation; ROS 2 is not a drop-in ROS 1 replacement.
+## Install, maintain or restore
 
-Sliders send the latest selection after 250 ms without movement. The adapter
-requires an exactly restorable Fid, Sat, Dul or Off baseline; it restores that
-baseline before Original controls or exit. Uncertain results disable writes.
-Displayed light levels are controller inputs, not optical measurements.
-Read [connected-control checks](WORKFLOWS.md#before-connected-control) before
-enabling the adapter. Room ownership must also be checked outside this Pi.
+| Need | Reference |
+|---|---|
+| Connect lighting and establish ownership | [Connection checks](WORKFLOWS.md#before-connected-control) |
+| Switch modes or recover an uncertain result | [Switching and recovery](WORKFLOWS.md#switching-and-recovery) |
+| Set up autostart or roll back | [Startup and rollback](WORKFLOWS.md#startup-and-rollback) |
+| Restore hardware or provision a replacement | [Backup and rebuild](WORKFLOWS.md#backup-and-rebuild) |
+| Add a profile or experiment adapter | [Interface contracts](docs/interface.md) |
 
-System reports panel readings and advertised service presence, not physical
-sensor or blind health. Experiment practice saves panel annotations with
-`recording: false`. A two-second stationary press leaves the black screen;
-black pixels do not turn off its backlight.
+The installed launcher expects the older Python 2.7/Tk/Pillow environment and
+custom ROS workspace. Desktop Python 3 preview support does not migrate that
+launcher. Existing room servers remain separate dependencies; upgrading the
+panel does not require replacing them. Coordinate ownership before live control.
 
-## Restore or provision hardware
+Git preserves source, not a complete system. Obtain private configuration and
+recovery bundles from the room custodian. Check manifests, scope and read-error
+records: an incomplete image is not an exact clone. Keep captures, credentials,
+participant data and host settings outside this public repository.
 
-Obtain private recovery archives and the current restore guide from the room
-custodian. Check their manifests, scope and read-error records before use; an
-incomplete image is not an exact clone. Preserve the OS, custom ROS workspace and
-private startup/network settings separately. Git alone is not a system backup.
-[Backup and rebuild guidance](WORKFLOWS.md#backup-and-rebuild) covers image checks,
-different SD/USB identifiers, new hardware and acceptance tests.
+Run `python -m pytest tests` with pytest installed. Baseline checks cover profiles,
+lighting restoration and uncertain results. Earlier bounded cabinet trials do not
+qualify another release, replacement hardware or prolonged reliability. Preserve
+release hashes and original contributors when cleaning public documentation.
 
-A fresh OS is a separate migration. Keep current Python/Tk/Pillow for new UI
-deployments, and validate their room adapter independently. ROS 1 has reached
-end of life ([Open Robotics](https://discourse.ros.org/t/ros-noetic-end-of-life-may-31-2025/43160));
-do not treat the old cabinet stack as the default for every future device.
-Do not change the working fleet during migration trials.
+General panel code belongs here; Project-X owns its optional recorder integration.
+Browser/tablet clients are planned, not implemented.
 
-## Maintain and extend
-
-Run `python -m pytest tests` with pytest installed. Checks cover baseline restore,
-uncertain operations, external changes, profiles and dynamic input cancellation.
-Earlier panel trials covered bounded touch/navigation and connected lighting.
-+These do not qualify a different release, replacement boot or prolonged reliability.
-The modern preview has been checked with Python 3.11.10, Tk 8.6 and Pillow 12.0.0.
-
-[The interface contract](docs/interface.md) owns profiles, events and the adapter
-boundary. Keep experiments independent of room controls. Use one cohesive commit
-for a tested change; keep private captures, credentials, temporary tools and
-incident timelines outside this public repository. Preserve published release
-identities when consolidating later documentation history.
-
-Beta author: **Diyanko Bhowmik**, with Codex assistance. Original contributors
-remain in Git history. The supplied LESA logo is retained unchanged; SHA-256:
-`ea6224069408b6cc1e3833793ab7f0d627898ff1c6dd71436818dbc83b4ea13b`.
+Beta: **Diyanko Bhowmik**, with Codex assistance. Original contributors remain in
+Git history. The supplied LESA logo is retained unchanged.
