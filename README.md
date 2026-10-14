@@ -1,12 +1,45 @@
 # SCR room touch panel
 
-Touch controls for the LESA Smart Conference Room. The original application and
-the beta client have separate entrypoints:
+The cabinet touch panel controls the LESA Smart Conference Room and explains
+its features. Beta is the newer interface; Legacy opens the original controls.
+
+## For room users
+
+| Screen | What you can do |
+|---|---|
+| Room | Adjust lighting or choose an existing scene |
+| Visitor | See the clock/weather and open the room demo guide |
+| Practice | Try instructions and annotations; this does not start sensor recording |
+| System | See panel readings, connection information and troubleshooting |
+| Legacy | Use the original controls and return to Beta by touch |
+
+Light changes send automatically. Large values show your selection; the message
+below shows the last confirmed settings and their age. **Ready** means the panel's
+lighting connection is available, not that every room sensor is healthy.
+
+After five minutes without use, the clock/weather view appears. One touch returns
+to the prior screen without pressing its controls. Change this under **Settings →
+Screen**. Appearance, clock and weather units are also in Settings.
+
+If a light result is uncertain, stop changing lights and ask the room host.
+**System → Troubleshooting** explains checks and operator commands. It does not
+run those commands. Opening Legacy restores the Beta session's starting scene.
+The demo guide explains features without operating room devices.
+
+## For installation and maintenance
+
+The sections below retain technical setup, dependencies and operating limits.
+[WORKFLOWS.md](WORKFLOWS.md) owns startup, recovery and room procedures;
+[docs/interface.md](docs/interface.md) owns data and adapter contracts.
+[AGENTS.md](AGENTS.md) gives concise guidance for agents and contributors.
+These references are also for experienced human maintainers.
+
+The original application and Beta have separate entrypoints:
 
 | Version | Entrypoint | Purpose |
 |---|---|---|
-| Original | [main.py](main.py) | Existing room lighting, blinds and demo controls; requires the installed room environment |
-| Beta | [app/scr_touch_panel.py](app/scr_touch_panel.py) | Lighting, status, settings and experiment practice, with touch access to Original |
+| Legacy (original) | [main.py](main.py) | Existing lighting, blinds and demo controls; requires the installed room environment |
+| Beta | [app/scr_touch_panel.py](app/scr_touch_panel.py) | Lighting, status, settings and practice, with touch access to Legacy |
 
 The original source remains unchanged. Beta complements it; complete feature
 parity is a promotion requirement, not a current claim. Project-X is an optional
@@ -41,8 +74,10 @@ returns to **Beta**. Both applications remain separate. Credits are under
 **Settings → About panel**. The light theme uses a white background with blue
 controls; navigation remains in the same position across modes.
 
-The existing Pi can run the beta with its installed Python 2.7/Tk/Pillow stack.
-Do not apply the modern preview requirements to that legacy environment.
+The fresh Raspberry Pi OS installation uses distribution Python 3.11/Tk/Pillow.
+Older Ubuntu deployments used Python 2.7. Keep those environments separate and
+validate compatibility before changing them; do not apply modern preview packages
+to an older installed stack.
 The launcher [app/start_panel.sh](app/start_panel.sh) reads private deployment
 settings, sources the custom ROS workspace, starts one original application if
 needed, and opens Beta. Setup, autostart and rollback are in

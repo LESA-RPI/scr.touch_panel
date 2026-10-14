@@ -71,7 +71,7 @@ Settings → Date & weather selects Celsius or Fahrenheit. Old preference files
 default to Fahrenheit. Direct previews can use `--temperature-unit c` or `f`.
 Switching units converts cached data; it does not fetch again or change room controls.
 Screen settings save `idle_timeout` as 0, 60, 300 or 900 seconds. Old settings
-default to300 seconds; `--idle-timeout` selects the preview default. Idle reuses
+default to 300 seconds; `--idle-timeout` selects the preview default. Idle reuses
 Visitor and its existing weather cache/cadence. It preserves the prior page and
 Advanced channel view. The first wake touch is intercepted before button bindings;
 controls need a subsequent touch. Practice, Legacy, blank screen, active touches,
@@ -188,7 +188,7 @@ does not wait for SD-card fsync. Hardware-command recovery receipts remain synce
 in the separate light helper.
 
 Theme times use the panel process's configured timezone. Auto changes wait for
-60 seconds without a touch and do not occur in Experiment. Settings use familiar
+60 seconds without a touch and do not occur in Practice. Settings use familiar
 appearance, date/time, schedule and screen rows. Font and study defaults are launch
 configuration; no separate settings service is needed.
 
