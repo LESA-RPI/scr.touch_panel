@@ -1,0 +1,17 @@
+[Unit]
+Description=Read-only Smart Conference Room website
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/scr-browser-status/deployment.env
+ExecStart=/bin/sh %h/scr-browser-status/current/browser/start.sh
+Restart=on-failure
+RestartSec=15
+KillSignal=SIGINT
+TimeoutStopSec=15
+NoNewPrivileges=yes
+Nice=5
+
+[Install]
+WantedBy=default.target

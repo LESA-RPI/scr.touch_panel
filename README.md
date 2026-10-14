@@ -64,7 +64,9 @@ normally rather than shrinking or clipping content.
 
 For room-network access and the approved ROS master, use the explicit addresses
 in [browser operation](WORKFLOWS.md#read-only-browser-status). The default is
-loopback-only. This is a separate visitor status page with no controls or recorder
+loopback-only. Room hosting requires an explicit trusted client subnet. The optional
+independent user service starts the website at boot; its setup and rollback are in
+that runbook. This is a separate visitor status page with no controls or recorder
 metadata; it does not change the cabinet panel or its launcher. Service presence
 is not device health. Browser control and staff authentication remain future work.
 
@@ -92,7 +94,7 @@ qualify another release, replacement hardware or prolonged reliability. Preserve
 release hashes and original contributors when cleaning public documentation.
 
 General panel code belongs here; Project-X owns its optional recorder integration.
-Browser/tablet clients are planned, not implemented.
+Read-only browser views are implemented; browser control remains future work.
 
 Beta: **Diyanko Bhowmik**, with Codex assistance. Original contributors remain in
 Git history. The supplied LESA logo is retained unchanged.

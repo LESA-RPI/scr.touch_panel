@@ -55,7 +55,8 @@ def server():
     snapshot = status.Snapshot('Test host')
     with patch.object(status, 'host_status', return_value={}):
         snapshot.collect()
-    instance = status.HTTPServer(('127.0.0.1', 0), status.Handler)
+    instance = status.RoomServer(('127.0.0.1', 0), status.Handler)
+    instance.allowed_clients = status.client_network('127.0.0.0/8')
     instance.expected_host = '%s:%d' % instance.server_address
     instance.snapshot = snapshot
     thread = threading.Thread(target=instance.serve_forever, daemon=True)
@@ -126,6 +127,18 @@ def test_explicit_network_configuration():
                   'http://user:secret@192.168.1.5:11311', 'http://192.168.1.5:11311?redirect=x'):
         with pytest.raises(ValueError):
             status.master_url(value)
+
+
+def test_client_subnet_rejects_other_peers_and_forwarded_headers(server):
+    assert request(server, 'GET', '/api/status')[0] == 200
+    server.allowed_clients = status.client_network('192.168.0.0/24')
+    with pytest.raises((http.client.RemoteDisconnected, ConnectionResetError, ConnectionAbortedError)):
+        request(server, 'GET', '/api/status', {'X-Forwarded-For': '192.168.0.20'})
+    assert not server.verify_request(None, ('192.168.1.20', 1234))
+    assert server.verify_request(None, ('192.168.0.20', 1234))
+    for value in ('0.0.0.0/0', '8.8.8.0/24', '192.168.0.28/24'):
+        with pytest.raises(ValueError):
+            status.client_network(value)
 
 
 def test_weather_cache_preserves_provenance_on_failure():

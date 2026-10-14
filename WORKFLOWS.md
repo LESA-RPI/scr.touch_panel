@@ -125,17 +125,21 @@ control adapter and exposes no actuator, recorder or maintenance command route.
 python -B browser/serve.py
 
 # Room host: substitute verified private interface/master addresses.
-python -B browser/serve.py --bind PANEL_PRIVATE_IP --port 8768 \
+python -B browser/serve.py --bind PANEL_PRIVATE_IP --allow-clients ROOM_SUBNET_CIDR --port 8768 \
   --label "Cabinet Pi" --master http://ROOM_PRIVATE_IP:11311 \
   --weather-latitude 42.7284 --weather-longitude -73.6918
 ```
 
-The server binds one explicit private IPv4 address, not all interfaces. Open the
+The server binds one explicit private IPv4 address and accepts socket peers only
+from the explicit trusted client subnet. Non-loopback hosting requires that subnet;
+forwarding headers do not grant access. Open the
 printed literal-IP URL; Host/Origin checks intentionally refuse other hostnames.
 No router forwarding, firewall changes or public hosting are part of this setup.
-There is no sign-in: anyone able to reach it can view the limited status payload.
+There is no sign-in: allowed subnet clients can view the limited status payload.
 The touch-panel Pi hosts this trial, accessible from the room's SCR_AP LAN. Keep
-it on that trusted network. This does not secure existing ROS services.
+it on that trusted network. A subnet cannot identify a Wi-Fi SSID: other devices
+on the same wired LAN also have access. Router guest isolation remains the network
+owner's responsibility. This does not secure existing ROS services.
 
 One sampler refreshes host resources and the ROS master's `getSystemState` graph
 every 30 seconds, independent of visitor count. It registers no node, starts no
@@ -160,12 +164,52 @@ age. Samples older than 90 seconds are labelled stale. Visible pages poll every
 30 seconds; hidden tabs pause requests. Snapshot data includes no raw recordings,
 participant information, service-provider names, paths or private master address.
 
-For this trial, start the process separately and retain its release commit. Do not
-replace panel autostart, install an OS service or restart the room computer. Stop
-the foreground process with Ctrl+C, or stop only its verified PID if launched in
-the background. No lighting restoration is needed because it owns no lights.
-Reboot persistence is deliberately not configured. Validate small screens,
-keyboard navigation, failure age and resource use before broader deployment.
+### Independent website startup
+
+Retain each published release under `~/scr-browser-status/releases/COMMIT` and
+point `~/scr-browser-status/current` to the selected release. This is separate from
+`~/scr-panel/current`. Stop an earlier standalone website only after checking its
+exact command; never kill the panel or room processes to free the website port.
+
+Create `~/.config/scr-browser-status/deployment.env` with mode 0600 and verified
+values. Keep deployment addresses outside this public repository:
+
+```ini
+SCR_WEB_BIND=PANEL_PRIVATE_IP
+SCR_WEB_CLIENTS=ROOM_SUBNET_CIDR
+SCR_WEB_PORT=8768
+SCR_WEB_LABEL="Cabinet Pi"
+SCR_WEB_MASTER=http://ROOM_PRIVATE_IP:11311
+SCR_WEB_LATITUDE=42.7284
+SCR_WEB_LONGITUDE=-73.6918
+```
+
+Install the included unit and enable this user to run services before login:
+
+```sh
+mkdir -p ~/.config/systemd/user
+cp ~/scr-browser-status/current/browser/scr-browser-status.service ~/.config/systemd/user/
+loginctl enable-linger "$USER"
+systemctl --user daemon-reload
+systemctl --user enable --now scr-browser-status.service
+systemctl --user status scr-browser-status.service
+```
+
+Enabling linger may require administrator approval on another installation.
+Confirm `loginctl show-user "$USER" -p Linger` reports `yes`. The existing panel
+desktop autostart stays intact. The website retries after 15 seconds if its bind
+address is not ready during boot; missing source data is reported as unavailable.
+Initial weather/graph sampling can delay HTTP readiness by about 14 seconds.
+If DHCP changes the Pi address, update the private environment and restart this
+website service. Do not change room network settings for this application.
+
+Use `systemctl --user restart scr-browser-status.service` for a website-only reload
+and `journalctl --user -u scr-browser-status.service -n 30` for errors. Roll back with
+`systemctl --user disable --now scr-browser-status.service`; an earlier release can
+be selected by repointing only the website's `current` symlink. Disable linger only
+if this installation enabled it and no other user services need it. No lighting
+restoration is needed because the website owns no lights. Verify a service restart
+first; qualify a physical boot later when someone is in the room.
 
 Outdoor weather reuses `app/weather.py`, the panel's validated Open-Meteo helper.
 The sampler refreshes at most once per 15 minutes, with an eight-second subprocess

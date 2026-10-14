@@ -54,6 +54,19 @@ def master_url(value):
     return value
 
 
+def client_network(value):
+    network = ipaddress.IPv4Network(value, strict=True)
+    private_address(str(network.network_address))
+    private_address(str(network.broadcast_address))
+    return network
+
+
+class RoomServer(HTTPServer):
+    def verify_request(self, request, client_address):
+        # Use the socket peer, never a caller-supplied forwarding header.
+        return ipaddress.IPv4Address(client_address[0]) in self.allowed_clients
+
+
 def host_status():
     """Resources belong to this server host, not every room computer."""
     result = {'memory_available_mib': None, 'memory_total_mib': None,
@@ -255,6 +268,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bind', default='127.0.0.1', help='Explicit private IPv4 address; default is local-only')
+    parser.add_argument('--allow-clients', help='Trusted IPv4 subnet in CIDR form; required for room-network hosting')
     parser.add_argument('--port', type=int, default=8768)
     parser.add_argument('--label', default='Dashboard host', help='Public host label; no private experiment metadata')
     parser.add_argument('--master', help='Approved private ROS master URL; omit for host-only status')
@@ -264,6 +278,9 @@ def main():
     args = parser.parse_args()
     try:
         args.bind = private_address(args.bind)
+        allowed = client_network(args.allow_clients or '127.0.0.0/8')
+        if ipaddress.IPv4Address(args.bind) not in allowed:
+            raise ValueError('The bind address must belong to the explicit allowed client subnet')
         if not 1 <= args.port <= 65535 or not 1 <= len(args.label) <= 60:
             raise ValueError('Use port 1..65535 and a host label of 1..60 characters')
         if args.master:
@@ -280,7 +297,8 @@ def main():
     location = None if args.weather_latitude is None else (args.weather_latitude, args.weather_longitude)
     snapshot = Snapshot(args.label, args.master, location)
     snapshot.collect()
-    server = HTTPServer((args.bind, args.port), Handler)
+    server = RoomServer((args.bind, args.port), Handler)
+    server.allowed_clients = allowed
     server.expected_host = '%s:%d' % server.server_address
     server.snapshot = snapshot
     stopped = threading.Event()
