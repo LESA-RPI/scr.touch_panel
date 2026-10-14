@@ -50,6 +50,21 @@ The updated branch has different navigation and additional features.
 
 ## Install, maintain or restore
 
+### Read-only browser status
+
+Run `python -B browser/serve.py` with Python 3.11 or newer, then open the printed
+local URL. No packages, build tools or room hardware are required. The page shows
+room time, this host's resources and optional advertised room-service availability.
+It shares the panel's LESA logo, neutral surfaces and blue accents; light/dark
+appearance is saved only in that browser. Phone, tablet and desktop layouts scroll
+normally rather than shrinking or clipping content.
+
+For room-network access and the approved ROS master, use the explicit addresses
+in [browser operation](WORKFLOWS.md#read-only-browser-status). The default is
+loopback-only. This is a separate visitor status page with no controls or recorder
+metadata; it does not change the cabinet panel or its launcher. Service presence
+is not device health. Browser control and staff access remain future work.
+
 | Need | Reference |
 |---|---|
 | Connect lighting and establish ownership | [Connection checks](WORKFLOWS.md#before-connected-control) |

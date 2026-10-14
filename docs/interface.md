@@ -1,8 +1,8 @@
 # Panel interfaces, version 1
 
-These contracts serve the existing Tk client and optional SCR light helper.
-They are deliberately small. No registry, plugin loader, network API or recorder
-service is implemented.
+These contracts serve the existing Tk client, optional SCR light helper and the
+read-only browser status page. No registry, plugin loader, browser control API or
+recorder service is implemented.
 
 ## Study profile
 
@@ -75,3 +75,28 @@ service graph through one XML-RPC call, then exits without a ROS node or fixture
 queries. The UI bounds that subprocess, refreshes only while System is visible
 and labels the result as advertised service availability. It does not query TOF,
 blinds, HVAC or acquisition data, and does not assess IRMA recorder health.
+
+## Browser status, version 1
+
+`GET /api/status` returns `version: 1`, `read_only: true`, a public `host_label`,
+UTC `sampled_at`, monotonic `sample_age_s`, `host` resources and a `room` observation.
+The endpoint reads a cached snapshot; it never initiates a room query.
+
+Host fields are `memory_available_mib`, `memory_total_mib`, `disk_available_gib`,
+`disk_used_percent`, `uptime_s`, `temperature_c` and `power`. Unsupported readings
+are null; power is `unavailable`, `no_warning`, `warning_earlier` or `warning_now`.
+These resources belong to the server host. Power reflects Pi undervoltage flags,
+not a physical voltage measurement.
+
+Room `state` is `unconfigured`, `available` or `unavailable`. `observed_at` and
+`observation_age_s` identify the last successful service-graph read; both are null
+until one succeeds. The fixed service groups have `name` and `state`: `advertised`,
+`partial` or `not_advertised`. A failed read retains the previous observations and
+their age; clients must not display them as current availability. Host/graph
+observations older than 90 seconds are stale. Clock time is not sensor timing.
+
+The sampler makes only `getSystemState` requests to a privately configured master.
+POST/PUT/PATCH/DELETE/OPTIONS return 405; other routes are an explicit static-asset
+allowlist. Host/Origin checks and same-origin browser requests provide a limited
+visitor boundary, not authentication. This API has no experimental metadata,
+device state, actuator commands, control ownership or staff role implementation.

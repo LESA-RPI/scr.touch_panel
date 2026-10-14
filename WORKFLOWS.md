@@ -114,6 +114,50 @@ Theme times use the panel process's configured timezone. Auto changes wait for
 appearance, date/time, schedule and screen rows. Font and study defaults are launch
 configuration; no separate settings service is needed.
 
+## Read-only browser status
+
+The browser status server is independent of Tk, ROS client bindings and Project-X.
+It uses Python 3.11's standard library and the existing LESA logo. It imports no
+control adapter and exposes no actuator, recorder or maintenance command route.
+
+```sh
+# Local-only review; no room queries.
+python -B browser/serve.py
+
+# Room host: substitute verified private interface/master addresses.
+python -B browser/serve.py --bind PANEL_PRIVATE_IP --port 8768 \
+  --label "Cabinet Pi" --master http://ROOM_PRIVATE_IP:11311
+```
+
+The server binds one explicit private IPv4 address, not all interfaces. Open the
+printed literal-IP URL; Host/Origin checks intentionally refuse other hostnames.
+No router forwarding, firewall changes or public hosting are part of this setup.
+There is no sign-in: anyone able to reach it can view the limited status payload.
+Keep it on the trusted room network. This does not secure existing ROS services.
+
+One sampler refreshes host resources and the ROS master's `getSystemState` graph
+every 30 seconds, independent of visitor count. It registers no node, starts no
+producer and calls no device services. Omit `--master` for host-only operation.
+The graph response is capped at 256 KiB; its subprocess ends after four seconds.
+HTTP requests have a four-second absolute deadline and a two-second idle timeout.
+Requests serve only an in-memory snapshot and explicitly listed static assets.
+No directory listing, arbitrary file access, CORS or write endpoints are provided.
+
+Host readings describe the server computer, not every room computer. The clock
+shows Troy's America/New_York time using the viewing device's clock. Service cards
+show advertised/partly advertised/not advertised registrations, not physical health
+or recording state. After failure, previous observations retain their original
+age. Samples older than 90 seconds are labelled stale. Visible pages poll every
+30 seconds; hidden tabs pause requests. Snapshot data includes no raw recordings,
+participant information, service-provider names, paths or private master address.
+
+For this trial, start the process separately and retain its release commit. Do not
+replace panel autostart, install an OS service or restart the room computer. Stop
+the foreground process with Ctrl+C, or stop only its verified PID if launched in
+the background. No lighting restoration is needed because it owns no lights.
+Reboot persistence is deliberately not configured. Validate small screens,
+keyboard navigation, failure age and resource use before broader deployment.
+
 ## Backup and rebuild
 
 The Git repository preserves panel source. It does not preserve the installed
