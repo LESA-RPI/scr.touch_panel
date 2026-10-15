@@ -400,6 +400,12 @@ def test_idle_guards_and_wake_do_not_dispatch_a_touch(monkeypatch):
     assert shown == ['visitor', 'room'] and restored == ['channels']
     assert not state.idle_active and state.last_touch == 300 and not state.press_active
     assert state.wake_idle(True) is None
+    state.mode = 'advanced'
+    assert state.idle_eligible()
+    state.idle_active, state.idle_return = True, ('room', 'lighting')
+    state.open_lighting = lambda: restored.append('lighting')
+    state.return_from_idle()
+    assert restored[-1] == 'lighting' and not state.idle_active
     assert panel.confirmation_age(59, 0) == 'just now'
     assert panel.confirmation_age(60, 0) == '1 min ago'
     assert panel.confirmation_age(3600, 0) == '1 h ago'

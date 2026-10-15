@@ -4,11 +4,11 @@ DEMO = (
     ('Lighting', 'room',
      'White-light colour changes from warm to cool. Light level controls the drive input.\n\n'
      'Fid, Sat and Dul recall existing eight-channel mixtures. The panel confirms fixture drive settings; it does not measure brightness.\n\n'
-     'Open Room to try the controls with the room host.'),
+     'Home has Lights on and Lights off. Open Advanced for colour and light-level adjustments with the room host.'),
     ('Room controls', 'on',
      'Beta provides everyday lighting, weather, help and panel status. Legacy opens the original room controls.\n\n'
      'Changing pages does not change the lights. Opening Legacy ends the Beta lighting session and restores its starting scene.\n\n'
-     'The room also has blinds and other controls. Ask the host before demonstrations.'),
+     'Home shows blinds, but their buttons are not enabled. Ask the host before demonstrations.'),
     ('Sensors and experiments', 'experiment',
      'The room brings together lighting, environmental readings and sensing systems.\n\n'
      'System lists advertised services. A listed service does not prove that a sensor is producing valid data.\n\n'
@@ -16,7 +16,7 @@ DEMO = (
     ('How it connects', 'health',
      'This cabinet panel is a client. The Ubuntu room computer hosts the existing ROS services.\n\n'
      'The connection badge describes this panel\'s lighting adapter. Tap it for System and troubleshooting.\n\n'
-     'Visitor weather comes from Open-Meteo model data. It is separate from indoor sensors and room controls.'),
+     'Home and clock-view weather comes from Open-Meteo model data. It is separate from indoor sensors and room controls.'),
 )
 
 SUPPORT = (

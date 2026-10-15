@@ -37,8 +37,8 @@ CHANNEL_COLOURS = ('#4764bc', '#337cb9', '#2198c2', '#86a83b', '#c69c32', '#d47d
 PALETTES = {'dark': ('#16181b', '#202327', '#f0f1f2', '#b9bdc4', '#30343a'),
             'light': ('#ffffff', '#ffffff', '#12384b', '#476373', '#edf1f4')}
 ACCENT = '#0072b2'
-NAVIGATION = [('Room', 'room'), ('Visitor', 'visitor'), ('Practice', 'experiment'),
-              ('System', 'health'), ('Legacy', 'original')]
+NAVIGATION = [('Home', 'room'), ('Advanced', 'advanced'),
+              ('Demo & guide', 'guide'), ('Legacy', 'original')]
 DEFAULT_PROFILE = {'title': 'Room activity practice', 'sensors': 'Ceiling and colour sensors',
                    'stages': ['Leave the room empty', 'Please sit still',
                               'Make small seated movements', 'Walk around the room',
@@ -236,7 +236,7 @@ class Panel(object):
         self.root.bind_class('PanelWake', '<KeyPress>', lambda event: self.wake_idle(False))
         self.cct, self.intensity = tk.IntVar(value=3500), tk.IntVar(value=1000)
         self.channel_values = [tk.IntVar(value=value) for value in PRESETS['Fid']]
-        self.status_text = tk.StringVar(value='Touch a slider or preset to change the lights. Recorder not connected.')
+        self.status_text = tk.StringVar(value='Use Lights on or Lights off. Fine adjustments are in Advanced.')
         self.light_text = tk.StringVar(value='Lighting not connected - controls are unavailable')
         self.visitor_time, self.visitor_date = tk.StringVar(), tk.StringVar()
         self.preference_text = tk.StringVar(value=self.preference_summary())
@@ -316,7 +316,7 @@ class Panel(object):
             self.press_active = pressed
 
     def idle_eligible(self):
-        return (self.idle_timeout > 0 and self.mode in ('room', 'settings', 'health', 'guide', 'support', 'about')
+        return (self.idle_timeout > 0 and self.mode in ('room', 'advanced', 'settings', 'health', 'guide', 'support', 'about')
                 and self.light_state in ('ready', 'disconnected') and not self.running
                 and not any((self.pending, self.queued_intent, self.intent_timer, self.slider_drag,
                              self.release_target, self.closing, self.press_active)))
@@ -361,6 +361,8 @@ class Panel(object):
         self.show(mode)
         if mode == 'room' and section == 'channels':
             self.channel_view()
+        elif mode == 'room' and section == 'lighting':
+            self.open_lighting()
 
     def button(self, parent, text, action, accent=False):
         button = tk.Button(parent, text=text, command=action, font=(FONT, 19),
@@ -481,28 +483,18 @@ class Panel(object):
             brand = self.label(self.banner, 'LESA', 30)
             brand.config(fg=ACCENT)
             brand.pack(side='left', padx=(0, 18))
-        self.label(self.banner, 'Smart Conference Room · Beta', 20).pack(side='left')
+        self.label(self.banner, 'Smart Conference Room', 22).pack(side='left')
         self.clock = self.label(self.banner, size=17, muted=True)
-        self.clock.pack(side='right', padx=12)
-        self.button(self.banner, 'Theme: ' + self.theme_choice.title(), self.cycle_theme).pack(side='right')
+        self.home_button = self.button(self.banner, 'Home', lambda: self.show('room'))
+        self.home_button.pack(side='right', padx=12)
         self.tips_button = self.button(self.banner, 'Tips: ' + ('On' if self.help_on else 'Off'), self.toggle_tips)
-        self.tips_button.pack(side='right', padx=10)
         self.add_connection_badge(self.banner)
-        self.nav = tk.Frame(self.root, bg=self.bg, height=64)
-        self.nav.pack_propagate(False)
-        self.nav.grid_propagate(False)
+        self.nav = tk.Frame(self.root, bg=self.bg)
         self.nav_buttons = {}
-        for index, (text, mode) in enumerate(NAVIGATION):
-            self.nav.columnconfigure(index, weight=1, uniform='nav')
-            button = self.button(self.nav, text, lambda mode=mode: self.show(mode))
-            button.config(image=self.icon(mode, self.ink), compound='left')
-            button.grid(row=0, column=index, sticky='nsew', padx=(0, 10 if index < 4 else 0))
-            self.nav_buttons[mode] = button
-        self.nav.rowconfigure(0, weight=1)
         self.footer = tk.Frame(self.root, bg=self.bg, height=88)
         self.footer.pack_propagate(False)
-        self.button(self.footer, 'Blank screen', lambda: self.show('black')).pack(side='right', pady=8)
-        self.button(self.footer, 'Settings', lambda: self.show('settings')).pack(side='right', padx=10, pady=8)
+        self.button(self.footer, 'Demo & guide', lambda: self.show('guide')).pack(side='right', pady=8)
+        self.button(self.footer, 'Advanced', lambda: self.show('advanced')).pack(side='right', padx=12, pady=8)
         status = self.label(self.footer, size=17, muted=True)
         status.config(textvariable=self.status_text)
         self.wrap_label(status)
@@ -512,6 +504,8 @@ class Panel(object):
         self.render()
         if section == 'channels' and self.mode == 'room':
             self.channel_view()
+        elif section == 'lighting' and self.mode == 'room':
+            self.open_lighting()
 
     def build_dock(self):
         for child in self.dock.winfo_children():
@@ -594,7 +588,8 @@ class Panel(object):
         self.mode, self.section = mode, 'basic'
         if self.light_state != 'failed' and not self.pending:
             messages = {'health': 'Live panel readings. No system settings change.',
-                        'room': 'Touch a slider or scene. Lighting restores before opening Legacy or exit.',
+                        'room': 'Lights on selects standard white. Blinds are not enabled.',
+                        'advanced': 'Fine adjustments and room tools. Opening a page does not operate devices.',
                         'visitor': 'Visitor view does not change lighting. Recording status is unavailable here.',
                         'experiment': 'Practice only. Activity buttons save panel annotations; recorder not connected.',
                         'settings': 'Appearance settings belong to this device; they do not change room lighting.',
@@ -641,8 +636,12 @@ class Panel(object):
         self.root.configure(bg=self.bg)
         if not self.banner.winfo_manager():
             self.banner.pack(fill='x', padx=24, pady=(8, 6))
-        if not self.nav.winfo_manager():
-            self.nav.pack(fill='x', padx=24, pady=(0, 14))
+        if self.mode == 'room' and self.section == 'basic':
+            self.home_button.pack_forget()
+            self.clock.pack_forget()
+        else:
+            self.home_button.pack(side='right', padx=12)
+            self.clock.pack(side='right', padx=12)
         if not self.footer.winfo_manager():
             self.footer.pack(side='bottom', fill='x', padx=24, pady=(8, 10))
         self.rebuild_body(getattr(self, self.mode + '_view'))
@@ -668,7 +667,80 @@ class Panel(object):
         previous.destroy()
 
     def room_view(self):
-        self.label(self.body, 'Room lighting', 28).pack(anchor='w')
+        row = tk.Frame(self.body, bg=self.bg)
+        row.pack(fill='both', expand=True, pady=(22, 10))
+        row.columnconfigure(0, weight=48, uniform='home')
+        row.columnconfigure(1, weight=52, uniform='home')
+        row.rowconfigure(0, weight=1)
+        left, right = tk.Frame(row, bg=self.bg), tk.Frame(row, bg=self.bg)
+        left.grid(row=0, column=0, sticky='nsew', padx=(0, 28))
+        right.grid(row=0, column=1, sticky='nsew', padx=(28, 0))
+        controls = tk.Frame(left, bg=self.bg)
+        controls.pack(fill='x', pady=(20, 12))
+        for index, title in enumerate(('Lights', 'Blinds')):
+            controls.columnconfigure(index, weight=1, uniform='essentials')
+            group = tk.Frame(controls, bg=self.bg)
+            group.grid(row=0, column=index, sticky='nsew', padx=(0, 16) if index == 0 else 0)
+            self.label(group, title, 25).pack(anchor='w')
+            self.label(group, 'Whole room', 16, True).pack(anchor='w', pady=(2, 16))
+            actions = [('Lights on', self.lights_on, True),
+                       ('Lights off', lambda: self.preset('Off'), False)] if index == 0 else [
+                       ('Open slats', None, False), ('Close & lower', None, False)]
+            for title, action, accent in actions:
+                button = self.row_buttons(group, [(title, action, accent)], height=104)[0]
+                button.config(font=(FONT, 22))
+                if index == 0:
+                    button.config(image=self.icon('on' if title == 'Lights on' else 'off',
+                                                'white' if accent else self.icon_colour), compound='left')
+                    self.light_buttons.append(button)
+                else:
+                    # Intentionally no callback, adapter or opt-in switch until qualified.
+                    button.config(state='disabled')
+            self.label(group, 'Standard white' if index == 0 else 'Not enabled', 17, True).pack(anchor='w', pady=(8, 0))
+        state = self.label(left, size=16, muted=True)
+        state.config(textvariable=self.light_text, height=5)
+        self.wrap_label(state).pack(fill='x', pady=(8, 0))
+        self.label(right, getattr(self.args, 'weather_name', 'Local time'), 18, True).pack(anchor='w')
+        clock = self.label(right, size=70)
+        clock.config(textvariable=self.visitor_time)
+        clock.pack(anchor='w', pady=(12, 0))
+        date = self.label(right, size=23)
+        date.config(textvariable=self.visitor_date)
+        self.wrap_label(date).pack(fill='x', pady=(0, 12))
+        self.weather_contents(right, compact=True)
+        self.update_light_buttons()
+
+    def advanced_view(self):
+        self.label(self.body, 'Advanced', 28).pack(anchor='w', pady=(12, 8))
+        self.label(self.body, 'Lighting adjustments, practice and room tools.', 18, True).pack(anchor='w', pady=(0, 18))
+        self.row_buttons(self.body, [('Light level & colour', self.open_lighting, False),
+                                     ('Scenes & channels', self.open_channels, False)], height=76)
+        self.row_buttons(self.body, [('Practice', lambda: self.show('experiment'), False),
+                                     ('System & help', lambda: self.show('health'), False)], height=76)
+        self.row_buttons(self.body, [('Settings', lambda: self.show('settings'), False),
+                                     ('Legacy controls', lambda: self.show('original'), False)], height=76)
+        self.row_buttons(self.body, [('Clock & weather', lambda: self.show('visitor'), False),
+                                     ('Blank screen', lambda: self.show('black'), False)], height=76)
+        note = self.label(self.body, 'Blinds are not enabled on Home. Practice does not start a recording.', 17, True)
+        self.wrap_label(note).pack(fill='x', pady=(16, 0))
+
+    def open_lighting(self):
+        self.show('room')
+        if self.mode != 'room' or self.release_target or self.closing:
+            return
+        self.section = 'lighting'
+        self.light_buttons = []
+        self.rebuild_body(self.lighting_view)
+        self.home_button.pack(side='right', padx=12)
+
+    def open_channels(self):
+        self.show('room')
+        if self.mode == 'room' and not self.release_target and not self.closing:
+            self.channel_view()
+            self.home_button.pack(side='right', padx=12)
+
+    def lighting_view(self):
+        self.label(self.body, 'Lighting adjustments', 28).pack(anchor='w')
         self.label(self.body, 'Adjust colour and level, or choose a room scene.', 18, True).pack(anchor='w', pady=(0, 8))
         row = tk.Frame(self.body, bg=self.bg)
         row.pack(fill='both', expand=True)
@@ -724,20 +796,24 @@ class Panel(object):
         self.label(left, 'Room changes the lighting.\nLegacy opens the original controls.', 17, True).pack(anchor='w', pady=(0, 12))
         self.row_buttons(left, [('Room controls', lambda: self.show('room'), True),
                                 ('Demo guide', lambda: self.show('guide'), False)])
-        self.label(right, 'WEATHER · ' + getattr(self.args, 'weather_name', 'Local area'), 16, True).pack(anchor='w')
+        self.weather_contents(right)
+
+    def weather_contents(self, right, compact=False):
+        self.label(right, 'OUTDOOR WEATHER' if compact else 'WEATHER · ' + getattr(self.args, 'weather_name', 'Local area'), 16, True).pack(anchor='w')
         reading = tk.Frame(right, bg=self.surface)
-        reading.pack(fill='x', pady=(18, 6))
+        reading.pack(fill='x', pady=(6, 2) if compact else (18, 6))
         self.weather_symbol = tk.Canvas(reading, width=82, height=74, bg=self.surface, highlightthickness=0)
-        self.weather_symbol.pack(side='right', pady=12)
-        temperature = self.label(reading, size=68)
-        temperature.config(textvariable=self.weather_temperature, font=(FONT, 68, 'bold'))
+        self.weather_symbol.pack(side='right', pady=0 if compact else 12)
+        size = 50 if compact else 68
+        temperature = self.label(reading, size=size)
+        temperature.config(textvariable=self.weather_temperature)
         temperature.pack(side='left')
         self.label(reading, self.temperature_unit.upper(), 24, True).pack(side='left', anchor='s', pady=18, padx=4)
         condition = self.label(right, size=23)
         condition.config(textvariable=self.weather_condition)
         self.wrap_label(condition).pack(fill='x')
         self.daylight_label = self.label(right, size=21)
-        self.daylight_label.pack(anchor='w', pady=(18, 2))
+        self.daylight_label.pack(anchor='w', pady=(8, 2) if compact else (18, 2))
         self.daylight_canvas = tk.Canvas(right, height=84, bg=self.surface, highlightthickness=0)
         self.daylight_canvas.pack(fill='x')
         self.daylight_canvas.bind('<Configure>', lambda event: self.update_weather(force=True))
@@ -748,7 +824,7 @@ class Panel(object):
         self.start_weather()
 
     def update_weather(self, force=False):
-        if self.mode != 'visitor':
+        if self.mode not in ('room', 'visitor') or self.mode == 'room' and self.section != 'basic':
             return
         now = datetime.datetime.now()
         minute = now.strftime('%Y-%m-%dT%H:%M')
@@ -1527,7 +1603,7 @@ class Panel(object):
         self.update_connection_badges()
         self.refresh_confirmation_age()
         self.update_idle()
-        if self.mode == 'visitor':
+        if self.mode == 'visitor' or self.mode == 'room' and self.section == 'basic':
             self.start_weather()
             self.update_weather()
             if self.weather_good is not None and monotonic() - self.weather_good > 1800:

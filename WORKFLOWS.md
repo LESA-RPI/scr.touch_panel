@@ -36,9 +36,12 @@ percentages, which cannot reproduce arbitrary fractional drive settings.
 
 ## Switching and recovery
 
-Room exposes everyday sliders and static presets. Advanced controls opens the
-channel editor; Back returns directly. All light controls share one latest
-selection queue. Wait for confirmation to distinguish a selection from a result.
+Home combines stacked Lights on/off with time and outdoor weather. The blind
+buttons are intentionally disabled and have no command callbacks. No blind
+adapter is added. Advanced → Light level & colour opens the existing sliders and
+scenes; Scenes & channels opens the channel editor. Home returns to everyday
+controls. All light controls share one latest selection queue. Wait for
+confirmation to distinguish a selection from a result.
 
 Legacy waits for confirmed restoration and helper exit before showing
 the legacy program. Its matching navigation strip supports touch-only return.
@@ -98,7 +101,7 @@ The [Open-Meteo forecast API](https://open-meteo.com/en/docs) provides temperatu
 condition, sunrise and sunset in the panel timezone. The public endpoint needs
 no API key for its free non-commercial use; review its terms for other uses.
 The panel displays attribution and model time. It starts one helper at most
-every 15 minutes while Visitor is open, bounds its response to 32 KiB and kills
+every 15 minutes while Home or the clock view is open, bounds its response to 32 KiB and kills
 the helper after eight seconds. Requests never use the Tk thread. A failed
 refresh labels the last available data; data older than 30 minutes has an age
 warning. Weather never drives lights, screen themes or experiment timing.
@@ -114,7 +117,7 @@ the qualified Raspberry Pi OS image; other hosts may select another family with
 
 ## Room guide and troubleshooting
 
-Visitor → Demo guide is a four-page introduction. It shares the existing navigation,
+Demo & guide is a four-page introduction. It shares the existing navigation,
 icons and text layout. No demo script or recorder starts when pages change.
 The fixed header badge reflects the existing lighting adapter state, with no extra
 network polling. Its icons and labels distinguish Ready, Sending, Checking,

@@ -14,12 +14,14 @@ identity before maintenance.
 
 | Screen | Purpose |
 |---|---|
-| Room | Adjust lighting or choose an existing scene |
-| Visitor | See clock/weather and the room demo guide |
-| Practice | Try instructions and annotations; no sensor recording starts |
-| System | See panel readings, connection information and troubleshooting |
-| Settings | Set appearance, time/weather units and idle timeout; find credits |
-| Legacy | Open the original controls and return to Beta by touch |
+| Home | Stacked Lights on/off beside clock/weather; blind buttons are visible but not enabled |
+| Advanced | Light level/colour, scenes/channels, Practice, System, Settings, clock view and Legacy |
+| Demo & guide | Room introduction; no equipment or recording starts |
+
+Home is the default screen. Its blind buttons have no command callbacks while
+blind operation awaits qualification. Advanced keeps the existing tools available
+away from everyday on/off controls. Home returns directly from these pages;
+Legacy retains its existing restoration handover.
 
 Light changes send automatically. Large values show your selection; the feedback
 area shows the last confirmed controller settings and their age. **Ready** means
@@ -33,8 +35,8 @@ touches, pending commands or uncertain lighting. Preferences save appearance and
 idle choices, not light settings or recording state.
 
 Opening Legacy restores Beta's starting light scene before handing over control.
-If a result is uncertain, stop changing lights and ask the room host. **System →
-Troubleshooting** shows checks and operator instructions; it does not execute
+If a result is uncertain, stop changing lights and ask the room host. **Advanced →
+System & help → Troubleshooting** shows checks and operator instructions; it does not execute
 commands. The visitor guide also operates no devices. A two-second stationary
 press leaves the black screen; black pixels do not turn off the backlight.
 
