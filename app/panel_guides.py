@@ -12,7 +12,7 @@ DEMO = (
     ('Sensors and experiments', 'experiment',
      'The room brings together lighting, environmental readings and sensing systems.\n\n'
      'System lists advertised services. A listed service does not prove that a sensor is producing valid data.\n\n'
-     'Practice runs instructions and panel annotations only. Sensor recording belongs to a separate experiment system.'),
+     'Experiment mode runs instructions and panel annotations only. Sensor recording belongs to a separate experiment system.'),
     ('How it connects', 'health',
      'This cabinet panel is a client. The Ubuntu room computer hosts the existing ROS services.\n\n'
      'The connection badge describes this panel\'s lighting adapter. Tap it for System and troubleshooting.\n\n'
@@ -34,14 +34,13 @@ SUPPORT = (
      'ROS owns room controls. Status owns the TV display and its clients. Session presence alone does not prove health.',
      'hostname; uptime\nfree -m; df -h /\ntmux list-sessions\nsource /opt/ros/indigo/setup.bash\nsource ~/catkin_ws/devel/setup.bash\ntimeout 10 rosservice list'),
     ('Start services', 'health',
-     'Room host only: stop experiments and check tmux sessions first. Use the installed launchers from their own folders.\n\n'
-     'startROS.py destroys an existing ROS session. startStatus.py destroys an existing Status session. Do not run either as a quick connection fix.\n\n'
-     'These are installed launch paths, not a qualified automatic recovery procedure.',
+     'Room host only: stop experiments and check tmux sessions first. '
+     'startROS.py replaces the ROS session; startStatus.py replaces Status. Do not use them as a quick connection fix.\n\n'
+     'Installed paths below are instructions only, not automatic recovery.',
      'cd ~/catkin_ws/src/scr_control\npython startROS.py\n\ncd ~/scr.status_display\npython startStatus.py'),
     ('Restart computer', 'off',
-     'Room host only: stop recordings and coordinate with other room users. A room-computer restart interrupts shared controls and feeds.\n\n'
-     'Use the Ubuntu desktop Restart action, or the command below in its Terminal. Wait for the desktop and network, then check ROS and Status.\n\n'
-     'Room-computer service autostart is not verified. Do not assume that a reboot restores everything.',
+     'Room host only: stop recordings and coordinate with other room users. Restarting interrupts shared controls and feeds.\n\n'
+     'Use the Ubuntu Restart action or its Terminal command below. After the desktop and network return, check ROS and Status; service autostart is not verified.',
      'Ubuntu room computer only:\nsudo reboot'),
 )
 

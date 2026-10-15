@@ -15,28 +15,32 @@ identity before maintenance.
 | Screen | Purpose |
 |---|---|
 | Home | Stacked Lights on/off beside clock/weather; blind buttons are visible but not enabled |
-| Advanced | Light level/colour, scenes/channels, Practice, System, Settings, clock view and Legacy |
+| Advanced | One sidebar: white light, scenes/channels, Experiment mode, system/help and device preferences |
 | Demo & guide | Room introduction; no equipment or recording starts |
 
 Home is the default screen. Its blind buttons have no command callbacks while
 blind operation awaits qualification. Advanced keeps the existing tools available
-away from everyday on/off controls. Home returns directly from these pages;
-Legacy retains its existing restoration handover.
+away from everyday on/off controls. Home returns directly from these pages.
+The header shows Beta and provides a direct Legacy shortcut with its existing
+restoration handover. Advanced opens each tool directly beside the sidebar and
+remembers the last tool. Experiment mode runs instructions and panel annotations;
+its recorder is not connected.
 
 Light changes send automatically. Large values show your selection; the feedback
 area shows the last confirmed controller settings and their age. **Ready** means
 the lighting adapter is available. It does not confirm every room sensor is healthy
-or measure physical brightness. **What do these do?** explains the controls.
+or measure physical brightness. The selected Home button reflects the last
+confirmed On/Off readback; neither is selected while a request is pending or uncertain.
 
 The clock/weather view appears after five idle minutes by default. Its first wake
-touch returns to the prior page without activating controls. **Settings → Screen**
-offers Off, 1, 5 or 15 minutes. Idle does not interrupt Practice, Legacy, held
+touch returns to the prior page without activating controls. **Advanced → Screen**
+offers Off, 1, 5 or 15 minutes. Idle does not interrupt Experiment mode, Legacy, held
 touches, pending commands or uncertain lighting. Preferences save appearance and
 idle choices, not light settings or recording state.
 
 Opening Legacy restores Beta's starting light scene before handing over control.
 If a result is uncertain, stop changing lights and ask the room host. **Advanced →
-System & help → Troubleshooting** shows checks and operator instructions; it does not execute
+System & help** shows checks and operator instructions; it does not execute
 commands. The visitor guide also operates no devices. A two-second stationary
 press leaves the black screen; black pixels do not turn off the backlight.
 
@@ -99,7 +103,7 @@ need target font, internal text-fit, touch and failure-state checks.
 
 Bounded Pi navigation, lighting and autostart trials have passed. Undervoltage,
 prolonged reliability, untested Legacy demos/blinds and replacement hardware
-remain acceptance limits. Service presence is not physical device health. Practice
+remain acceptance limits. Service presence is not physical device health. Experiment mode
 journals have `recording: false`; recorder integration needs a separate adapter.
 
 General panel code belongs here. Project-X owns its optional recorder integration.

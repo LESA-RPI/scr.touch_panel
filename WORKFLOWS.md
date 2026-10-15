@@ -78,7 +78,7 @@ Screen settings save `idle_timeout` as 0, 60, 300 or 900 seconds. Old settings
 default to 300 seconds; `--idle-timeout` selects the preview default. Idle reuses
 Visitor and its existing weather cache/cadence. It preserves the prior page and
 Advanced channel view. The first wake touch is intercepted before button bindings;
-controls need a subsequent touch. Practice, Legacy, blank screen, active touches,
+controls need a subsequent touch. Experiment mode, Legacy, blank screen, active touches,
 pending/queued commands, restoration and uncertain lighting block idle entry.
 Lighting failures leave idle automatically. Confirmation age uses monotonic time
 from matching successful acquire/apply replies; failures never refresh it. It is
@@ -194,7 +194,7 @@ does not wait for SD-card fsync. Hardware-command recovery receipts remain synce
 in the separate light helper.
 
 Theme times use the panel process's configured timezone. Auto changes wait for
-60 seconds without a touch and do not occur in Practice. Settings use familiar
+60 seconds without a touch and do not occur in Experiment mode. Settings use familiar
 appearance, date/time, schedule and screen rows. Font and study defaults are launch
 configuration; no separate settings service is needed.
 

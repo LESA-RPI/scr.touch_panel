@@ -39,7 +39,11 @@ PALETTES = {'dark': ('#16181b', '#202327', '#f0f1f2', '#b9bdc4', '#30343a'),
 ACCENT = '#0072b2'
 NAVIGATION = [('Home', 'room'), ('Advanced', 'advanced'),
               ('Demo & guide', 'guide'), ('Legacy', 'original')]
-DEFAULT_PROFILE = {'title': 'Room activity practice', 'sensors': 'Ceiling and colour sensors',
+ADVANCED_PAGES = [('White light', 'white'), ('Scenes & channels', 'scenes'),
+                  ('Experiment mode', 'experiment'), ('System & help', 'system'),
+                  ('Appearance', 'appearance'), ('Date & weather', 'clock'),
+                  ('Screen', 'screen'), ('About', 'about')]
+DEFAULT_PROFILE = {'title': 'Room activity instructions', 'sensors': 'Ceiling and colour sensors',
                    'stages': ['Leave the room empty', 'Please sit still',
                               'Make small seated movements', 'Walk around the room',
                               'Leave the room empty again'],
@@ -49,14 +53,13 @@ TIPS = {'Lights on': 'Standard white: selects 3500 K and light-level input 1000 
         'Advanced controls': 'Adjust eight colour-channel drives. Values are controller percentages, not measured light.',
         'Room': 'Everyday lighting. Changes send automatically after your touch settles.',
         'Visitor': 'Room introduction and a large clock. Opening this page does not change lighting.',
-        'Practice': 'Practice instructions and annotations only. No sensor recording starts.',
-        'Experiment': 'Instructions, practice time and named annotations. No sensor recording starts.',
+        'Experiment mode': 'Instructions, elapsed time and panel annotations. No sensor recording starts.',
         'System': 'Panel resources and advertised room services. Presence does not prove sensor health.',
         'Legacy': 'Restores the starting lighting, then shows the original room controls.',
         'Blank screen': 'Shows black pixels. Hold still for 2 seconds to return; the backlight remains on.',
         'Settings': 'Appearance, date/time and screen options. Appearance choices can be saved on this device.',
         'About panel': 'Panel credits and source repository. No room settings change.',
-        'Start practice': 'Starts the practice timer only. It does not start sensor collection.',
+        'Start instructions': 'Starts the instruction timer only. It does not start sensor collection.',
         'Next instruction': 'Shows the next instruction. The final instruction does not wrap.',
         'End trial and restore': 'Restores confirmed trial changes and returns to the original program.'}
 
@@ -165,6 +168,17 @@ def confirmation_age(now, confirmed_at):
     return '%d d ago' % (seconds // 86400)
 
 
+def confirmed_power(response):
+    """Describe uniform controller readback, never optical or continuously live state."""
+    if response.get('state') == 'ready' and response.get('baseline') in PRESETS:
+        return 'off' if response['baseline'] == 'Off' else 'on'
+    values = response.get('words')
+    if (response.get('state') == 'completed' and isinstance(values, list) and len(values) == 8
+            and all(isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 65535 for v in values)):
+        return 'on' if any(values) else 'off'
+    return None
+
+
 class Panel(object):
     def __init__(self, args):
         self.args, self.profile = args, profile(args.profile)
@@ -178,6 +192,7 @@ class Panel(object):
         self.weather_checked, self.weather_good, self.weather_last_text = -900, None, None
         self.weather_reading, self.weather_rendered_minute = None, None
         self.settings_category = 'appearance'
+        self.advanced_page, self.last_advanced_page = None, 'white'
         self.guide_page, self.support_page = 0, 0
         self.started, self.run_id, self.sequence = monotonic(), uuid.uuid4().hex, 0
         self.boot_id, self.last_touch = boot_identity(), self.started
@@ -203,6 +218,8 @@ class Panel(object):
         self.light_state, self.release_target = 'disconnected', None
         self.confirmed_light = 'Not checked'
         self.confirmed_at, self.light_message = None, 'Lighting not connected'
+        self.confirmed_power = None
+        self.home_power_buttons = []
         self.light_buttons = []
         self.last_heartbeat, self.request_seq = -10, 0
         self.journal = EventJournal(args.journal, sys.stdout)
@@ -241,6 +258,7 @@ class Panel(object):
         self.visitor_time, self.visitor_date = tk.StringVar(), tk.StringVar()
         self.preference_text = tk.StringVar(value=self.preference_summary())
         self.weather_text = tk.StringVar(value='Not configured. A location is needed.')
+        self.home_weather_text = tk.StringVar(value='Weather not configured')
         self.weather_temperature = tk.StringVar(value='—')
         self.weather_condition = tk.StringVar(value='Weather unavailable')
         self.annotation_text = tk.StringVar(value=('Annotations belong to the panel journal, separate from recordings.'
@@ -309,6 +327,19 @@ class Panel(object):
                 getattr(self, 'confirmed_light', 'Not checked') + suffix)
         if not hasattr(self.light_text, 'get') or self.light_text.get() != text:
             self.light_text.set(text)
+        self.update_power_highlights()
+
+    def update_power_highlights(self):
+        state = (getattr(self, 'confirmed_power', None) if self.light_state == 'ready' and
+                 not any((self.pending, self.queued_intent, self.release_target, self.closing)) else None)
+        for button, power, label in getattr(self, 'home_power_buttons', []):
+            if button.winfo_exists():
+                selected = state == power
+                button.config(bg=ACCENT if selected else self.control,
+                              fg='white' if selected else self.ink,
+                              activebackground=ACCENT if selected else self.control,
+                              text=(u'✓ ' if selected else '') + label,
+                              image=self.icon(power, 'white' if selected else self.icon_colour))
 
     def activity(self, pressed=None):
         self.last_touch = monotonic()
@@ -328,6 +359,7 @@ class Panel(object):
             return
         if self.idle_eligible() and monotonic() - self.last_touch >= self.idle_timeout:
             self.idle_return = (self.mode, self.section)
+            self.idle_advanced_return = getattr(self, 'advanced_page', None)
             self.idle_active = True
             self.show('visitor')
             self.status_text.set('Idle clock and weather. Touch anywhere to return.')
@@ -358,6 +390,10 @@ class Panel(object):
         mode, section = self.idle_return
         self.idle_active, self.idle_return = False, None
         self.activity(False)
+        page = getattr(self, 'idle_advanced_return', None)
+        if page:
+            self.open_advanced(page)
+            return
         self.show(mode)
         if mode == 'room' and section == 'channels':
             self.channel_view()
@@ -465,6 +501,7 @@ class Panel(object):
             return
         self.cancel_intent()
         section = self.section
+        advanced_page = getattr(self, 'advanced_page', None)
         self.theme = chosen
         self.bg, self.surface, self.ink, self.muted, self.control = PALETTES[chosen]
         self.border = '#b8c8d4' if chosen == 'light' else '#50565e'
@@ -483,8 +520,14 @@ class Panel(object):
             brand = self.label(self.banner, 'LESA', 30)
             brand.config(fg=ACCENT)
             brand.pack(side='left', padx=(0, 18))
-        self.label(self.banner, 'Smart Conference Room', 22).pack(side='left')
+        identity = tk.Frame(self.banner, bg=self.bg)
+        identity.pack(side='left', pady=(18, 0))
+        self.label(identity, 'Smart Conference Room', 22).pack(side='left')
+        beta = self.label(identity, 'Beta', 14)
+        beta.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
+        beta.pack(side='left', padx=(12, 0))
         self.clock = self.label(self.banner, size=17, muted=True)
+        self.button(self.banner, 'Legacy', lambda: self.show('original')).pack(side='right', padx=(12, 0))
         self.home_button = self.button(self.banner, 'Home', lambda: self.show('room'))
         self.home_button.pack(side='right', padx=12)
         self.tips_button = self.button(self.banner, 'Tips: ' + ('On' if self.help_on else 'Off'), self.toggle_tips)
@@ -502,6 +545,8 @@ class Panel(object):
         self.body = tk.Frame(self.root, bg=self.bg)
         self.build_dock()
         self.render()
+        if advanced_page:
+            return
         if section == 'channels' and self.mode == 'room':
             self.channel_view()
         elif section == 'lighting' and self.mode == 'room':
@@ -537,7 +582,7 @@ class Panel(object):
         frame = tk.Frame(parent, bg=self.bg, width=140, height=64)
         frame.pack(side='right', padx=(8, 0))
         frame.pack_propagate(False)
-        button = self.button(frame, '', lambda: self.show('health'))
+        button = self.button(frame, '', lambda: self.open_advanced('system'))
         button.config(font=(FONT, 15), padx=6, compound='left')
         button.pack(fill='both', expand=True)
         self.connection_badges.append((button, legacy))
@@ -557,8 +602,11 @@ class Panel(object):
     def cycle_theme(self):
         self.choose_theme({'auto': 'light', 'light': 'dark', 'dark': 'auto'}[self.theme_choice])
 
-    def show(self, mode):
+    def show(self, mode, advanced_page=None):
         if self.release_target is not None or self.closing:
+            return
+        if mode == 'advanced':
+            self.open_advanced()
             return
         if mode != 'visitor':
             self.idle_active = False
@@ -584,14 +632,17 @@ class Panel(object):
             self.trial_deadline = monotonic() + self.args.duration if self.args.duration else None
         if mode == 'black':
             self.blank_return = self.mode if self.mode not in ('black', 'original') else 'room'
+            self.blank_advanced_return = self.advanced_page
         self.cancel_hold()
-        self.mode, self.section = mode, 'basic'
+        self.mode, self.section = mode, ('lighting' if advanced_page == 'white' else
+                                        'channels' if advanced_page == 'scenes' else 'basic')
+        self.advanced_page = advanced_page
         if self.light_state != 'failed' and not self.pending:
             messages = {'health': 'Live panel readings. No system settings change.',
                         'room': 'Lights on selects standard white. Blinds are not enabled.',
                         'advanced': 'Fine adjustments and room tools. Opening a page does not operate devices.',
                         'visitor': 'Visitor view does not change lighting. Recording status is unavailable here.',
-                        'experiment': 'Practice only. Activity buttons save panel annotations; recorder not connected.',
+                        'experiment': 'Experiment mode: instructions and annotations. Recorder not connected.',
                         'settings': 'Appearance settings belong to this device; they do not change room lighting.',
                         'about': 'Panel credits and source repository. No room settings change.'}
             messages.update(guide='Explore the room. This guide does not change devices or start recording.',
@@ -604,6 +655,7 @@ class Panel(object):
     def render(self):
         self.cancel_intent()
         self.light_buttons = []
+        self.home_power_buttons = []
         self.dock.withdraw()
         self.tips_button.config(text='Tips: ' + ('On' if self.help_on else 'Off'))
         selected_mode = {'guide': 'visitor', 'support': 'health'}.get(self.mode, self.mode)
@@ -641,10 +693,11 @@ class Panel(object):
             self.clock.pack_forget()
         else:
             self.home_button.pack(side='right', padx=12)
-            self.clock.pack(side='right', padx=12)
+            self.clock.pack_forget()
         if not self.footer.winfo_manager():
             self.footer.pack(side='bottom', fill='x', padx=24, pady=(8, 10))
-        self.rebuild_body(getattr(self, self.mode + '_view'))
+        self.rebuild_body(self.advanced_view if getattr(self, 'advanced_page', None)
+                          else getattr(self, self.mode + '_view'))
         if self.idle_active:
             self.install_wake_bindings()
         for button in self.footer.winfo_children():
@@ -683,7 +736,7 @@ class Panel(object):
             group.grid(row=0, column=index, sticky='nsew', padx=(0, 16) if index == 0 else 0)
             self.label(group, title, 25).pack(anchor='w')
             self.label(group, 'Whole room', 16, True).pack(anchor='w', pady=(2, 16))
-            actions = [('Lights on', self.lights_on, True),
+            actions = [('Lights on', self.lights_on, False),
                        ('Lights off', lambda: self.preset('Off'), False)] if index == 0 else [
                        ('Open slats', None, False), ('Close & lower', None, False)]
             for title, action, accent in actions:
@@ -693,6 +746,7 @@ class Panel(object):
                     button.config(image=self.icon('on' if title == 'Lights on' else 'off',
                                                 'white' if accent else self.icon_colour), compound='left')
                     self.light_buttons.append(button)
+                    self.home_power_buttons.append((button, 'on' if title == 'Lights on' else 'off', title))
                 else:
                     # Intentionally no callback, adapter or opt-in switch until qualified.
                     button.config(state='disabled')
@@ -711,33 +765,62 @@ class Panel(object):
         self.update_light_buttons()
 
     def advanced_view(self):
-        self.label(self.body, 'Advanced', 28).pack(anchor='w', pady=(12, 8))
-        self.label(self.body, 'Lighting adjustments, practice and room tools.', 18, True).pack(anchor='w', pady=(0, 18))
-        self.row_buttons(self.body, [('Light level & colour', self.open_lighting, False),
-                                     ('Scenes & channels', self.open_channels, False)], height=76)
-        self.row_buttons(self.body, [('Practice', lambda: self.show('experiment'), False),
-                                     ('System & help', lambda: self.show('health'), False)], height=76)
-        self.row_buttons(self.body, [('Settings', lambda: self.show('settings'), False),
-                                     ('Legacy controls', lambda: self.show('original'), False)], height=76)
-        self.row_buttons(self.body, [('Clock & weather', lambda: self.show('visitor'), False),
-                                     ('Blank screen', lambda: self.show('black'), False)], height=76)
-        note = self.label(self.body, 'Blinds are not enabled on Home. Practice does not start a recording.', 17, True)
-        self.wrap_label(note).pack(fill='x', pady=(16, 0))
+        shell = self.body
+        sidebar = tk.Frame(shell, bg=self.bg, width=264)
+        sidebar.pack(side='left', fill='y', padx=(0, 28), pady=(10, 0))
+        sidebar.pack_propagate(False)
+        self.label(sidebar, 'Advanced', 25).pack(anchor='w', pady=(0, 14))
+        for label, page in ADVANCED_PAGES:
+            button = self.row_buttons(sidebar, [(label, lambda page=page: self.open_advanced(page),
+                                                self.advanced_page == page)], height=52)[0]
+            button.config(font=(FONT, 17), anchor='w', padx=12, pady=8)
+        detail = tk.Frame(shell, bg=self.surface)
+        detail.pack(side='left', fill='both', expand=True, pady=(10, 0))
+        self.body = detail
+        try:
+            page = self.advanced_page
+            if page == 'white':
+                self.label(detail, 'White light', 27).pack(anchor='w', pady=(0, 6))
+                self.label(detail, 'Selected inputs send after your touch settles.', 17, True).pack(anchor='w', pady=(0, 18))
+                self.slider_group(detail, 'White-light colour · selected', self.cct, 1600, 10000, 100, 'K')
+                self.slider_group(detail, 'Light level · selected', self.intensity, 0, 1900, 25, 'controller units')
+                feedback = self.label(detail, size=16, muted=True)
+                feedback.config(textvariable=self.light_text, height=4)
+                self.wrap_label(feedback).pack(fill='x', pady=(12, 0))
+                self.update_light_buttons()
+            elif page == 'scenes':
+                self.channels_view()
+            elif page == 'experiment':
+                self.experiment_view()
+            elif page == 'system':
+                self.system_contents()
+            elif page == 'about':
+                self.about_contents(detail)
+            else:
+                self.settings_category = page
+                self.settings_contents(detail)
+                saved = self.label(detail, size=15, muted=True)
+                saved.config(textvariable=self.preference_text, height=2)
+                self.wrap_label(saved).pack(fill='x', pady=(8, 0))
+        finally:
+            self.body = shell
+
+    def open_advanced(self, page=None):
+        page = page or self.last_advanced_page
+        if page not in dict((key, label) for label, key in ADVANCED_PAGES):
+            return
+        target = 'room' if page in ('white', 'scenes') else ('experiment' if page == 'experiment' else
+                  'health' if page == 'system' else 'about' if page == 'about' else 'settings')
+        if self.release_target or self.closing:
+            return
+        self.last_advanced_page = page
+        self.show(target, advanced_page=page)
 
     def open_lighting(self):
-        self.show('room')
-        if self.mode != 'room' or self.release_target or self.closing:
-            return
-        self.section = 'lighting'
-        self.light_buttons = []
-        self.rebuild_body(self.lighting_view)
-        self.home_button.pack(side='right', padx=12)
+        self.open_advanced('white')
 
     def open_channels(self):
-        self.show('room')
-        if self.mode == 'room' and not self.release_target and not self.closing:
-            self.channel_view()
-            self.home_button.pack(side='right', padx=12)
+        self.open_advanced('scenes')
 
     def lighting_view(self):
         self.label(self.body, 'Lighting adjustments', 28).pack(anchor='w')
@@ -818,7 +901,7 @@ class Panel(object):
         self.daylight_canvas.pack(fill='x')
         self.daylight_canvas.bind('<Configure>', lambda event: self.update_weather(force=True))
         status = self.label(right, size=15, muted=True)
-        status.config(textvariable=self.weather_text, height=2)
+        status.config(textvariable=self.home_weather_text if compact else self.weather_text, height=2)
         self.wrap_label(status).pack(fill='x', pady=(6, 0))
         self.update_weather(force=True)
         self.start_weather()
@@ -964,28 +1047,31 @@ class Panel(object):
             self.cct_apply() if drag[1] == 'cct' else self.channels_apply()
 
     def channel_view(self):
-        self.cancel_intent()
-        self.light_buttons = []
-        self.section = 'channels'
-        self.rebuild_body(self.channels_view)
+        self.open_advanced('scenes')
 
     def channels_view(self):
-        self.label(self.body, 'Advanced lighting - channel drive percentages', 27).pack(anchor='w')
+        self.label(self.body, 'Scenes & channels', 27).pack(anchor='w')
+        self.label(self.body, 'Room scenes keep their Legacy names. Inputs below are selected values.', 16, True).pack(anchor='w', pady=(4, 8))
+        buttons = self.row_buttons(self.body, [(name, lambda name=name: self.preset(name), False)
+                                               for name in ('Fid', 'Sat', 'Dul')], height=62)
+        self.light_buttons.extend(buttons)
         editor = tk.Frame(self.body, bg=self.bg)
-        editor.pack(fill='both', expand=True, pady=14)
+        editor.pack(fill='x', pady=14)
         for index, (name, value) in enumerate(zip(CHANNELS, self.channel_values)):
             editor.columnconfigure(index, weight=1, uniform='channel')
             cell = tk.Frame(editor, bg=self.bg)
-            cell.grid(row=0, column=index, sticky='nsew', padx=6)
-            self.label(cell, name, 18).pack()
+            cell.grid(row=0, column=index, sticky='nsew', padx=4)
+            self.label(cell, name, 15).pack()
             tk.Frame(cell, height=8, bg=CHANNEL_COLOURS[index]).pack(fill='x', pady=8)
             scale = tk.Scale(cell, variable=value, from_=100, to=0, resolution=1, bg=self.bg, fg=self.ink,
                              troughcolor=self.control, activebackground=ACCENT, highlightthickness=0,
-                             bd=0, font=(FONT, 18), width=48, sliderlength=64, length=290)
+                             bd=0, font=(FONT, 16), width=44, sliderlength=48, length=200)
             scale.pack(fill='both', expand=True)
             self.bind_slider(scale, 'channels')
             self.light_buttons.append(scale)
-        self.row_buttons(self.body, [('Back to lighting', lambda: self.show('room'), False)])
+        feedback = self.label(self.body, size=16, muted=True)
+        feedback.config(textvariable=self.light_text, height=4)
+        self.wrap_label(feedback).pack(fill='x', pady=(6, 0))
         self.update_light_buttons()
 
     def preset(self, name):
@@ -1045,31 +1131,32 @@ class Panel(object):
             if button.winfo_exists():
                 button.config(state='normal' if self.light_state in ('ready', 'applying')
                               and not self.release_target and not self.closing else 'disabled')
+        self.update_power_highlights()
 
     def experiment_view(self):
-        title = self.label(self.body, self.profile['title'], 27)
+        self.label(self.body, 'Experiment mode', 27).pack(anchor='w')
+        title = self.label(self.body, self.profile['title'], 17, True)
         self.wrap_label(title).pack(fill='x')
-        tk.Label(self.body, text='PRACTICE ONLY   /   Nothing is being recorded', font=(FONT, 20),
-                 bg='#fff2db', fg='#6e4b0b', padx=16, pady=8).pack(anchor='w', pady=(0, 6))
-        area = tk.Frame(self.body, bg=self.surface, height=208)
+        self.label(self.body, 'Recorder not connected · instructions and panel annotations only', 17, True).pack(anchor='w', pady=(6, 8))
+        area = tk.Frame(self.body, bg=self.surface, height=184)
         area.pack(fill='x', pady=6)
         area.pack_propagate(False)
-        self.stage_label = self.label(area, size=30)
+        self.stage_label = self.label(area, size=24)
         self.stage_label.config(height=2)
         self.wrap_label(self.stage_label).pack(fill='x', padx=22, pady=(8, 2))
-        status = tk.Frame(area, bg=self.surface, height=60)
+        status = tk.Frame(area, bg=self.surface, height=50)
         status.pack(fill='x', padx=22)
         status.pack_propagate(False)
         self.run_label = self.label(status, size=17, muted=True)
         self.run_label.pack(side='left')
-        self.timer_label = self.label(status, size=30)
+        self.timer_label = self.label(status, size=26)
         self.timer_label.pack(side='right')
         metadata = self.label(area, 'Profile describes: ' + self.profile['sensors'], 16, True)
         self.wrap_label(metadata).pack(fill='x', padx=22, pady=(0, 4))
-        self.row_buttons(self.body, [('Start practice', self.start_preview, True),
-                                     ('Pause practice', self.stop_preview, False),
-                                     ('Previous instruction', self.previous_stage, False),
-                                     ('Next instruction', self.next_stage, False)])
+        self.row_buttons(self.body, [('Start instructions', self.start_preview, True),
+                                     ('Pause', self.stop_preview, False)], height=60)
+        self.row_buttons(self.body, [('Previous instruction', self.previous_stage, False),
+                                     ('Next instruction', self.next_stage, False)], height=60)
         self.row_buttons(self.body, [(label, lambda label=label: self.mark(label), False)
                                     for label in self.profile['annotations']])
         annotation = self.label(self.body, size=16, muted=True)
@@ -1111,7 +1198,7 @@ class Panel(object):
             self.emit('instruction_selected')
         else:
             self.stop_preview()
-            self.annotation_text.set('Final instruction reached. Practice paused; no recording was made.')
+            self.annotation_text.set('Final instruction reached. Instructions paused; recorder not connected.')
         self.update_session()
 
     def update_session(self):
@@ -1119,9 +1206,9 @@ class Panel(object):
             return
         elapsed = self.elapsed + (monotonic() - self.run_started if self.running else 0)
         self.stage_label.config(text=self.profile['stages'][self.stage])
-        self.timer_label.config(text='Practice time  %02d:%02d' % divmod(int(elapsed), 60))
+        self.timer_label.config(text='Elapsed  %02d:%02d' % divmod(int(elapsed), 60))
         self.run_label.config(text='Instruction %d of %d   /   %s' % (
-            self.stage + 1, len(self.profile['stages']), 'Practice running' if self.running else 'Practice paused'))
+            self.stage + 1, len(self.profile['stages']), 'Running' if self.running else 'Paused'))
 
     def health_view(self):
         self.label(self.body, 'Panel resources', 28).pack(anchor='w', pady=(0, 4))
@@ -1145,6 +1232,32 @@ class Panel(object):
         self.label(self.body, 'Readings refresh every 5 seconds. Service presence is not sensor health.', 17, True).pack(anchor='w', pady=4)
         self.row_buttons(self.body, [('Troubleshooting', lambda: self.show('support'), False),
                                      ('Demo guide', lambda: self.show('guide'), False)])
+        self.update_health()
+
+    def system_contents(self):
+        self.label(self.body, 'System & help', 27).pack(anchor='w', pady=(0, 8))
+        self.health_details = self.label(self.body, size=16)
+        self.wrap_label(self.health_details).pack(fill='x', pady=(0, 4))
+        self.power_label = self.label(self.body, size=16)
+        self.wrap_label(self.power_label).pack(fill='x', pady=(0, 4))
+        self.services_label = self.label(self.body, size=16, muted=True)
+        self.wrap_label(self.services_label).pack(fill='x', pady=(0, 10))
+        topic = tk.Frame(self.body, bg=self.bg, height=58)
+        topic.pack(fill='x', pady=(0, 4))
+        topic.pack_propagate(False)
+        self.label(topic, 'Help topic', 18).pack(side='left', padx=(0, 20))
+        selected = tk.StringVar(value=SUPPORT[self.support_page][0])
+        menu = tk.OptionMenu(topic, selected, *[item[0] for item in SUPPORT],
+                             command=lambda name: self.choose_support([item[0] for item in SUPPORT].index(name)))
+        menu.config(font=(FONT, 18), bg=self.control, fg=self.ink, highlightthickness=0, bd=0, padx=14, pady=10)
+        menu['menu'].config(font=(FONT, 18))
+        menu.pack(side='left', fill='y')
+        title, kind, text, commands = SUPPORT[self.support_page]
+        self.wrap_label(self.label(self.body, text, 16)).pack(fill='x', pady=(0, 8))
+        if commands:
+            code = self.label(self.body, commands, 14)
+            code.config(font=('monospace', 14), bg=self.control, padx=10, pady=8)
+            self.wrap_label(code).pack(fill='x')
         self.update_health()
 
     def guide_view(self):
@@ -1208,6 +1321,13 @@ class Panel(object):
         h = self.health_cache
         if 'error' in h:
             self.health_details.config(text='Resource reading unavailable: ' + h['error'])
+            return
+        if getattr(self, 'advanced_page', None) == 'system':
+            self.health_details.config(text='Memory: %d / %d MiB available    Storage: %.1f GiB free\n'
+                                            'CPU: %.1f C    Uptime: %.1f days' %
+                (h['ram_available'], h['ram_total'], h['disk_available'], h['temperature'], h['uptime']))
+            self.power_label.config(text='Power: ' + h['power'])
+            self.services_label.config(text=self.room_status + '\nService presence is not sensor health.')
             return
         self.health_rows['ram'][0].config(text='%d / %d MiB available' % (h['ram_available'], h['ram_total']))
         self.health_rows['disk'][0].config(text='%.1f GiB available  /  %.0f%% used' % (h['disk_available'], h['disk_used']))
@@ -1275,6 +1395,9 @@ class Panel(object):
             self.row_buttons(categories, [(title, lambda key=key: self.choose_settings(key), self.settings_category == key)])
         content = tk.Frame(detail, bg=self.surface)
         content.pack(fill='both', expand=True, padx=24, pady=18)
+        self.settings_contents(content)
+
+    def settings_contents(self, content):
         key = self.settings_category
         if key == 'appearance':
             self.label(content, 'Appearance', 25).pack(anchor='w', pady=(0, 6))
@@ -1287,8 +1410,11 @@ class Panel(object):
             self.row_buttons(content, [(text, lambda field=field, delta=delta: self.adjust_schedule(field, delta), False)
                 for text, field, delta in [('Light −1 h', 'light_at', -60), ('Light +1 h', 'light_at', 60),
                                            ('Dark −1 h', 'dark_at', -60), ('Dark +1 h', 'dark_at', 60)]])
-            note = self.label(content, 'Auto waits for idle time. Practice keeps its theme.', 17, True)
+            note = self.label(content, 'Auto waits for idle time. Experiment mode keeps its theme.', 17, True)
             self.wrap_label(note).pack(fill='x', pady=(8, 0))
+            self.label(content, 'Touch explanations', 21).pack(anchor='w', pady=(14, 4))
+            self.row_buttons(content, [('Tips on', lambda: self.choose_tips(True), self.help_on),
+                                       ('Tips off', lambda: self.choose_tips(False), not self.help_on)])
         elif key == 'clock':
             self.label(content, 'Date & weather', 25).pack(anchor='w', pady=(0, 8))
             self.label(content, time.strftime('%A, %d %B %Y'), 23).pack(anchor='w', pady=(0, 6))
@@ -1300,6 +1426,9 @@ class Panel(object):
                                        self.temperature_unit == unit)
                                       for label, unit in [(u'Celsius (°C)', 'c'), (u'Fahrenheit (°F)', 'f')]])
             self.label(content, 'Display units only. No room settings change.', 17, True).pack(anchor='w', pady=8)
+            source = self.label(content, size=16, muted=True)
+            source.config(textvariable=self.weather_text, height=3)
+            self.wrap_label(source).pack(fill='x', pady=(12, 0))
         elif key == 'help':
             self.label(content, 'Help & guidance', 25).pack(anchor='w', pady=(0, 14))
             note = self.label(content, 'Tips explain controls in the bottom message area.', 18)
@@ -1318,16 +1447,20 @@ class Panel(object):
             self.row_buttons(content, [(label, lambda seconds=seconds: self.choose_idle(seconds),
                                        self.idle_timeout == seconds)
                                       for label, seconds in [('Off', 0), ('1 min', 60), ('5 min', 300), ('15 min', 900)]])
-            note = self.label(content, 'One touch returns to the previous page.\nIdle stays off in Practice, Legacy and during light commands.', 17, True)
+            note = self.label(content, 'One touch returns to the previous page.\nIdle stays off in Experiment mode, Legacy and during light commands.', 17, True)
             self.wrap_label(note).pack(fill='x', pady=(8, 12))
             self.label(content, 'Blank screen', 21).pack(anchor='w', pady=(0, 6))
             note = self.label(content, 'Black pixels only; the backlight stays on.\nHold one spot for 2 seconds to return.', 18)
             self.wrap_label(note).pack(fill='x', pady=(0, 8))
             self.row_buttons(content, [('Blank screen', lambda: self.show('black'), False)])
+            self.row_buttons(content, [('Clock & weather', lambda: self.show('visitor'), False)])
         else:
             self.about_contents(content)
 
     def choose_settings(self, category):
+        if getattr(self, 'advanced_page', None):
+            self.open_advanced(category if category != 'help' else 'system')
+            return
         if category == self.settings_category:
             return
         self.settings_category = category
@@ -1359,8 +1492,8 @@ class Panel(object):
         self.emit('idle_timeout_selected', seconds=seconds)
 
     def open_lighting_help(self):
-        self.settings_category = 'help'
-        self.show('settings')
+        self.support_page = 0
+        self.open_advanced('system')
 
     def choose_tips(self, enabled):
         if enabled == self.help_on:
@@ -1372,7 +1505,7 @@ class Panel(object):
 
     def about_view(self):
         self.about_contents(self.body)
-        self.button(self.body, 'Back to Settings', lambda: self.show('settings')).pack(anchor='w')
+        self.button(self.body, 'Appearance', lambda: self.open_advanced('appearance')).pack(anchor='w')
 
     def about_contents(self, parent):
         self.label(parent, 'About this panel', 25).pack(anchor='w', pady=(0, 20))
@@ -1432,6 +1565,7 @@ class Panel(object):
         self.light_state = 'connecting'
         self.confirmed_light = 'Not checked'
         self.confirmed_at = None
+        self.confirmed_power = None
         self.lighting_feedback('Checking starting drive settings on 10 lights...')
         self.worker_buffer = ''
         self.worker_ready = False
@@ -1533,13 +1667,16 @@ class Panel(object):
                 if state == 'completed':
                     self.confirmed_light = light_selection(action, completed_request['arguments'])
                     self.confirmed_at = monotonic()
+                    self.confirmed_power = confirmed_power(response)
                     detail = 'Confirmed - ' + detail
                 elif state == 'ready':
                     self.confirmed_light = response.get('baseline', '?') + ' scene'
                     self.confirmed_at = monotonic()
+                    self.confirmed_power = confirmed_power(response)
                 elif state == 'released':
                     self.confirmed_light = 'Session ended'
                     self.confirmed_at = None
+                    self.confirmed_power = None
                 self.lighting_feedback(detail)
                 self.status_text.set(detail)
                 if action == 'release':
@@ -1575,7 +1712,14 @@ class Panel(object):
     def begin_hold(self, event):
         self.cancel_hold()
         self.hold_origin = (event.x_root, event.y_root)
-        self.hold = self.root.after(2000, lambda: self.show(self.blank_return))
+        self.hold = self.root.after(2000, self.return_from_blank)
+
+    def return_from_blank(self):
+        page = getattr(self, 'blank_advanced_return', None)
+        if page:
+            self.open_advanced(page)
+        else:
+            self.show(self.blank_return)
 
     def move_hold(self, event):
         if self.hold_origin and ((event.x_root - self.hold_origin[0]) ** 2 +
@@ -1603,6 +1747,14 @@ class Panel(object):
         self.update_connection_badges()
         self.refresh_confirmation_age()
         self.update_idle()
+        if self.weather_reading:
+            old = (self.weather_good is None or monotonic() - self.weather_good > 1800
+                   or self.weather_reading['model_time'][:10] != datetime.date.today().isoformat()
+                   or self.weather_text.get().startswith('Last available'))
+            caption = 'Earlier weather · Open-Meteo' if old else 'Weather: Open-Meteo'
+        else:
+            caption = 'Weather not configured' if self.args.weather_latitude is None else 'Weather unavailable'
+        self.home_weather_text.set(caption)
         if self.mode == 'visitor' or self.mode == 'room' and self.section == 'basic':
             self.start_weather()
             self.update_weather()

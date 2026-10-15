@@ -11,7 +11,7 @@ Unknown keys are rejected. No paths, callbacks or executable code are accepted.
 
 ```json
 {
-  "title": "Seated activity practice",
+  "title": "Room activity instructions",
   "sensors": "Study description; not a live sensor connection",
   "stages": ["Please sit still", "Move your hands", "Stand up"],
   "annotations": ["Activity started", "Activity finished", "Unexpected event"]
@@ -21,7 +21,7 @@ Unknown keys are rejected. No paths, callbacks or executable code are accepted.
 The title and description have at most 100 characters. There are 1–20 distinct
 instructions, each at most 60 characters, and 1–4 distinct annotation labels,
 each at most 20 characters. The client also checks text width at the selected
-font. The final instruction pauses practice; navigation does not wrap.
+font. The final instruction pauses instructions; navigation does not wrap.
 
 ## Panel journal
 
@@ -38,10 +38,12 @@ without a per-click fsync; annotation batches and final shutdown are synced.
 Annotations show Saving until their flush/fsync acknowledgement arrives; storage
 failure or a full queue is reported. Recent ordinary events can be lost on abrupt
 power failure. The lighting helper's separate durable recovery receipts are unchanged.
-This is a panel practice journal, not canonical sensor-recording metadata.
+Experiment mode writes a panel journal, not canonical sensor-recording metadata.
+The existing `practice_started`, `practice_paused` event names and `panel_practice`
+annotation scope remain unchanged for journal consumers.
 
 A future recorder adapter must provide actual recorder state and timestamp
-provenance. It must not infer recording from the practice timer. Project-X or
+provenance. It must not infer recording from the instruction timer. Project-X or
 another experiment owns import, clock association and participant handling.
 
 ## Local light helper

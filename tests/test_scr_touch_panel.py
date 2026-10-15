@@ -413,6 +413,61 @@ def test_idle_guards_and_wake_do_not_dispatch_a_touch(monkeypatch):
     assert panel.confirmation_age(500, None) == ''
 
 
+def test_home_power_requires_confirmed_readback_and_clears_during_changes():
+    assert panel.confirmed_power({'state': 'ready', 'baseline': 'Off'}) == 'off'
+    assert panel.confirmed_power({'state': 'ready', 'baseline': 'Fid'}) == 'on'
+    assert panel.confirmed_power({'state': 'completed', 'words': [0] * 8}) == 'off'
+    assert panel.confirmed_power({'state': 'completed', 'words': [0] * 7 + [1]}) == 'on'
+    for reply in ({'state': 'ready', 'baseline': 'Unknown'},
+                  {'state': 'failed', 'words': [0] * 8},
+                  {'state': 'completed', 'words': [True] * 8},
+                  {'state': 'completed', 'words': [65536] * 8},
+                  {'state': 'completed', 'words': [0] * 7},
+                  {'state': 'completed', 'intensity': 0}):
+        assert panel.confirmed_power(reply) is None
+    state = panel.Panel.__new__(panel.Panel)
+    state.light_state, state.confirmed_power = 'ready', 'off'
+    state.pending = state.queued_intent = state.release_target = state.closing = None
+    state.control, state.ink, state.icon_colour = 'neutral', 'ink', 'icon'
+    state.icon = lambda *args: None
+    buttons = [SimpleNamespace(winfo_exists=lambda: True, config=lambda **kw: None) for _ in range(2)]
+    for button in buttons:
+        button.config = lambda button=button, **kw: setattr(button, 'options', kw)
+    state.home_power_buttons = [(buttons[0], 'on', 'Lights on'), (buttons[1], 'off', 'Lights off')]
+    state.update_power_highlights()
+    assert buttons[0].options['bg'] == 'neutral' and buttons[1].options['bg'] == panel.ACCENT
+    for field in ('pending', 'queued_intent', 'release_target', 'closing'):
+        setattr(state, field, True)
+        state.update_power_highlights()
+        assert all(button.options['bg'] == 'neutral' for button in buttons)
+        setattr(state, field, None)
+    state.light_state = 'failed'
+    state.update_power_highlights()
+    assert all(button.options['bg'] == 'neutral' for button in buttons)
+
+
+def test_advanced_navigation_and_wake_preserve_selected_tool():
+    state = panel.Panel.__new__(panel.Panel)
+    state.last_advanced_page, state.release_target, state.closing = 'scenes', None, None
+    shown = []
+    state.show = lambda mode, **kw: shown.append((mode, kw))
+    state.open_advanced()
+    assert shown[-1] == ('room', {'advanced_page': 'scenes'})
+    state.open_advanced('clock')
+    assert shown[-1] == ('settings', {'advanced_page': 'clock'})
+    state.blank_advanced_return, state.blank_return = 'screen', 'settings'
+    state.return_from_blank()
+    assert shown[-1] == ('settings', {'advanced_page': 'screen'})
+    state.idle_advanced_return, state.idle_return = 'scenes', ('room', 'channels')
+    state.idle_active = True
+    state.root = SimpleNamespace(focus_set=lambda: None)
+    state.return_from_idle()
+    assert shown[-1] == ('room', {'advanced_page': 'scenes'})
+    state.release_target = 'original'
+    state.open_advanced('white')
+    assert shown[-1] == ('room', {'advanced_page': 'scenes'})
+
+
 def journal_panel(journal, path):
     state = panel.Panel.__new__(panel.Panel)
     state.journal, state.args = journal, SimpleNamespace(journal=path)
