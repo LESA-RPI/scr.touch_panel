@@ -21,7 +21,10 @@ a:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .header { display: flex; align-items: center; gap: 24px; padding-block: 18px; }
 .brand { width: 140px; max-width: 100%; background: #fff; aspect-ratio: 5/4; overflow: hidden; flex-shrink: 0; }
 .brand img { display: block; width: 120%; height: auto; margin-left: -6%; margin-top: -20%; }
-.heading { flex: 1; min-width: 0; }
+.title-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.beta { color: var(--accent); background: #edf1f4; border-radius: 4px; padding: 3px 9px; font-size: .8rem; }
+.weather-details summary { color: var(--accent); font-size: .8rem; cursor: pointer; min-height: 44px; padding-block: 10px; }
+.heading { flex: 1; min-width: 0; padding-top: 18px; }
 .heading p { margin-top: 7px; color: var(--muted); }
 .trial { border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; font-size: .82rem; color: var(--muted); white-space: nowrap; }
 .navigation { display: flex; gap: 26px; border-block: 1px solid var(--line); }

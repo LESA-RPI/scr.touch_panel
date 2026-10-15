@@ -15,7 +15,8 @@ function weather(elapsed) {
   const value=info.data;
   if (!value) {
     text('weather-temperature','—'); text('weather-condition',info.state==='unconfigured'?'Weather not configured':'Weather unavailable');
-    text('weather-source','No sample values are substituted.');
+    text('weather-source','Weather is optional.');
+    text('weather-model','No weather reading is available.');
     if (byId('daylight')) byId('daylight').hidden=true;
     return;
   }
@@ -25,7 +26,8 @@ function weather(elapsed) {
   text('weather-temperature',`${Math.round(value.temperature_f)} °F`);
   text('weather-condition',value.condition);
   text('weather-secondary',`${Math.round(value.temperature_c)} °C · Troy outdoors`);
-  text('weather-source',`${stale?'Earlier weather · '+value.model_time.slice(0,10)+' · ':''}Weather as of ${localTime(value.model_time)} · Open-Meteo`);
+  text('weather-source',`${stale?'Earlier weather':'Weather'} · Open-Meteo`);
+  text('weather-model',`Model ${value.model_time.slice(0,10)} at ${localTime(value.model_time)} · Outdoor weather is separate from room sensors.`);
   const daylight=byId('daylight');
   if (!daylight) return;
   daylight.hidden=stale||value.sunrise.slice(0,10)!==today||value.sunset.slice(0,10)!==today;
@@ -40,7 +42,16 @@ function weather(elapsed) {
 }
 function render() {
   text('clock',roomTime.format(new Date())); text('date',roomDate.format(new Date()));
-  if (!snapshot) { badge(byId('connection'),failed?'Page connection lost':'Checking…',failed?'warning':''); return; }
+  if (!snapshot) {
+    badge(byId('connection'),failed?'Page connection lost':'Checking…',failed?'warning':'');
+    if (failed&&!diagnostic) {
+      text('weather-condition','Weather unavailable');
+      text('weather-source','Page connection lost. Weather will retry automatically.');
+      text('weather-model','No weather reading is available.');
+      if (byId('daylight')) byId('daylight').hidden=true;
+    }
+    return;
+  }
   const elapsed=Math.max(0,(performance.now()-receivedAt)/1000);
   if (!diagnostic) {
     weather(elapsed);
