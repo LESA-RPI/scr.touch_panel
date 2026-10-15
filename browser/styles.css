@@ -71,12 +71,32 @@ main { padding-block: 26px; }
 .guide-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 28px; }
 .guide p { margin-top: 8px; color: var(--muted); max-width: 85ch; }
 .guide-row { padding-block: 18px; border-bottom: 1px solid var(--line); }
+.everyday-home { padding-block: 38px 22px; }
+.everyday-layout { display: grid; grid-template-columns: minmax(0,.95fr) minmax(0,1.05fr); gap: 54px; align-items: center; min-height: 440px; }
+.essentials { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+.essential-group .eyebrow { margin-top: 7px; }
+.essential-actions { display: grid; gap: 14px; margin-top: 22px; }
+.essential-actions button { min-height: 106px; width: 100%; padding: 16px 8px; border: 0; border-radius: 7px; background: var(--soft); color: var(--muted); font: inherit; font-size: 1.25rem; }
+.essential-group .small { min-height: 44px; }
+.everyday-weather { border-left: 1px solid var(--line); padding-left: 40px; min-width: 0; }
+.everyday-weather .clock { font-size: clamp(3rem,6.6vw,5.5rem); }
+.everyday-date { font-size: 1.15rem; }
+.everyday-weather .weather-heading { margin-top: 30px; }
+.everyday-weather .weather-reading strong { font-size: 3.2rem; }
+.home-tools { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; padding-top: 22px; margin-top: 24px; border-top: 1px solid var(--line); }
+.home-tools a { display: inline-flex; align-items: center; min-height: 52px; padding: 10px 20px; border: 1px solid var(--line); border-radius: 6px; text-decoration: none; }
 @media(max-width:900px) {
+  .everyday-layout { gap: 30px; }
+  .everyday-weather { padding-left: 24px; }
   .brand { width: 120px; }
   .header { gap: 18px; }
   .service-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media(max-width:600px) {
+  .everyday-layout { grid-template-columns: 1fr; gap: 30px; }
+  .everyday-weather { border-left: 0; border-top: 1px solid var(--line); padding: 24px 0 0; }
+  .essential-actions button { min-height: 88px; font-size: 1.05rem; }
+  .home-tools a { padding-inline: 12px; }
   body { font-size: 16px; }
   .brand { width: 92px; }
   .header { display: grid; grid-template-columns: 92px minmax(0,1fr); gap: 8px 14px; }

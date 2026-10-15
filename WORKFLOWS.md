@@ -166,6 +166,11 @@ participant information, service-provider names, paths or private master address
 
 ### Independent website startup
 
+Home matches the cabinet's everyday layout, with stacked lights/blinds labels
+beside time and weather. All four website action buttons are disabled and have
+no handlers. Advanced · diagnostics opens the existing read-only diagnostics;
+Demo & guide opens the room guide. There are no new actuator endpoints or roles.
+
 Retain each published release under `~/scr-browser-status/releases/COMMIT` and
 point `~/scr-browser-status/current` to the selected release. This is separate from
 `~/scr-panel/current`. Stop an earlier standalone website only after checking its

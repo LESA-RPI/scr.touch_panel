@@ -44,7 +44,7 @@ function render() {
   const elapsed=Math.max(0,(performance.now()-receivedAt)/1000);
   if (!diagnostic) {
     weather(elapsed);
-    text('preview-note',snapshot.room.state==='unconfigured'?'Layout preview · Outdoor weather is real model data; no room connection is configured.':'Visitor overview · This page does not operate room equipment.');
+    text('preview-note',snapshot.room.state==='unconfigured'?'Local preview · No room connection is configured. Use the cabinet panel for controls.':'Use the cabinet panel for lighting. Blind controls are not enabled; this website operates no equipment.');
     return;
   }
   const sampleAge=snapshot.sample_age_s+elapsed, stale=failed||sampleAge>90;

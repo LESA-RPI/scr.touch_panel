@@ -55,8 +55,10 @@ The updated branch has different navigation and additional features.
 Run `python -B browser/serve.py` with Python 3.11 or newer, then open the printed
 local URL. No packages, build tools or room hardware are required. The page shows
 room time, this host's resources and optional advertised room-service availability.
-Overview introduces lighting, sensing and research, with clock and optional outdoor
-weather. Diagnostics is a separate view for actual host readings and room-interface
+Home follows the cabinet layout: stacked Lights and Blinds actions beside a large
+clock and optional outdoor weather. Website action buttons are disabled; lighting
+uses the cabinet panel and blinds are not enabled. Advanced · diagnostics and
+Demo & guide lead to separate views. Diagnostics shows actual host readings and room-interface
 registrations. Guide explains room use and failures. All three share fixed navigation,
 the original main LESA logo and a white surface. There are no appearance switches,
 storage cards or technical status on Overview. Phone, tablet and desktop layouts scroll
