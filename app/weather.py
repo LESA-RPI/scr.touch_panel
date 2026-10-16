@@ -30,9 +30,16 @@ def summary(data):
             condition = 'Thunderstorms'
         else:
             condition = 'Conditions unavailable'
-    return validate({'temperature_f': current['temperature_2m'], 'condition': condition,
-                     'code': code, 'sunrise': daily['sunrise'][0], 'sunset': daily['sunset'][0],
-                     'model_time': current['time']})
+    value = {'temperature_f': current['temperature_2m'], 'condition': condition,
+             'code': code, 'sunrise': daily['sunrise'][0], 'sunset': daily['sunset'][0],
+             'model_time': current['time']}
+    if current.get('apparent_temperature') is not None:
+        value['feels_like_f'] = current['apparent_temperature']
+    for source, key in [('temperature_2m_max', 'high_f'), ('temperature_2m_min', 'low_f'),
+                        ('precipitation_probability_max', 'rain_chance')]:
+        if daily.get(source) and daily[source][0] is not None:
+            value[key] = daily[source][0]
+    return validate(value)
 
 
 def local_time(text):
@@ -54,9 +61,41 @@ def validate(value):
     if local_time(value['sunrise']) >= local_time(value['sunset']):
         raise ValueError('Invalid daylight interval')
     code = int(value['code'])
-    return {'temperature_f': temperature, 'temperature_c': (temperature - 32) * 5.0 / 9,
+    result = {'temperature_f': temperature, 'temperature_c': (temperature - 32) * 5.0 / 9,
             'condition': value['condition'], 'code': code, 'sunrise': value['sunrise'],
             'sunset': value['sunset'], 'model_time': value['model_time']}
+    for key in ('feels_like_f', 'high_f', 'low_f', 'rain_chance'):
+        if value.get(key) is None:
+            continue
+        extra = float(value[key])
+        if math.isnan(extra) or math.isinf(extra) or isinstance(value[key], bool):
+            raise ValueError('Invalid weather detail')
+        if key == 'rain_chance' and not 0 <= extra <= 100:
+            raise ValueError('Invalid precipitation probability')
+        result[key] = extra
+        if key.endswith('_f'):
+            result[key[:-1] + 'c'] = (extra - 32) * 5.0 / 9
+    if 'high_f' in result and 'low_f' in result and result['low_f'] > result['high_f']:
+        raise ValueError('Invalid daily temperature range')
+    return result
+
+
+def details(value, unit='f', earlier=False):
+    """Compact optional forecast details; never present old daily values as today's."""
+    if earlier:
+        return 'Earlier weather: ' + value['model_time'].replace('T', ' ')
+    lines = []
+    if 'feels_like_' + unit in value:
+        lines.append(u'Feels like %.0f° %s' % (value['feels_like_' + unit], unit.upper()))
+    daily = []
+    for label, key in [('High', 'high_'), ('Low', 'low_')]:
+        if key + unit in value:
+            daily.append(label + (u' %.0f°' % value[key + unit]))
+    if 'rain_chance' in value:
+        daily.append('Rain today %.0f%%' % value['rain_chance'])
+    if daily:
+        lines.append(u' · '.join(daily))
+    return '\n'.join(lines)
 
 
 def daylight(value, now):
@@ -78,7 +117,8 @@ def daylight(value, now):
 def fetch(latitude, longitude, timezone):
     url = 'https://api.open-meteo.com/v1/forecast?' + urlencode({
         'latitude': latitude, 'longitude': longitude, 'timezone': timezone,
-        'current': 'temperature_2m,weather_code', 'daily': 'sunrise,sunset',
+        'current': 'temperature_2m,weather_code,apparent_temperature',
+        'daily': 'sunrise,sunset,temperature_2m_max,temperature_2m_min,precipitation_probability_max',
         'temperature_unit': 'fahrenheit', 'forecast_days': 1})
     response = urlopen(url, timeout=5)
     try:

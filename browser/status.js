@@ -17,6 +17,8 @@ function weather(elapsed) {
     text('weather-temperature','—'); text('weather-condition',info.state==='unconfigured'?'Weather not configured':'Weather unavailable');
     text('weather-source','Weather is optional.');
     text('weather-model','No weather reading is available.');
+    text('weather-secondary','Outdoor weather is separate from room sensors.');
+    text('weather-daily','');
     if (byId('daylight')) byId('daylight').hidden=true;
     return;
   }
@@ -25,9 +27,14 @@ function weather(elapsed) {
   const stale=failed||info.state!=='available'||!numeric(info.observation_age_s)||info.observation_age_s+elapsed>1800||value.model_time.slice(0,10)!==today;
   text('weather-temperature',`${Math.round(value.temperature_f)} °F`);
   text('weather-condition',value.condition);
-  text('weather-secondary',`${Math.round(value.temperature_c)} °C · Troy outdoors`);
-  text('weather-source',`${stale?'Earlier weather':'Weather'} · Open-Meteo`);
-  text('weather-model',`Model ${value.model_time.slice(0,10)} at ${localTime(value.model_time)} · Outdoor weather is separate from room sensors.`);
+  text('weather-secondary',stale?'Earlier outdoor reading':numeric(value.feels_like_f)?`Feels like ${Math.round(value.feels_like_f)} °F`:`${Math.round(value.temperature_c)} °C · Troy outdoors`);
+  const daily=[];
+  if (numeric(value.high_f)) daily.push(`High ${Math.round(value.high_f)}°`);
+  if (numeric(value.low_f)) daily.push(`Low ${Math.round(value.low_f)}°`);
+  if (numeric(value.rain_chance)) daily.push(`Rain today ${Math.round(value.rain_chance)}%`);
+  text('weather-daily',stale?'':daily.join(' · '));
+  text('weather-source',stale?'Earlier weather':'');
+  text('weather-model',`Open-Meteo · Model ${value.model_time.slice(0,10)} at ${localTime(value.model_time)} · Outdoor weather is separate from room sensors.`);
   const daylight=byId('daylight');
   if (!daylight) return;
   daylight.hidden=stale||value.sunrise.slice(0,10)!==today||value.sunset.slice(0,10)!==today;

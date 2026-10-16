@@ -57,7 +57,8 @@ local URL. No packages, build tools or room hardware are required. The page show
 room time, this host's resources and optional advertised room-service availability.
 Home follows the cabinet layout: stacked Lights and Blinds actions beside a large
 clock and optional outdoor weather. The shared header identifies Beta. Weather
-keeps a short source credit with model provenance under Weather details, and marks
+shows feels-like temperature, today's high/low and rain chance when available.
+Source credit and model provenance stay under Weather details. It marks
 earlier readings or a lost page connection. Website action buttons are disabled; lighting
 uses the cabinet panel and blinds are not enabled. Advanced · diagnostics and
 Demo & guide lead to separate views. Diagnostics shows actual host readings and room-interface
