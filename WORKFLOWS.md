@@ -218,6 +218,50 @@ Theme times use the panel process's configured timezone. Auto changes wait for
 appearance, date/time, schedule and screen rows. Font and study defaults are launch
 configuration; no separate settings service is needed.
 
+## Reliable operation and maintenance
+
+Coordinate with other room users before maintenance or power actions, including
+recordings started on other computers. The website shares the panel's command
+owner; it does not own ROS devices independently. Keep room-server maintenance
+separate from restarting this Pi or its website.
+
+Desktop autostart starts the panel after login, and the launcher lock rejects a
+duplicate instance. This is not automatic recovery from a panel crash. The website's
+separate user service restarts on failure after 15 seconds; a missing panel leaves
+room controls unavailable. Before manually relaunching a crashed panel, inspect
+its last receipt and verify the current owner. Do not repeat uncertain commands.
+
+Restart and shut-down controls require explicit confirmation that the room is ready.
+They use the same panel owner from touch and the trusted-network website. Only
+fixed OS actions authorized by [existing system policy](https://github.com/systemd/systemd/blob/v252/man/org.freedesktop.login1.xml) are eligible; the panel does
+not install privilege rules or execute arbitrary commands. An authentication
+challenge alone is insufficient for unattended execution. Existing narrowly
+authorized noninteractive operator commands may supply an alternative. An unavailable
+action requires the operator's normal desktop or administration workflow.
+
+Before requesting OS power changes, finish lighting operations, confirm restoration
+and helper exit, and wait for saved preferences and the event journal to finish.
+Uncertain restoration or a persistence error blocks the action. Do not use forced
+shutdown or a direct power cut as the normal procedure. An accepted restart is
+not proof of a successful boot: check desktop autostart, one panel/controller,
+website availability and the new release identity afterward.
+
+Use a [suitable power supply and cable](https://www.raspberrypi.com/documentation/computers/raspberry-pi.html#power-supply)
+and keep a verified backup off the Pi.
+File and directory synchronization improves saved-preference durability, but
+sudden power loss can still damage storage or interrupt an unconfirmed hardware
+operation. After an outage, preserve receipts, establish a fresh baseline and
+verify room state before controlling again. A real power-cycle and recovery test
+requires an available operator and a maintenance window.
+
+Keep SSH keys and the explicit trusted-network allowlist; do not expose room control
+through public port forwarding. Review OS/security updates in planned maintenance
+windows and recheck Python/Tk, startup, fonts and room connectivity afterward.
+Enabled APT timers alone do not establish that security upgrades are installed;
+[Debian's update guidance](https://wiki.debian.org/PeriodicUpdates) explains the
+separate configuration. Retain recovery receipts before managing log growth;
+the append-only panel logs need an explicit retention or rotation policy.
+
 ## Fresh Raspberry Pi OS
 
 The fresh-install profile uses Raspberry Pi OS Legacy 32-bit (Bookworm) on Pi 3.
@@ -273,11 +317,12 @@ dependencies. Do not infer working demos or physical blind motion from UI startu
 
 ## Additional surfaces — agreed direction
 
-The current client is Tk. A browser gateway/client is planned, not implemented.
-Initial access stays on the room network. Support touch tablets/iPads and keyboard/
-mouse desktops through responsive browser layouts and the same room capabilities.
-Keep navigation, units, feedback and theme semantics consistent across clients;
-screen geometry does not need to be identical.
+Tk owns connected commands. The optional browser gateway already provides the
+shared controls, preferences and guidance on the configured trusted room network,
+with responsive tablet, desktop and phone layouts. Navigation, units, feedback and
+theme semantics are shared; screen geometry can differ. Finer access roles below
+remain a proposed direction; the current website admits everyone on its configured
+trusted subnet.
 
 | Role | Intended access |
 |---|---|

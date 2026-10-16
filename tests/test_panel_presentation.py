@@ -93,13 +93,23 @@ def slider_canvas(monkeypatch):
             self.shapes[key].update(options)
             self.mutations.append(('configure', key))
     interpreter = tk.Tcl()
+    created = []
     def create(vertical=False):
         variable = tk.IntVar(master=interpreter, value=50)
         slider = Canvas(None, variable, 100 if vertical else 0,
                         0 if vertical else 100, 1, 'vertical' if vertical else 'horizontal',
                         'background', 'track', 'accent', 'border', 'ink')
+        created.append(slider)
         return slider
-    return create
+    yield create
+    # Real Tcl variable traces retain callbacks and the fake canvas. Break those
+    # cycles on this owning thread before later worker tests can trigger GC.
+    for slider in created:
+        if slider.variable is not None:
+            if slider.variable.trace_info():slider.cleanup(SimpleNamespace(widget=slider))
+            slider.variable = None
+        slider.bindings.clear()
+    created.clear()
 
 
 @pytest.mark.parametrize('vertical', [False, True])

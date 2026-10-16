@@ -31,6 +31,8 @@ from panel_guides import DEMO, SUPPORT, connection
 from command_reference import command_tokens
 from help_reference import reference
 from room_controls import LIGHTING_TABS, SCENES, PROGRAMMES, BLIND_ACTIONS, blind_readiness
+from panel_power import PowerActions
+from panel_version import VERSION, BUILD_COMMIT
 try:
     import Tkinter as tk
     from tkFont import Font
@@ -257,6 +259,11 @@ class Panel(object):
         self.home_power_buttons = []
         self.scene_buttons = []
         self.light_buttons = []
+        self.power = PowerActions(enabled=sys.platform.startswith('linux') and not args.windowed
+                                  and args.live_lights and bool(args.journal))
+        self.power_deadline = self.power_sequence = None
+        self.power_cleanup_confirmed = self.power_checkpoint_saved = False
+        self.power_dialog, self.power_buttons = None, []
         self.last_heartbeat, self.request_seq = -10, 0
         self.journal = EventJournal(args.journal, sys.stdout)
         self.pending_annotation = None
@@ -272,7 +279,7 @@ class Panel(object):
                 if self.journal:
                     self.journal.close()
                 raise ValueError('Shorten profile %s text to fit the touch layout' % key)
-        self.root.title('LESA Smart Conference Room (beta)')
+        self.root.title('LESA Smart Conference Room · ' + VERSION)
         if (self.root.winfo_screenwidth(), self.root.winfo_screenheight()) != (1280, 800) and not args.windowed:
             self.root.destroy()
             raise ValueError('Expected 1280x800; use --windowed for local review')
@@ -304,6 +311,7 @@ class Panel(object):
         self.weather_condition = tk.StringVar(value='Weather unavailable')
         self.annotation_text = tk.StringVar(value=('Annotations belong to the panel journal, separate from recordings.'
                                                   if args.journal else 'Annotations go to panel output only. No recording starts.'))
+        self.power_text = tk.StringVar(value=self.power.message)
         self.artwork = None
         if args.logo:
             from PIL import Image
@@ -355,7 +363,7 @@ class Panel(object):
                       instruction=self.profile['stages'][self.stage], recording=False)
         line = json.dumps(values, sort_keys=True) + '\n'
         try:
-            self.journal.append(line, self.sequence, durable=event == 'annotation')
+            self.journal.append(line, self.sequence, durable=event in ('annotation', 'power_requested'))
         except (IOError, OSError) as error:
             if event == 'annotation':
                 raise
@@ -454,7 +462,7 @@ class Panel(object):
 
     def idle_eligible(self):
         return (self.idle_timeout > 0 and self.mode in ('room', 'advanced', 'settings', 'health', 'guide', 'support', 'about')
-                and self.light_state in ('ready', 'disconnected') and not self.running
+                and self.light_state in ('ready', 'disconnected') and not self.running and not self.power_busy()
                 and not any((self.pending, self.queued_intent, self.intent_timer, self.slider_drag,
                              self.release_target, self.closing, self.press_active)))
 
@@ -583,9 +591,9 @@ class Panel(object):
         identity = tk.Frame(self.banner, bg=self.bg)
         identity.pack(side='left', anchor='s')
         self.label(identity, 'Smart Conference Room', 32).pack(side='left', anchor='s')
-        beta = self.label(identity, 'Beta', 16)
-        beta.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
-        beta.pack(side='left', anchor='s', padx=(12, 0), pady=(0, 10))
+        badge = self.label(identity, VERSION, 16)
+        badge.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
+        badge.pack(side='left', anchor='s', padx=(12, 0), pady=(0, 10))
         self.clock = self.label(self.banner, size=17, muted=True)
         navigation = tk.Frame(self.banner, bg=self.bg, width=444, height=64)
         navigation.pack(side='right')
@@ -642,9 +650,9 @@ class Panel(object):
         identity = tk.Frame(top, bg=self.bg)
         identity.pack(side='left', anchor='s')
         self.label(identity, 'Smart Conference Room', 32).pack(side='left', anchor='s')
-        beta = self.label(identity, 'Beta', 16)
-        beta.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
-        beta.pack(side='left', anchor='s', padx=(12, 0), pady=(0, 10))
+        badge = self.label(identity, VERSION, 16)
+        badge.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
+        badge.pack(side='left', anchor='s', padx=(12, 0), pady=(0, 10))
         navigation = tk.Frame(top, bg=self.bg, width=444, height=64)
         navigation.pack(side='right')
         navigation.pack_propagate(False)
@@ -694,7 +702,7 @@ class Panel(object):
                     button.config(text=label, fg=ink, activeforeground=ink, image=self.icon(icon, ink))
 
     def show(self, mode, advanced_page=None):
-        if self.release_target is not None or self.closing:
+        if self.release_target is not None or self.closing or self.power_busy():
             return
         if mode == 'advanced':
             self.open_advanced()
@@ -1509,6 +1517,7 @@ class Panel(object):
         self.update_session()
 
     def start_preview(self):
+        if self.power_busy():return
         if not self.running:
             self.run_started, self.running = monotonic(), True
             self.emit('practice_started')
@@ -1556,7 +1565,16 @@ class Panel(object):
 
     def system_contents(self):
         self.health_rendered = None
-        self.label(self.body, 'System & help', 27).pack(anchor='w', pady=(0, 8))
+        heading = tk.Frame(self.body, bg=self.bg, height=50)
+        heading.pack(fill='x', pady=(0, 8));heading.pack_propagate(False)
+        self.label(heading, 'System & help', 27).pack(side='left')
+        self.power_buttons = []
+        for operation, title in (('shutdown', 'Shut down Pi'), ('reboot', 'Restart Pi')):
+            button = self.button(heading, title, lambda operation=operation:self.confirm_power(operation))
+            button.config(font=(FONT, 15), pady=8, padx=12)
+            button.pack(side='right', padx=(12, 0), fill='y')
+            self.power_buttons.append((button, operation))
+        self.poll_power()
         if not self.support_commands_visible:
             self.label(self.body, 'Read-only checks. Available services may not be producing sensor data.', 15, True).pack(anchor='w', pady=(0, 10))
         overview = tk.Frame(self.body, bg=self.bg)
@@ -1652,6 +1670,121 @@ class Panel(object):
             self.row_buttons(content, [('Back to guidance' if show_commands else 'View command steps',
                                         self.toggle_support_commands, False)], height=60)
         self.update_health()
+
+    def power_busy(self):
+        return bool(getattr(self, 'power', None) and self.power.busy)
+
+    def power_snapshot(self):
+        power = getattr(self, 'power', None)
+        if power is None:
+            return {'available':False, 'actions':{'reboot':False,'shutdown':False},
+                    'phase':'unavailable', 'message':'Power controls unavailable.'}
+        actions = {name: bool(power and name in power.commands) for name in ('reboot', 'shutdown')}
+        clear = (self.mode != 'original' and not self.running and self.light_state == 'ready'
+                 and self.worker is not None and not any((self.pending, self.queued_intent,
+                     self.intent_timer, self.slider_drag, self.release_target, self.closing)))
+        available = bool(power and power.phase == 'ready' and clear)
+        message = power.message if power else 'Power controls unavailable.'
+        if power and power.phase == 'ready' and not clear:
+            message = 'Pause instructions and wait for confirmed lighting before restarting or shutting down.'
+        return {'available': available, 'actions': actions, 'phase': power.phase if power else 'unavailable', 'message': message}
+
+    def confirm_power(self, operation):
+        state = self.power_snapshot()
+        if not state['available'] or not state['actions'].get(operation):
+            self.status_text.set(state['message']);return
+        if self.power_dialog is not None and self.power_dialog.winfo_exists():return
+        dialog = self.power_dialog = tk.Toplevel(self.root)
+        dialog.title('Restart panel' if operation == 'reboot' else 'Shut down panel')
+        dialog.geometry('860x440+210+180');dialog.overrideredirect(True)
+        dialog.configure(bg=self.bg, highlightthickness=1, highlightbackground=self.border)
+        dialog.transient(self.root);dialog.grab_set()
+        content = tk.Frame(dialog, bg=self.bg)
+        content.pack(fill='both', expand=True, padx=32, pady=28)
+        self.label(content, 'Restart this Pi?' if operation == 'reboot' else 'Shut down this Pi?', 27).pack(anchor='w', pady=(0, 16))
+        note = self.label(content, 'This interrupts the touch panel and website. The room computer and its recorders are separate. Stop any recording or experiment first.', 20)
+        self.wrap_label(note).pack(fill='x')
+        acknowledged = tk.BooleanVar(value=False)
+        acknowledgement = tk.Checkbutton(content, text='I have stopped any recording or experiment', variable=acknowledged,
+            font=(FONT, 18), bg=self.bg, fg=self.ink, selectcolor=self.control,
+            activebackground=self.bg, activeforeground=self.ink, highlightthickness=0, anchor='w', pady=14)
+        acknowledgement.pack(fill='x', pady=(12, 0))
+        message = self.label(content, size=17, muted=True)
+        message.config(textvariable=self.power_text);self.wrap_label(message).pack(fill='x', pady=8)
+        def cancel():
+            if not self.power_busy():
+                dialog.grab_release();dialog.destroy();self.power_dialog=None
+        def confirm():
+            if not acknowledged.get():return
+            try:self.request_power(operation, confirmed=True)
+            except (ValueError, RuntimeError) as error:
+                self.power_text.set(str(error));return
+            acknowledgement.config(state='disabled')
+            buttons[0].config(state='disabled')
+            buttons[1].config(state='disabled', disabledforeground=self.selected_ink)
+        buttons = self.row_buttons(content, [('Close', cancel, False),
+            ('Restart panel' if operation == 'reboot' else 'Shut down panel', confirm, True)], height=60)
+        self.power_dialog_close = buttons[0]
+        def update_confirmation():
+            checked = acknowledged.get()
+            buttons[1].config(state='normal' if checked else 'disabled',
+                bg=self.accent if checked else self.control,
+                fg=self.selected_ink if checked else self.ink,
+                highlightbackground=self.accent if checked else self.border)
+        update_confirmation()
+        acknowledgement.config(command=update_confirmation)
+        dialog.protocol('WM_DELETE_WINDOW', cancel)
+
+    def request_power(self, operation, confirmed=False):
+        state = self.power_snapshot()
+        if confirmed is not True or operation not in ('reboot', 'shutdown'):
+            raise ValueError('Explicit power confirmation is required.')
+        if not state['available'] or not state['actions'][operation]:
+            raise RuntimeError(state['message'])
+        if self.idle_active:self.return_from_idle()
+        self.power.prepare(operation)
+        self.power_deadline = monotonic() + 45
+        self.power_cleanup_confirmed = self.power_checkpoint_saved = False
+        self.power_sequence = None
+        self.release_target = 'power'
+        self.emit('power_selected', operation=operation)
+        if not self.request('release'):
+            self.release_target = None
+            self.power.fail('Lighting cleanup could not start. Power action cancelled.')
+        self.poll_power()
+
+    def poll_power(self):
+        power = getattr(self, 'power', None)
+        if power is None:return
+        if power.busy and power.phase != 'executing' and monotonic() >= self.power_deadline:
+            power.fail('Cleanup did not finish. Power action cancelled; check the panel.')
+        if power.phase == 'saving':
+            preferences = getattr(self, 'preferences', None)
+            if self.journal.error or (preferences and preferences.error):
+                power.fail('Local state could not be saved. Power action cancelled.')
+            elif self.power_checkpoint_saved and (preferences is None or preferences.settled.is_set()):
+                power.execute()
+        set_changed(self.power_text, self.power_snapshot()['message'])
+        state = self.power_snapshot()
+        if power.busy or power.phase == 'failed' or (self.mode == 'health' and self.advanced_page == 'system'):
+            set_changed(self.status_text, state['message'])
+        for button, operation in getattr(self, 'power_buttons', []):
+            if button.winfo_exists():
+                style = 'normal' if state['available'] and state['actions'][operation] else 'disabled'
+                if button.cget('state') != style:button.config(state=style)
+        close_button = getattr(self, 'power_dialog_close', None)
+        if close_button is not None and close_button.winfo_exists():
+            style = 'disabled' if power.busy else 'normal'
+            if close_button.cget('state') != style:close_button.config(state=style)
+
+    def power_after_release(self, returncode):
+        if self.power.phase != 'restoring':return
+        if not self.power_cleanup_confirmed or returncode != 0:
+            self.power.fail('Lighting cleanup is unconfirmed. Power action cancelled.');return
+        self.power.phase = 'saving'
+        self.power.message = 'Saving local state before ' + ('restart…' if self.power.operation == 'reboot' else 'shutdown…')
+        try:self.power_sequence = self.emit('power_requested', operation=self.power.operation)
+        except (IOError, OSError):self.power.fail('Power request could not be saved. Power action cancelled.')
 
     def open_guide(self):
         self.guide_page = -1
@@ -1925,7 +2058,8 @@ class Panel(object):
 
     def about_contents(self, parent):
         self.label(parent, 'Smart Conference Room', 27).pack(anchor='w', pady=(0, 8))
-        self.label(parent, 'Touch panel · Beta mode', 20, True).pack(anchor='w', pady=(0, 28))
+        self.label(parent, 'Touch panel · ' + VERSION, 20, True).pack(anchor='w', pady=(0, 28))
+        if BUILD_COMMIT:self.label(parent, 'Build ' + BUILD_COMMIT, 15, True).pack(anchor='w', pady=(0, 16))
         self.label(parent, 'Built by Diyanko Bhowmik', 21).pack(anchor='w', pady=(0, 10))
         note = self.label(parent, 'Original contributors are credited in the repository history.', 17, True)
         self.wrap_label(note).pack(fill='x', pady=(0, 22))
@@ -2007,6 +2141,7 @@ class Panel(object):
         if journal is None:
             return
         for sequence in journal.poll():
+            if sequence == getattr(self, 'power_sequence', None):self.power_checkpoint_saved = True
             if self.pending_annotation and sequence == self.pending_annotation[0]:
                 unused, label, timestamp = self.pending_annotation
                 text = 'Saved on panel' if self.args.journal else 'Written to panel output only'
@@ -2025,6 +2160,7 @@ class Panel(object):
         if getattr(self, 'mode', None) == 'health' and getattr(self, 'health_pending', None) is not None:
             self.update_health()
         self.poll_journal()
+        self.poll_power()
         self.poll_status()
         self.poll_weather()
         worker = self.worker
@@ -2099,6 +2235,10 @@ class Panel(object):
                 self.lighting_feedback(detail)
                 self.status_text.set('' if state in ('ready', 'completed') else detail)
                 if action == 'release':
+                    if getattr(self, 'power', None) and self.power.phase == 'restoring':
+                        if state == 'released' and response.get('restored') is True:
+                            self.power_cleanup_confirmed = True
+                        else:self.power.fail('Lighting cleanup is unconfirmed. Power action cancelled.')
                     if state == 'failed':
                         self.release_target = None
                         self.status_text.set('Restore unconfirmed. Stay here; inspect the receipt before further control.')
@@ -2125,6 +2265,8 @@ class Panel(object):
                     return
                 if target == 'original':
                     self.show('original')
+                elif target == 'power':
+                    self.power_after_release(worker.returncode)
                 self.update_light_buttons()
         self.root.after(100, self.poll_worker)
 
@@ -2189,6 +2331,8 @@ class Panel(object):
         if self.keep_switcher and reason in ('exit', 'timeout', 'escape', 'window_close'):
             self.show('original')
             return
+        if self.power_busy() and self.power.phase != 'executing':
+            self.power.fail('Power action cancelled while the panel is closing.')
         self.closing = reason
         if getattr(self, 'control_bridge', None):
             self.control_bridge.close()
@@ -2249,7 +2393,7 @@ class Panel(object):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--duration', type=float, default=600, help='Trial lifetime: 1..1800 s; 0 requires --keep-switcher')
-    parser.add_argument('--keep-switcher', action='store_true', help='Keep touch navigation above Original after leaving the beta')
+    parser.add_argument('--keep-switcher', action='store_true', help='Keep touch navigation above Original after leaving the new interface')
     parser.add_argument('--start-mode', choices=['room', 'original'], default='room', help='Initial view with --keep-switcher')
     parser.add_argument('--control-socket', help='Private local socket for the optional trusted-network browser gateway')
     parser.add_argument('--profile', help='Data-only JSON: title, sensors, stages, annotations')

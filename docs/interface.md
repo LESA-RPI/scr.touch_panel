@@ -143,6 +143,16 @@ that subnet can control the room; there is no separate user identity system.
 `/api/status` and diagnostics remain observation-only. Service-start and restart
 references are display/copy text, never command actions.
 
+Pi power actions use `power` with exactly `operation` (`reboot` or `shutdown`)
+and `confirmed: true`. They share the existing network and revision checks.
+The owner refuses busy, running-instruction, Legacy and uncertain-light states,
+then requires confirmed restoration, helper exit, saved preferences and a durable
+power-request record before one fixed OS command. Existing noninteractive
+permission and OS inhibitors are respected; no new privilege rule or automatic
+retry is installed. These actions affect this Pi and website, not room computers
+or recorders. Optional `power`, `app_version` and `build_commit` snapshot fields
+describe availability and About information without changing schema version 1.
+
 `app/design_tokens.py` owns theme roles. `app/export_room_content.py` exports the
 panel-owned guide/help and Lucide paths for browser fallback and offline demos.
 The live snapshot supplies current preferences, controls, receipts, guide/help and
@@ -164,7 +174,7 @@ adapter is not implemented. No individual target picker is exposed yet.
 
 The intended extension keeps All as the default. An optional individual-controls
 setting would reveal only verified device names/groups reported by the owning
-adapter. Selecting a target must not send a command. Home's power shortcuts must
+adapter. Selecting a target must not send a command. Home's lighting shortcuts must
 always address All, and opening a new session must not inherit a previous narrow
 target. Window groups need an explicit mapping; client list order is not a room map.
 

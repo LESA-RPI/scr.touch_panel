@@ -3,14 +3,18 @@ from panel_guides import DEMO, SUPPORT
 from command_reference import command_tokens
 from help_reference import reference
 import time
+from panel_version import VERSION, BUILD_COMMIT
 
 
 def snapshot(panel):
-    busy=bool(panel.pending or panel.queued_intent or panel.release_target or panel.closing or panel.press_active)
+    busy=bool(panel.pending or panel.queued_intent or panel.release_target or panel.closing or panel.press_active
+              or getattr(panel,'power_busy',lambda:False)())
     lighting=bool(panel.args.live_lights and panel.light_state=='ready' and not busy and not panel.running
                   and (panel.mode=='room' or panel.idle_active))
     elapsed=panel.elapsed+(time.monotonic()-panel.run_started if panel.running else 0)
-    return {'version':1,'session':panel.run_id,'timezone':panel.args.timezone,'revision':'%s:%s:%s'%(panel.run_id,panel.sequence,panel.view_generation),
+    return {'version':1,'app_version':VERSION,'build_commit':BUILD_COMMIT,
+            'power':getattr(panel,'power_snapshot',lambda:None)(),
+            'session':panel.run_id,'timezone':panel.args.timezone,'revision':'%s:%s:%s'%(panel.run_id,panel.sequence,panel.view_generation),
             'mode':panel.mode,'busy':busy,'can_control':lighting,'can_session':not busy and panel.mode!='original',
             'lights':{'state':panel.light_state,'power':panel.confirmed_power if lighting else None,
                       'scene':panel.confirmed_scene if lighting else None,'cct':panel.cct.get(),
@@ -68,6 +72,7 @@ def execute(panel, request):
         if panel.running and action!='home':raise RuntimeError('Pause the instructions before switching the panel.')
         if action=='home':panel.open_home()
         else:panel.show({'legacy':'original','blank':'black','clock_view':'visitor'}[action])
+    elif action=='power':panel.request_power(args['operation'],confirmed=args['confirmed'])
     elif action=='schedule':panel.adjust_schedule(args['which'],args['delta'])
     else:
         methods={'theme':panel.choose_theme,'clock':panel.choose_clock,'temperature':panel.choose_temperature,

@@ -28,7 +28,7 @@ def command(value):
               'cct':('cct','intensity'), 'preset':('name',), 'channels':('values',),
               'theme':('value',), 'clock':('value',), 'temperature':('value',),
               'idle':('value',), 'blinds_display':('value',), 'blinds_enabled':('value',), 'blind':('name',), 'tips':('value',),
-              'schedule':('which','delta')}
+              'schedule':('which','delta'), 'power':('operation','confirmed')}
     if not isinstance(action, str) or action not in shapes or set(args) != set(shapes[action]):
         raise ValueError('Unsupported command or arguments')
     def integer(key, low, high):
@@ -45,6 +45,7 @@ def command(value):
         key = 'name' if action in ('preset','blind') else 'value'
         valid = type(args[key]) is type(choices[action][0]) and args[key] in choices[action]
     if action == 'mark': valid = isinstance(args['label'], str) and 1 <= len(args['label']) <= 100
+    if action == 'power': valid = args['operation'] in ('reboot','shutdown') and args['confirmed'] is True
     if action == 'schedule': valid = args['which'] in ('light_at','dark_at') and type(args['delta']) is int and args['delta'] in (-30,30)
     if not valid:
         raise ValueError('Command values are out of range')
