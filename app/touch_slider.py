@@ -114,7 +114,7 @@ class TouchSlider(tk.Canvas):
             self.draw()
 
     def key(self, event):
-        if self.cget('state') == 'disabled' or event.keysym not in ('Left','Right','Up','Down','Home','End'):
+        if not self.winfo_ismapped() or self.cget('state') == 'disabled' or event.keysym not in ('Left','Right','Up','Down','Home','End'):
             return
         low, high = sorted((self.start, self.end))
         value = low if event.keysym == 'Home' else high if event.keysym == 'End' else (

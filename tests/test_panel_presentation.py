@@ -76,6 +76,7 @@ def slider_canvas(monkeypatch):
         def cget(self, option):return self.options[option]
         def winfo_width(self):return self.options['width']
         def winfo_height(self):return self.options['height']
+        def winfo_ismapped(self):return getattr(self, 'mapped', True)
         def focus_get(self):return self if self.focused else None
         def focus_set(self):self.focused = True
         def create_line(self, *coords, **options):return self.create_shape(coords, options)
@@ -171,3 +172,15 @@ def test_slider_destroy_removes_its_variable_trace(slider_canvas):
     slider.mutations.clear()
     slider.variable.set(75)
     assert slider.mutations == []
+
+
+def test_hidden_retained_slider_ignores_keys_until_shown(slider_canvas):
+    slider = slider_canvas()
+    calls = []
+    slider.command = calls.append
+    slider.mapped = False
+    slider.key(SimpleNamespace(keysym='Right'))
+    assert slider.variable.get() == 50 and calls == []
+    slider.mapped = True
+    slider.key(SimpleNamespace(keysym='Right'))
+    assert slider.variable.get() == 51 and calls == ['51']

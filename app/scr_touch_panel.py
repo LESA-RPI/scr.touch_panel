@@ -831,6 +831,7 @@ class Panel(object):
                 raise
         self.body_key = key
         previous.pack_forget()
+        self.root.focus_set()
         self.body.pack(fill='both', expand=True, padx=24)
         if old_key is None or old_key == key:
             self.body_cache.pop(old_key, None)
@@ -958,6 +959,7 @@ class Panel(object):
             self.__dict__.update(references)
             self.refresh_page()
             if previous is not None:previous.pack_forget()
+            self.root.focus_set()
             detail.pack(side='left', fill='both', expand=True, pady=(10, 0))
             self.advanced_detail, self.advanced_detail_key = detail, key
             if old_key is None and previous is not None:previous.destroy()
@@ -985,6 +987,7 @@ class Panel(object):
             self.body = shell
         if previous is not None:
             previous.pack_forget()
+        self.root.focus_set()
         detail.pack(side='left', fill='both', expand=True, pady=(10, 0))
         self.advanced_detail = detail
         self.advanced_detail_key = key
