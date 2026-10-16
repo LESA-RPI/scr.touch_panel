@@ -206,3 +206,23 @@ def test_gateway_relays_confirmed_panel_power_to_its_existing_owner(server, oper
     code,body,_=request(server,'POST','/api/command',headers,json.dumps(value))
     assert code==202 and json.loads(body)['id']==value['id']
     assert owner.calls==[value]
+
+
+def test_unreadable_panel_reply_is_reported_as_unknown_not_rejected(server):
+    class Owner:
+        def exchange(self, value):
+            raise ValueError('Invalid panel reply')  # the command may already be applied
+    server.controller=Owner();server.control_nonce='reply-test-nonce'
+    headers={'Origin':'http://'+server.expected_host,'X-SCR-Token':'reply-test-nonce',
+             'Content-Type':'application/json'}
+    value={'id':'unreadable-reply-0001','revision':'one','action':'off','arguments':{}}
+    code,body,_=request(server,'POST','/api/command',headers,json.dumps(value))
+    assert code==503 and b'receipt unknown' in body
+
+
+def test_static_artwork_is_cached_but_live_pages_are_not(server):
+    assert request(server,'GET','/fonts/Cantarell-Regular.otf')[2]['Cache-Control']=='max-age=86400'
+    assert request(server,'GET','/room.js')[2]['Cache-Control']=='no-store'
+    for path in ('/tools','/guide'):
+        code,body,_=request(server,'GET',path)
+        assert code==200 and body==request(server,'GET','/')[1]
