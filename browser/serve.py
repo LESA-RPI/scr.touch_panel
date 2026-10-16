@@ -255,6 +255,16 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
     def respond(self, status, data=b'', content_type='text/plain'):
+        # Closing with an unread body can reset the connection before the client
+        # receives its rejection. Discard only a bounded, explicitly sized body.
+        if self.command not in ('GET','HEAD') and not getattr(self,'body_consumed',False):
+            self.body_consumed=True
+            try:
+                length=int(self.headers.get('Content-Length','0'))
+                if 0<length<=4096 and not self.headers.get('Transfer-Encoding'):
+                    self.rfile.read(length)
+            except (ValueError,OSError):
+                pass
         self.send_response(status)
         self.send_header('Content-Type', content_type + ('' if content_type.startswith('image/') else '; charset=utf-8'))
         self.send_header('Content-Length', str(len(data)))
@@ -305,6 +315,7 @@ class Handler(BaseHTTPRequestHandler):
             if (not 1<=length<=4096 or self.headers.get('Transfer-Encoding') or
                 self.headers.get('Content-Type')!='application/json'):
                 raise ValueError('Invalid command body')
+            self.body_consumed=True
             value=json.loads(self.rfile.read(length))
             if not isinstance(value,dict):raise ValueError('Invalid command')
             reply=gateway.exchange(value)
