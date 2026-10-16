@@ -1,5 +1,6 @@
 """Pinned Lucide artwork shared by panel controls and weather presentations."""
 from pathlib import Path
+from design_tokens import THEMES, WEATHER_ACCENTS
 
 ASSETS = Path(__file__).resolve().parents[1] / 'assets' / 'icons'
 KINDS = {'room': 'sliders-horizontal', 'advanced': 'sliders-horizontal',
@@ -43,8 +44,6 @@ def weather_kind(code, night=False):
 def weather(name, theme, size):
     from PIL import Image
     with Image.open(str(ASSETS / 'weather' / (name + '-' + theme + '.png'))) as source:
-        image = source
-        if theme == 'dark':
-            image = Image.new('RGBA',source.size,'#c5c5c5')
-            image.putalpha(source.getchannel('A'))
+        image = Image.new('RGBA',source.size,THEMES[theme][WEATHER_ACCENTS.get(name, 'icon_colour')])
+        image.putalpha(source.getchannel('A'))
         return image.resize((size, size), Image.Resampling.LANCZOS)

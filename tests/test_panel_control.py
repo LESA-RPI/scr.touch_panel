@@ -56,7 +56,7 @@ def test_remote_light_action_is_blocked_when_owner_busy_uncertain_legacy_or_stud
     assert execute(owner,envelope('on'))['ok'] and sent==['existing owner']
 
 
-def test_theme_text_contrast_and_strictly_neutral_dark_roles():
+def test_theme_text_contrast_neutral_dark_surfaces_and_semantic_accents():
     def rgb(value):return [int(value[i:i+2],16)/255 for i in (1,3,5)]
     def light(value):return sum(c*w for c,w in zip([c/12.92 if c<=.04045 else ((c+.055)/1.055)**2.4 for c in rgb(value)],(.2126,.7152,.0722)))
     def ratio(a,b):
@@ -66,7 +66,8 @@ def test_theme_text_contrast_and_strictly_neutral_dark_roles():
                       ('selected_ink','accent'),('selected_ink','accent_pressed'),('ink','pressed'),
                       ('good','control'),('warning','control'),('warning','bg')]:
             assert ratio(theme[fg],theme[bg])>=4.5,(fg,bg,theme)
-    assert all(len(set(rgb(value)))==1 for value in THEMES['dark'].values())
+    assert all(len(set(rgb(THEMES['dark'][key])))==1 for key in ('bg','surface','control','border','pressed'))
+    assert len(set(rgb(THEMES['dark']['accent'])))>1
 
 
 def test_blind_permission_is_strict_and_independent_of_visibility_and_connection():
