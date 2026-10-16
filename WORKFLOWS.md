@@ -88,7 +88,8 @@ Screen settings save `idle_timeout` as 0, 60, 300 or 900 seconds, defaulting to
 300 seconds. `blinds_display` defaults to `disabled`; `hidden` removes the blind section
 from Home. This is a display choice only and cannot enable blind commands.
 `--idle-timeout` selects the preview default. Idle reuses
-Visitor and its existing weather cache/cadence. Every wake opens Home so visitors
+the screen saver and its existing weather cache/cadence. The Preview screen saver
+button opens this same view. Every wake opens Home so visitors
 can find Lights on/off. The first wake touch is intercepted before button bindings;
 controls need a subsequent touch. Experiment mode, Legacy, blank screen, active touches,
 pending/queued commands, restoration and uncertain lighting block idle entry.
@@ -106,7 +107,7 @@ SCR_WEATHER_NAME="Troy, NY"
 
 These example coordinates represent the Troy city area, not the panel's exact
 position. Other installations must choose their own location. Without both
-coordinates, Visitor shows weather as unconfigured. Direct previews accept
+coordinates, the screen saver shows weather as unconfigured. Direct previews accept
 `--weather-latitude`, `--weather-longitude` and `--weather-name`.
 
 The [Open-Meteo forecast API](https://open-meteo.com/en/docs) provides temperature,

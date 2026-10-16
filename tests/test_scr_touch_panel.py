@@ -328,6 +328,7 @@ def test_slow_resource_read_never_holds_navigation_or_starts_a_second_query(monk
     monkeypatch.setattr(panel, 'health', slow_read)
     state = panel.Panel.__new__(panel.Panel)
     state.mode, state.health_at, state.health_cache = 'health', -10, {}
+    state.theme, state.health_rendered = 'light', None
     state.health_worker = state.health_pending = None
     state.status_worker, state.room_status_at, state.room_status = None, panel.monotonic(), 'Not queried'
     shown = []
@@ -336,9 +337,10 @@ def test_slow_resource_read_never_holds_navigation_or_starts_a_second_query(monk
         state.update_health()  # Returns while the resource read is held below.
         assert entered.wait(1) and state.health_worker.is_alive()
         worker = state.health_worker
+        paints = len(shown)
         state.health_at = -10
         state.update_health()
-        assert state.health_worker is worker
+        assert state.health_worker is worker and len(shown) == paints
         state.mode = 'room'
         state.update_health()
         assert state.health_worker is worker

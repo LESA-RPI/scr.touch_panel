@@ -41,14 +41,18 @@ except ImportError:
 FONT = 'Cantarell'
 CHANNELS = ('Blue 1', 'Blue 2', 'Blue 3', 'Lime', 'Amber', 'Orange', 'Red 1', 'Red 2')
 CHANNEL_COLOURS = ('#4764bc', '#337cb9', '#2198c2', '#86a83b', '#c69c32', '#d47d34', '#ba6052', '#a84658')
-PALETTES = {name: tuple(tokens[key] for key in ('bg','surface','ink','muted','control')) for name,tokens in THEMES.items()}
 ACCENT = THEMES['light']['accent']
-NAVIGATION = [('Home', 'room'), ('Room tools', 'advanced'),
-              ('Demo & guide', 'guide'), ('Legacy', 'original')]
 ADVANCED_PAGES = [('Lighting', 'lighting'),
                   ('Experiment mode', 'experiment'), ('Appearance', 'appearance'),
                   ('Date & weather', 'clock'), ('Screen & controls', 'screen'),
                   ('System & help', 'system'), ('About', 'about')]
+# Only presentation references travel with retained pages. Controller state, intent
+# generations and preferences always belong to the live Panel, never a cached page.
+PAGE_REFERENCES = ('light_buttons', 'home_power_buttons', 'scene_buttons', 'blind_buttons',
+    'blind_status_label', 'light_feedback_card', 'weather_symbol', 'weather_symbol_size',
+    'weather_symbol_key', 'weather_symbol_item', 'weather_measurements', 'weather_metric_cells',
+    'weather_metric_values', 'weather_notice', 'daylight_label', 'daylight_canvas',
+    'daylight_drawn', 'weather_rendered_minute')
 DEFAULT_PROFILE = {'title': 'Room activity instructions', 'sensors': 'Ceiling and colour sensors',
                    'stages': ['Leave the room empty', 'Please sit still',
                               'Make small seated movements', 'Walk around the room',
@@ -259,6 +263,8 @@ class Panel(object):
         self.root = tk.Tk()
         self.font_family = Font(root=self.root, font=(FONT, 19)).actual('family')
         self.icon_cache = {}
+        self.body_cache, self.detail_cache = {}, {}
+        self.body_key = self.advanced_detail_key = None
         for key, size, width in [('title', 27, 1200), ('sensors', 18, 1130), ('annotations', 19, 270)]:
             labels = self.profile[key] if key == 'annotations' else [self.profile[key]]
             if any(Font(root=self.root, font=(FONT, size)).measure(label) > width for label in labels):
@@ -513,12 +519,6 @@ class Panel(object):
             if tip:
                 self.status_text.set(tip)
 
-    def toggle_tips(self):
-        self.help_on = not self.help_on
-        self.save_preferences()
-        self.render()
-        self.emit('help_selected', enabled=self.help_on)
-
     def photo(self, key, image):
         if key not in self.icon_cache:
             buffer = BytesIO()
@@ -564,6 +564,8 @@ class Panel(object):
         for name, value in THEMES[chosen].items():
             setattr(self, name, value)
         self.connection_badges = []
+        self.body_cache.clear();self.detail_cache.clear()
+        self.body_key = self.advanced_detail_key = None
         for child in self.root.winfo_children():
             if child != self.dock:
                 child.destroy()
@@ -599,10 +601,7 @@ class Panel(object):
             button.pack(fill='both', expand=True)
             if column == 0:
                 self.home_button = button
-        self.tips_button = self.button(self.banner, 'Tips: ' + ('On' if self.help_on else 'Off'), self.toggle_tips)
         self.add_connection_badge(navigation, column=1)
-        self.nav = tk.Frame(self.root, bg=self.bg)
-        self.nav_buttons = {}
         self.footer = tk.Frame(self.root, bg=self.bg, height=80)
         self.footer.pack_propagate(False)
         self.tools_footer_button = self.guide_footer_button = None
@@ -694,17 +693,13 @@ class Panel(object):
                 if button.cget('text') != label:
                     button.config(text=label, fg=ink, activeforeground=ink, image=self.icon(icon, ink))
 
-    def cycle_theme(self):
-        self.choose_theme({'auto': 'light', 'light': 'dark', 'dark': 'auto'}[self.theme_choice])
-
     def show(self, mode, advanced_page=None):
         if self.release_target is not None or self.closing:
             return
         if mode == 'advanced':
             self.open_advanced()
             return
-        if mode != 'visitor':
-            self.idle_active = False
+        self.idle_active = mode == 'visitor'
         self.cancel_intent()
         if mode == 'original':
             self.trial_deadline = None
@@ -750,18 +745,7 @@ class Panel(object):
     def render(self):
         self.cancel_intent()
         if getattr(self,'blank_hint',None) is not None:self.blank_hint.place_forget()
-        self.light_buttons = []
-        self.home_power_buttons = []
-        self.scene_buttons = []
         self.dock.withdraw()
-        self.tips_button.config(text='Tips: ' + ('On' if self.help_on else 'Off'))
-        selected_mode = {'guide': 'visitor', 'support': 'health'}.get(self.mode, self.mode)
-        for key, button in self.nav_buttons.items():
-            button.config(bg=self.accent if key == selected_mode else self.control,
-                          fg=self.selected_ink if key == selected_mode else self.ink,
-                          activebackground=self.accent if key == selected_mode else self.control,
-                          activeforeground=self.selected_ink if key == selected_mode else self.ink,
-                          image=self.icon(key, self.selected_ink if key == selected_mode else self.ink))
         if self.mode == 'original':
             self.root.withdraw()
             self.dock.deiconify()
@@ -775,7 +759,7 @@ class Panel(object):
         for binding in ('<ButtonPress-1>', '<ButtonRelease-1>', '<B1-Motion>'):
             self.root.unbind(binding)
         if self.mode == 'black':
-            for widget in (self.banner, self.nav, self.footer, self.body):
+            for widget in (self.banner, self.footer, self.body):
                 widget.pack_forget()
             self.root.configure(bg='black')
             if getattr(self,'blank_hint',None) is None:
@@ -817,24 +801,67 @@ class Panel(object):
                               else getattr(self, self.mode + '_view'))
         if self.idle_active:
             self.install_wake_bindings()
-        for button in self.footer.winfo_children():
-            if isinstance(button, tk.Button) and button.cget('text') == 'Settings':
-                selected = self.mode in ('settings', 'about')
-                button.config(bg=self.accent if selected else self.control, fg=self.selected_ink if selected else self.ink)
 
     def rebuild_body(self, build):
-        """Prepare one unmapped page, then replace and destroy the previous page."""
+        """Retain the everyday pages so returning does not rebuild their layout."""
         previous = self.body
-        self.body = tk.Frame(self.root, bg=self.bg)
-        try:
-            build()
-        except Exception:
-            self.body.destroy()
-            self.body = previous
-            raise
+        old_key = self.body_key
+        if old_key is not None:
+            if old_key[0] == 'tools':self.remember_detail()
+            self.body_cache[old_key] = (previous, self.page_references())
+        key = None
+        if self.advanced_page:
+            key = ('tools',)
+        elif self.mode == 'room' or self.idle_active:
+            key = ('idle' if self.idle_active else 'room', self.temperature_unit, self.blinds_display)
+        cached = self.body_cache.pop(key, None) if key is not None and key != old_key else None
+        if cached:
+            self.body, references = cached
+            self.__dict__.update(references)
+            if key[0] == 'tools':self.rebuild_advanced_detail()
+            else:self.refresh_page()
+        else:
+            self.clear_page_references()
+            self.body = tk.Frame(self.root, bg=self.bg)
+            try:
+                build()
+            except Exception:
+                self.body.destroy()
+                self.body = previous
+                raise
+        self.body_key = key
         previous.pack_forget()
         self.body.pack(fill='both', expand=True, padx=24)
-        previous.destroy()
+        if old_key is None or old_key == key:
+            self.body_cache.pop(old_key, None)
+            previous.destroy()
+
+    def page_references(self):
+        names = PAGE_REFERENCES + ('advanced_shell', 'advanced_sidebar_buttons',
+                                   'advanced_detail', 'advanced_detail_key')
+        return {name: getattr(self, name) for name in names if hasattr(self, name)}
+
+    def clear_page_references(self):
+        self.light_buttons, self.home_power_buttons, self.scene_buttons, self.blind_buttons = [], [], [], []
+
+    def remember_detail(self):
+        key = self.advanced_detail_key
+        if key is not None and self.advanced_detail is not None:
+            self.detail_cache[key] = (self.advanced_detail,
+                                     {name: getattr(self, name) for name in PAGE_REFERENCES if hasattr(self, name)})
+
+    def refresh_page(self):
+        """Refresh mutable state and bind sliders to this navigation's generation."""
+        for control in self.light_buttons:
+            if isinstance(control, TouchSlider):
+                control.pressed = False
+                self.bind_slider(control, 'channels' if control.vertical else 'cct')
+                control.draw()
+        self.update_light_buttons()
+        self.update_blind_buttons()
+        self.refresh_confirmation_age()
+        if self.mode in ('room','visitor') and not self.advanced_page:
+            self.update_weather(force=True)
 
     def room_view(self):
         self.blind_buttons=[]
@@ -888,6 +915,7 @@ class Panel(object):
         self.advanced_shell = shell
         self.advanced_sidebar_buttons = []
         self.advanced_detail = None
+        self.advanced_detail_key = None
         sidebar = tk.Frame(shell, bg=self.bg, width=280)
         sidebar.pack(side='left', fill='y', padx=(0, 28), pady=(10, 0))
         sidebar.pack_propagate(False)
@@ -907,6 +935,9 @@ class Panel(object):
     def rebuild_advanced_detail(self):
         """Keep the sidebar mapped while replacing only the selected tool."""
         shell = self.body
+        previous = self.advanced_detail
+        old_key = self.advanced_detail_key
+        self.remember_detail()
         for button, page in self.advanced_sidebar_buttons:
             selected = self.advanced_page == page
             colour = self.accent if selected else self.control
@@ -916,7 +947,22 @@ class Panel(object):
                               activebackground=self.accent_pressed if selected else self.pressed_colour(),
                               activeforeground=self.selected_ink if selected else self.ink,
                               image=self.icon('date' if page == 'clock' else page, self.selected_ink if selected else self.ink, 24))
-        previous = self.advanced_detail
+        key = (self.lighting_tab, self.selected_programme if self.lighting_tab == 'programmes' else None) if self.advanced_page == 'lighting' else None
+        if key is not None and key == old_key:
+            self.detail_cache.pop(key, None)
+            self.refresh_page()
+            return
+        cached = self.detail_cache.pop(key, None) if key is not None and key != old_key else None
+        if cached:
+            detail, references = cached
+            self.__dict__.update(references)
+            self.refresh_page()
+            if previous is not None:previous.pack_forget()
+            detail.pack(side='left', fill='both', expand=True, pady=(10, 0))
+            self.advanced_detail, self.advanced_detail_key = detail, key
+            if old_key is None and previous is not None:previous.destroy()
+            return
+        self.clear_page_references()
         detail = tk.Frame(shell, bg=self.bg)
         self.body = detail
         try:
@@ -941,7 +987,9 @@ class Panel(object):
             previous.pack_forget()
         detail.pack(side='left', fill='both', expand=True, pady=(10, 0))
         self.advanced_detail = detail
-        if previous is not None:
+        self.advanced_detail_key = key
+        if previous is not None and (old_key is None or old_key == key):
+            self.detail_cache.pop(old_key, None)
             previous.destroy()
 
     def open_advanced(self, page=None):
@@ -970,15 +1018,11 @@ class Panel(object):
     def open_lighting(self):
         self.open_advanced('white')
 
-    def open_channels(self):
-        self.open_advanced('scenes')
-
     def choose_lighting_tab(self, tab):
         if tab not in dict((key, label) for label, key in LIGHTING_TABS):
             return
         self.cancel_intent()
         self.lighting_tab = tab
-        self.light_buttons, self.scene_buttons = [], []
         self.rebuild_advanced_detail()
 
     def lighting_contents(self):
@@ -1063,32 +1107,6 @@ class Panel(object):
         label = getattr(self, 'blind_status_label', None)
         if label is not None and label.winfo_exists():label.config(text=readiness['detail'])
 
-    def visitor_view(self):
-        self.label(self.body, 'Touch anywhere for Home and light controls' if self.idle_active else 'Clock & weather', 28).pack(anchor='w', pady=(0, 16))
-        row = tk.Frame(self.body, bg=self.bg)
-        row.pack(fill='both', expand=True)
-        for index in (0, 1):
-            row.columnconfigure(index, weight=1, uniform='visitor')
-        row.rowconfigure(0, weight=1)
-        cards = []
-        for index in (0, 1):
-            frame = tk.Frame(row, bg=self.surface, highlightbackground=self.border, highlightthickness=1)
-            frame.grid(row=0, column=index, sticky='nsew', padx=(0, 24) if index == 0 else 0)
-            content = tk.Frame(frame, bg=self.surface)
-            content.pack(fill='both', expand=True, padx=26, pady=20)
-            cards.append(content)
-        left, right = cards
-        self.label(left, 'LOCAL TIME', 16, True).pack(anchor='w')
-        clock = self.label(left, size=70)
-        clock.config(textvariable=self.visitor_time, font=(FONT, 70, 'bold'))
-        clock.pack(anchor='w', pady=(16, 0))
-        date = self.label(left, size=23)
-        date.config(textvariable=self.visitor_date)
-        date.pack(anchor='w', pady=(0, 18))
-        self.label(left, 'Home has Lights on and Lights off.\nOpening Home does not change the lights.', 17, True).pack(anchor='w', pady=(0, 12))
-        self.row_buttons(left, [('Home · light controls', lambda: self.show('room'), True)], height=76)
-        self.weather_contents(right)
-
     def sync_idle_clock(self,*unused):
         value=self.visitor_time.get()
         digits,period=value.rsplit(' ',1) if value.endswith((' AM',' PM')) else (value,'')
@@ -1142,6 +1160,8 @@ class Panel(object):
         self.weather_symbol_size = 128 if large else 96
         self.weather_symbol = tk.Canvas(reading, width=self.weather_symbol_size, height=self.weather_symbol_size,
                                         bg=right.cget('bg'), highlightthickness=0)
+        self.weather_symbol_key = None
+        self.weather_symbol_item = None
         self.weather_symbol.pack(side='right', pady=0 if compact else 12)
         size = 72 if large else 50 if compact else 68
         temperature = self.label(reading, size=size)
@@ -1168,8 +1188,9 @@ class Panel(object):
         self.daylight_label = self.label(right, size=21)
         self.daylight_label.pack(anchor='w', pady=(8, 2) if compact else (18, 2))
         self.daylight_canvas = tk.Canvas(right, height=60, bg=right.cget('bg'), highlightthickness=0)
+        self.daylight_drawn = None
         self.daylight_canvas.pack(fill='x')
-        self.daylight_canvas.bind('<Configure>', lambda event: self.update_weather(force=True))
+        self.daylight_canvas.bind('<Configure>', lambda event: self.update_daylight())
         self.update_weather(force=True)
         self.start_weather()
 
@@ -1189,28 +1210,32 @@ class Panel(object):
         if not force and render_key == self.weather_rendered_minute:
             return
         self.weather_rendered_minute = render_key
-        canvas = self.daylight_canvas
-        canvas.delete('all')
-        self.weather_symbol.delete('all')
         data = self.weather_reading
         readings=weather_data.measurements(data or {},self.temperature_unit,earlier)
         show=bool(data and not earlier)
         for index,cell in enumerate(self.weather_metric_cells):
             if show:
-                cell.grid();self.weather_metric_values[index].config(text=readings[index][1])
-            else:cell.grid_remove()
-        if show:self.weather_notice.grid_remove()
+                if not cell.winfo_manager():cell.grid()
+                if self.weather_metric_values[index].cget('text') != readings[index][1]:
+                    self.weather_metric_values[index].config(text=readings[index][1])
+            elif cell.winfo_manager():cell.grid_remove()
+        if show:
+            if self.weather_notice.winfo_manager():self.weather_notice.grid_remove()
         else:
             notice=weather_data.details(data,self.temperature_unit,earlier=True) if data else 'Weather unavailable'
             self.weather_notice.config(text=notice)
             self.weather_notice.grid(row=0,column=0,columnspan=2,sticky='ew',pady=4)
         if not data:
-            self.weather_temperature.set('—');self.weather_condition.set('Weather unavailable')
-            self.daylight_label.config(text='Daylight times unavailable')
+            set_changed(self.weather_temperature,'—');set_changed(self.weather_condition,'Weather unavailable')
+            if self.weather_symbol_key is not None:
+                self.weather_symbol.delete(self.weather_symbol_item)
+                self.weather_symbol_key = None
+                self.weather_symbol_item = None
+            self.update_daylight()
             return
         primary = data['temperature_c'] if self.temperature_unit == 'c' else data['temperature_f']
-        self.weather_temperature.set(u'%.0f°' % primary)
-        self.weather_condition.set(data['condition'])
+        set_changed(self.weather_temperature,u'%.0f°' % primary)
+        set_changed(self.weather_condition,data['condition'])
         sunrise, sunset = weather_data.local_time(data['sunrise']), weather_data.local_time(data['sunset'])
         current_day = sunrise.date() == now.date() == sunset.date()
         night = current_day and not sunrise <= now < sunset
@@ -1222,15 +1247,29 @@ class Panel(object):
         key = ('weather', kind, self.theme, size)
         if key not in self.icon_cache:
             self.photo(key, panel_icons.weather(kind, self.theme, size))
-        self.weather_symbol.create_image(size // 2, size // 2, image=self.icon_cache[key])
-        if earlier:
-            self.daylight_label.config(text='Daylight information is not current')
+        if self.weather_symbol_key != key:
+            if self.weather_symbol_item is None:
+                self.weather_symbol_item = self.weather_symbol.create_image(size // 2, size // 2, image=self.icon_cache[key])
+            else:
+                self.weather_symbol.itemconfigure(self.weather_symbol_item,image=self.icon_cache[key],state='normal')
+            self.weather_symbol_key = key
+        self.update_daylight()
+
+    def update_daylight(self):
+        """Resize the daylight line without repainting the forecast or its icon."""
+        canvas = self.daylight_canvas
+        data = self.weather_reading
+        earlier = self.weather_is_earlier()
+        day = weather_data.daylight(data, datetime.datetime.now()) if data and not earlier else None
+        text = (day['label'] if day else 'Daylight times unavailable' if not data else
+                'Daylight information is not current' if earlier else 'Daylight times are from another date')
+        key = (canvas.winfo_width(), text, None if day is None else tuple(sorted(day.items())))
+        if key == self.daylight_drawn:
             return
-        day = weather_data.daylight(data, now)
-        if day is None:
-            self.daylight_label.config(text='Daylight times are from another date')
-            return
-        self.daylight_label.config(text=day['label'])
+        self.daylight_drawn = key
+        if self.daylight_label.cget('text') != text:self.daylight_label.config(text=text)
+        canvas.delete('all')
+        if day is None or canvas.winfo_width() < 2:return
         left, right, y = 8, max(24, canvas.winfo_width()-8), 22
         position = left + (right-left) * day['fraction']
         canvas.create_line(left, y, right, y, fill=self.control, width=6, capstyle='round')
@@ -1512,31 +1551,8 @@ class Panel(object):
         self.run_label.config(text='Instruction %d of %d   /   %s' % (
             self.stage + 1, len(self.profile['stages']), 'Running' if self.running else 'Paused'))
 
-    def health_view(self):
-        self.label(self.body, 'Panel resources', 28).pack(anchor='w', pady=(0, 4))
-        self.health_rows = {}
-        for key, title in [('ram', 'Memory'), ('disk', 'Storage')]:
-            row = tk.Frame(self.body, bg=self.bg)
-            row.pack(fill='x', pady=4)
-            self.label(row, title + ' used', 23).pack(side='left')
-            value = self.label(row, size=23)
-            value.pack(side='right')
-            canvas = tk.Canvas(self.body, height=24, bg=self.surface, bd=0, highlightthickness=0)
-            canvas.pack(fill='x', pady=(0, 10))
-            canvas.bind('<Configure>', lambda event: self.update_health())
-            self.health_rows[key] = (value, canvas)
-        self.health_details = self.label(self.body, size=23)
-        self.wrap_label(self.health_details).pack(fill='x', pady=8)
-        self.power_label = self.label(self.body, size=19)
-        self.power_label.pack(anchor='w', pady=(0, 8))
-        self.services_label = self.label(self.body, size=17, muted=True)
-        self.wrap_label(self.services_label).pack(fill='x', pady=(0, 8))
-        self.label(self.body, 'Readings refresh every 5 seconds. Service presence is not sensor health.', 17, True).pack(anchor='w', pady=4)
-        self.row_buttons(self.body, [('Troubleshooting', lambda: self.show('support'), False),
-                                     ('Demo guide', self.open_guide, False)])
-        self.update_health()
-
     def system_contents(self):
+        self.health_rendered = None
         self.label(self.body, 'System & help', 27).pack(anchor='w', pady=(0, 8))
         if not self.support_commands_visible:
             self.label(self.body, 'Read-only checks. Available services may not be producing sensor data.', 15, True).pack(anchor='w', pady=(0, 10))
@@ -1691,28 +1707,6 @@ class Panel(object):
         self.guide_page = max(0, min(len(DEMO)-1, self.guide_page+delta))
         self.render()
 
-    def support_view(self):
-        self.label(self.body, 'Room troubleshooting · instructions only', 27).pack(anchor='w', pady=(0, 10))
-        row = tk.Frame(self.body, bg=self.bg)
-        row.pack(fill='both', expand=True)
-        topics = tk.Frame(row, bg=self.bg, width=304)
-        topics.pack(side='left', fill='y', padx=(0, 24))
-        topics.pack_propagate(False)
-        content = tk.Frame(row, bg=self.surface, highlightbackground=self.border, highlightthickness=1)
-        content.pack(side='right', fill='both', expand=True)
-        detail = tk.Frame(content, bg=self.surface)
-        detail.pack(fill='both', expand=True, padx=22, pady=16)
-        for index, (title, kind, text, commands) in enumerate(SUPPORT):
-            button = self.row_buttons(topics, [(title, lambda index=index: self.choose_support(index), index == self.support_page)])[0]
-            button.config(image=self.icon(kind, self.selected_ink if index == self.support_page else self.ink), compound='left')
-        title, kind, text, commands = SUPPORT[self.support_page]
-        self.label(detail, title, 24).pack(anchor='w', pady=(0, 8))
-        self.wrap_label(self.label(detail, text, 18)).pack(fill='x')
-        if commands:
-            code = self.label(detail, commands, 16)
-            code.config(font=('DejaVu Sans Mono', 15), bg=self.control, padx=10, pady=8)
-            self.wrap_label(code).pack(fill='x', pady=(12, 0))
-
     def choose_support(self, index):
         if index != self.support_page:
             self.support_page = index
@@ -1754,6 +1748,10 @@ class Panel(object):
             return
         self.refresh_resources()
         h = self.health_cache
+        key = (tuple(sorted(h.items())), self.room_status, self.theme)
+        if key == self.health_rendered:
+            return
+        self.health_rendered = key
         if not h:
             self.health_details.config(text='Checking panel resources…')
             self.services_label.config(text=self.room_status)
@@ -1761,22 +1759,8 @@ class Panel(object):
         if 'error' in h:
             self.health_details.config(text='Resource reading unavailable: ' + h['error'])
             return
-        if getattr(self, 'advanced_page', None) == 'system':
-            self.health_details.config(text='Memory: %d / %d MiB free\nStorage: %.1f GiB free · CPU: %.1f C' %
-                (h['ram_available'], h['ram_total'], h['disk_available'], h['temperature']))
-            self.power_label.config(text='Power: ' + h['power'],
-                                    fg=THEMES[self.theme]['warning'] if h['power'].startswith('Current') else self.muted)
-            self.services_label.config(text=self.room_status)
-            return
-        self.health_rows['ram'][0].config(text='%d / %d MiB available' % (h['ram_available'], h['ram_total']))
-        self.health_rows['disk'][0].config(text='%.1f GiB available  /  %.0f%% used' % (h['disk_available'], h['disk_used']))
-        for key, used in [('ram', 100 * (1 - h['ram_available'] / float(h['ram_total']))), ('disk', h['disk_used'])]:
-            canvas = self.health_rows[key][1]
-            canvas.delete('all')
-            canvas.create_rectangle(0, 0, max(1, canvas.winfo_width()) * used / 100, 24, fill=self.accent, outline='')
-        self.health_details.config(text='CPU temperature: %.1f C     /     Uptime: %.1f days\n'
-                                       'Load average, one minute: %.2f' %
-                                       (h['temperature'], h['uptime'], h['load']))
+        self.health_details.config(text='Memory: %d / %d MiB free\nStorage: %.1f GiB free · CPU: %.1f C' %
+            (h['ram_available'], h['ram_total'], h['disk_available'], h['temperature']))
         self.power_label.config(text='Power: ' + h['power'],
                                 fg=THEMES[self.theme]['warning'] if h['power'].startswith('Current') else self.muted)
         self.services_label.config(text=self.room_status)
@@ -1816,25 +1800,6 @@ class Panel(object):
         worker.stdout.close()
         worker.stderr.close()
         self.status_worker = None
-
-    def settings_view(self):
-        self.label(self.body, 'Panel settings', 28).pack(anchor='w', pady=(0, 4))
-        saved = self.label(self.body, size=16, muted=True)
-        saved.config(textvariable=self.preference_text)
-        self.wrap_label(saved).pack(fill='x', pady=(0, 8))
-        row = tk.Frame(self.body, bg=self.bg)
-        row.pack(fill='both', expand=True)
-        categories = tk.Frame(row, bg=self.bg, width=304)
-        categories.pack(side='left', fill='y', padx=(0, 24))
-        categories.pack_propagate(False)
-        detail = tk.Frame(row, bg=self.surface, highlightbackground=self.border, highlightthickness=1)
-        detail.pack(side='right', fill='both', expand=True)
-        for title, key in [('Appearance', 'appearance'), ('Date & weather', 'clock'),
-                           ('Help & guidance', 'help'), ('Screen', 'screen'), ('About', 'about')]:
-            self.row_buttons(categories, [(title, lambda key=key: self.choose_settings(key), self.settings_category == key)])
-        content = tk.Frame(detail, bg=self.surface)
-        content.pack(fill='both', expand=True, padx=24, pady=18)
-        self.settings_contents(content)
 
     def settings_contents(self, content):
         key = self.settings_category
@@ -1890,7 +1855,7 @@ class Panel(object):
             self.label(content, 'First touch opens Home. Pauses during experiments and commands.', 14, True).pack(anchor='w', pady=(0, 6))
             self.label(content, 'Display', 19).pack(anchor='w')
             self.row_buttons(content, [('Blank screen', lambda: self.show('black'), False),
-                                       ('Clock & weather', lambda: self.show('visitor'), False)], height=50)
+                                       ('Preview screen saver', lambda: self.show('visitor'), False)], height=50)
             self.label(content, 'Blank keeps the backlight on. Hold 2 seconds to return.', 14, True).pack(anchor='w', pady=(0, 6))
             self.label(content, 'Blind controls', 19).pack(anchor='w')
             self.row_buttons(content, [('Locked', lambda: self.choose_blinds_enabled(False), not self.blinds_enabled),
@@ -1901,15 +1866,6 @@ class Panel(object):
                                        ('Hide', lambda: self.choose_blinds_display('hidden'), self.blinds_display == 'hidden')], height=50)
         else:
             self.about_contents(content)
-
-    def choose_settings(self, category):
-        if getattr(self, 'advanced_page', None):
-            self.open_advanced(category if category != 'help' else 'system')
-            return
-        if category == self.settings_category:
-            return
-        self.settings_category = category
-        self.render()
 
     def choose_blinds_display(self, choice):
         if choice not in ('disabled', 'hidden') or choice == self.blinds_display:
@@ -1964,10 +1920,6 @@ class Panel(object):
         self.render()
         self.emit('help_selected', enabled=self.help_on)
 
-    def about_view(self):
-        self.about_contents(self.body)
-        self.button(self.body, 'Appearance', lambda: self.open_advanced('appearance')).pack(anchor='w')
-
     def about_contents(self, parent):
         self.label(parent, 'Smart Conference Room', 27).pack(anchor='w', pady=(0, 8))
         self.label(parent, 'Touch panel · Beta mode', 20, True).pack(anchor='w', pady=(0, 28))
@@ -1976,12 +1928,6 @@ class Panel(object):
         self.wrap_label(note).pack(fill='x', pady=(0, 22))
         self.label(parent, 'Source: github.com/LESA-RPI/scr.touch_panel', 18, True).pack(anchor='w', pady=(0, 20))
         self.label(parent, 'Icons: Lucide · lucide.dev', 17, True).pack(anchor='w')
-
-    def toggle_clock(self):
-        self.clock_24 = not self.clock_24
-        self.save_preferences()
-        self.render()
-        self.emit('clock_format_selected', format='24' if self.clock_24 else '12')
 
     def choose_theme(self, choice):
         if choice == self.theme_choice:

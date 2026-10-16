@@ -59,6 +59,9 @@ the feedback area; the footer is reserved for explanations, progress and problem
 Room tools keeps its sidebar in place while changing tools. Unchanged clock/status
 values do not trigger another redraw. Resource checks run in the background so
 slow reads do not hold up touches.
+Home, the screen saver and Lighting tabs reuse their existing widgets when you
+return. Readback, availability and slider bindings refresh before controls are
+shown; this does not cache lighting commands or bypass controller checks.
 
 White light shows the minimum and maximum beside each slider. System & help
 separates panel health, room connection and guidance. Reference commands are
@@ -72,7 +75,9 @@ the website shows all steps with individual Copy buttons and reference links.
 The full-screen screensaver appears after five idle minutes by default. It has a
 large clock, weather and a prominent “Touch anywhere for room controls” prompt,
 without the normal control-page navigation. Its first wake touch always opens
-Home without activating controls. Control icons use a consistent Lucide outline
+Home without activating controls. Screen & controls offers **Preview screen saver**
+for the same screen; there is no separate clock/weather page.
+Control icons use a consistent Lucide outline
 family; weather uses thin, coordinated variants. Dark backgrounds and ordinary
 surfaces stay neutral gray. Both themes use restrained teal controls, warm weather
 accents and distinct green/amber status colours. Selected controls retain readable text while pressed.
