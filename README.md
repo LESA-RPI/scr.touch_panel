@@ -54,7 +54,9 @@ The full-screen screensaver appears after five idle minutes by default. It has a
 large clock, weather and a prominent “Touch anywhere for room controls” prompt,
 without the normal control-page navigation. Its first wake touch always opens
 Home without activating controls. Control icons use a consistent Lucide outline
-family; weather uses thin, coordinated variants. The original LESA logo stays
+family; weather uses thin, coordinated variants. Dark interface surfaces and controls use neutral grayscale; light mode uses a
+restrained teal accent. Selected controls retain readable text while pressed.
+The original LESA logo stays
 consistent in both themes. Room tools uses the sidebar height and hides its footer
 shortcut while open.
 Flat sliders share a 48-pixel touch area, a visible grip and pressed/focus feedback.
@@ -90,7 +92,8 @@ python -B app/scr_touch_panel.py --windowed --duration 600 --theme light
 On Windows, use `python` in place of `python3` and activate with
 `.venv\Scripts\Activate.ps1`. This preview moves no room devices and starts no
 recording. The cabinet layout is 1280 × 800. Other hardware needs its own font,
-layout and touch checks. Browser/tablet clients are planned, not implemented.
+layout and touch checks. The browser client uses the same panel controller when
+the optional trusted-network gateway is enabled.
 
 ## Install, operate or restore
 
@@ -134,7 +137,10 @@ remain acceptance limits. Service presence is not physical device health. Experi
 journals have `recording: false`; recorder integration needs a separate adapter.
 
 General panel code belongs here. Project-X owns its optional recorder integration.
-Future clients should share one command owner and preserve experiment ownership.
+The browser and touch interface share one command owner and experiment ownership.
+The optional gateway permits controls from the configured trusted subnet; it has
+no separate staff sign-in. Guide/help content, appearance roles and common actions
+come from the panel. Legacy’s original controls remain on the touch panel.
 Technical contracts remain available to maintainers and agents through the links
 above. Private configuration, captures and incident history stay outside Git.
 

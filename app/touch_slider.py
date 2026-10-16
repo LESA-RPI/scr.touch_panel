@@ -65,7 +65,7 @@ class TouchSlider(tk.Canvas):
         self.create_rectangle(x-22, y-18, x+22, y+18,
                               fill=self.track if not self.pressed or disabled else self.accent,
                               outline=edge, width=2 if self.pressed or focused else 1)
-        grip = 'white' if self.pressed and not disabled else self.border if disabled else self.ink
+        grip = self.cget('bg') if self.pressed and not disabled else self.border if disabled else self.ink
         for offset in (-3, 3):
             self.create_line(x+offset, y-6, x+offset, y+6, fill=grip, width=1)
 

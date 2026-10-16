@@ -43,4 +43,8 @@ def weather_kind(code, night=False):
 def weather(name, theme, size):
     from PIL import Image
     with Image.open(str(ASSETS / 'weather' / (name + '-' + theme + '.png'))) as source:
-        return source.resize((size, size), Image.Resampling.LANCZOS)
+        image = source
+        if theme == 'dark':
+            image = Image.new('RGBA',source.size,'#c5c5c5')
+            image.putalpha(source.getchannel('A'))
+        return image.resize((size, size), Image.Resampling.LANCZOS)

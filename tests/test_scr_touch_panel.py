@@ -531,6 +531,7 @@ def test_home_power_requires_confirmed_readback_and_clears_during_changes():
     state = panel.Panel.__new__(panel.Panel)
     state.light_state, state.confirmed_power = 'ready', 'off'
     state.pending = state.queued_intent = state.release_target = state.closing = None
+    state.accent, state.selected_ink, state.accent_pressed = panel.ACCENT, 'white', '#10575e'
     state.control, state.ink, state.icon_colour, state.border = 'neutral', 'ink', 'icon', 'border'
     state.icon = lambda *args: None
     buttons = [SimpleNamespace(winfo_exists=lambda: True, config=lambda **kw: None) for _ in range(2)]
@@ -539,6 +540,7 @@ def test_home_power_requires_confirmed_readback_and_clears_during_changes():
     state.home_power_buttons = [(buttons[0], 'on', 'Lights on'), (buttons[1], 'off', 'Lights off')]
     state.update_power_highlights()
     assert buttons[0].options['bg'] == 'neutral' and buttons[1].options['bg'] == panel.ACCENT
+    assert buttons[1].options['activeforeground'] == buttons[1].options['fg'] == 'white'
     for field in ('pending', 'queued_intent', 'release_target', 'closing'):
         setattr(state, field, True)
         state.update_power_highlights()
@@ -553,6 +555,7 @@ def test_scene_highlight_uses_exact_confirmed_words_and_clears_for_custom_or_unc
     state = panel.Panel.__new__(panel.Panel)
     state.light_state = 'ready'
     state.pending = state.queued_intent = state.release_target = state.closing = None
+    state.accent, state.selected_ink, state.accent_pressed = panel.ACCENT, 'white', '#10575e'
     state.control, state.ink, state.border = 'neutral', 'ink', 'border'
     buttons = []
     for name in ('Fid', 'Sat', 'Dul'):

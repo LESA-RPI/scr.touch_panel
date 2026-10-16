@@ -52,6 +52,9 @@ if test -n "${SCR_WEATHER_LATITUDE:-}" && test -n "${SCR_WEATHER_LONGITUDE:-}"; 
     set -- "$@" --weather-latitude "$SCR_WEATHER_LATITUDE" --weather-longitude "$SCR_WEATHER_LONGITUDE" \
         --weather-name "${SCR_WEATHER_NAME:-Local area}"
 fi
+if test -n "${SCR_CONTROL_SOCKET:-}"; then
+    set -- "$@" --control-socket "$SCR_CONTROL_SOCKET"
+fi
 exec "$panel_python" -B "$app_dir/scr_touch_panel.py" \
     --keep-switcher --start-mode "$start_mode" --live-lights --theme auto --duration 0 \
     --adapter-python "$adapter_python" \

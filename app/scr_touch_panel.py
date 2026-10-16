@@ -25,6 +25,7 @@ from event_journal import EventJournal
 from preferences import Preferences, load as load_preferences
 import weather as weather_data
 import panel_icons
+from design_tokens import THEMES
 from touch_slider import TouchSlider
 from panel_guides import DEMO, SUPPORT, connection
 try:
@@ -37,9 +38,8 @@ except ImportError:
 FONT = 'Cantarell'
 CHANNELS = ('Blue 1', 'Blue 2', 'Blue 3', 'Lime', 'Amber', 'Orange', 'Red 1', 'Red 2')
 CHANNEL_COLOURS = ('#4764bc', '#337cb9', '#2198c2', '#86a83b', '#c69c32', '#d47d34', '#ba6052', '#a84658')
-PALETTES = {'dark': ('#151a20', '#151a20', '#f0f3f6', '#b5c0ca', '#27333f'),
-            'light': ('#ffffff', '#ffffff', '#12384b', '#476373', '#edf1f4')}
-ACCENT = '#176b72'
+PALETTES = {name: tuple(tokens[key] for key in ('bg','surface','ink','muted','control')) for name,tokens in THEMES.items()}
+ACCENT = THEMES['light']['accent']
 NAVIGATION = [('Home', 'room'), ('Room tools', 'advanced'),
               ('Demo & guide', 'guide'), ('Legacy', 'original')]
 ADVANCED_PAGES = [('White light', 'white'), ('Scenes & channels', 'scenes'),
@@ -310,6 +310,25 @@ class Panel(object):
         self.tick()
         self.root.after(100, self.poll_worker)
         self.emit('panel_opened', duration_s=args.duration, profile=self.profile, author='Diyanko Bhowmik')
+        self.control_bridge = None
+        if getattr(args, 'control_socket', None):
+            from panel_control import Bridge
+            try:
+                self.control_bridge = Bridge(args.control_socket)
+            except (OSError, ValueError) as error:
+                self.status_text.set('Browser controls unavailable. The touch panel still works.')
+                self.emit('browser_bridge_unavailable', detail=str(error))
+            else:
+                self.poll_control()
+
+    def poll_control(self):
+        if self.closed or self.closing or self.control_bridge is None:
+            return
+        import panel_remote
+        self.refresh_resources()
+        self.control_bridge.drain(lambda: panel_remote.snapshot(self),
+                                  lambda request: panel_remote.execute(self, request))
+        self.root.after(80, self.poll_control)
 
     def emit(self, event, **values):
         self.sequence += 1
@@ -357,7 +376,7 @@ class Panel(object):
             set_changed(self.feedback_detail, 'Recent settings: ' + self.confirmed_light.replace(' input / level ', ' · level ') + suffix)
         card = getattr(self, 'light_feedback_card', None)
         if card is not None and card.winfo_exists():
-            edge = '#b88036' if self.light_state == 'failed' else ACCENT if self.pending or self.queued_intent else self.border
+            edge = ('#b88036' if self.theme == 'light' else '#bdbdbd') if self.light_state == 'failed' else self.accent if self.pending or self.queued_intent else self.border
             if getattr(card, '_edge', None) != edge:
                 card.config(highlightbackground=edge)
                 card._edge = edge
@@ -382,7 +401,7 @@ class Panel(object):
         self.refresh_confirmation_age()
 
     def update_power_highlights(self):
-        certain = self.light_state == 'ready' and not any((self.pending, self.queued_intent, self.release_target, self.closing))
+        certain = self.light_state == 'ready' and not getattr(self, 'running', False) and not any((self.pending, self.queued_intent, self.release_target, self.closing))
         state = getattr(self, 'confirmed_power', None) if certain else None
         for button, power, label in getattr(self, 'home_power_buttons', []):
             if button.winfo_exists():
@@ -391,12 +410,13 @@ class Panel(object):
                 if getattr(button, '_power_style', None) == style:
                     continue
                 button._power_style = style
-                button.config(bg=ACCENT if selected else self.control,
-                              highlightbackground=ACCENT if selected else self.border,
-                              fg='white' if selected else self.ink,
-                              activebackground='#10575e' if selected else self.pressed_colour(),
+                button.config(bg=self.accent if selected else self.control,
+                              highlightbackground=self.accent if selected else self.border,
+                              fg=self.selected_ink if selected else self.ink,
+                              activeforeground=self.selected_ink if selected else self.ink,
+                              activebackground=self.accent_pressed if selected else self.pressed_colour(),
                               text=label,
-                              image=self.icon(power, 'white' if selected else self.icon_colour))
+                              image=self.icon(power, self.selected_ink if selected else self.icon_colour))
         for button, name in getattr(self, 'scene_buttons', []):
             if button.winfo_exists():
                 selected = certain and getattr(self, 'confirmed_scene', None) == name
@@ -404,11 +424,11 @@ class Panel(object):
                 if getattr(button, '_scene_style', None) == style:
                     continue
                 button._scene_style = style
-                button.config(bg=ACCENT if selected else self.control,
-                              highlightbackground=ACCENT if selected else self.border,
-                              fg='white' if selected else self.ink,
-                              activebackground='#10575e' if selected else self.pressed_colour(),
-                              activeforeground='white' if selected else self.ink,
+                button.config(bg=self.accent if selected else self.control,
+                              highlightbackground=self.accent if selected else self.border,
+                              fg=self.selected_ink if selected else self.ink,
+                              activebackground=self.accent_pressed if selected else self.pressed_colour(),
+                              activeforeground=self.selected_ink if selected else self.ink,
                               text=name)
 
     def activity(self, pressed=None):
@@ -460,15 +480,15 @@ class Panel(object):
         self.show('room')
 
     def pressed_colour(self):
-        return '#d8e4ee' if getattr(self, 'theme', 'light') == 'light' else '#394b5c'
+        return THEMES[getattr(self, 'theme', None) or 'light']['pressed']
 
     def button(self, parent, text, action, accent=False):
         button = tk.Button(parent, text=text, command=action, font=(FONT, 19),
-                         fg='white' if accent else self.ink, bg=ACCENT if accent else self.control,
-                         activebackground='#10575e' if accent else self.pressed_colour(),
-                         activeforeground='white' if accent else self.ink, disabledforeground=self.muted,
+                         fg=self.selected_ink if accent else self.ink, bg=self.accent if accent else self.control,
+                         activebackground=self.accent_pressed if accent else self.pressed_colour(),
+                         activeforeground=self.selected_ink if accent else self.ink, disabledforeground=self.muted,
                          bd=0, relief='flat', highlightthickness=1,
-                         highlightbackground=ACCENT if accent else self.border, highlightcolor=ACCENT,
+                         highlightbackground=self.accent if accent else self.border, highlightcolor=self.accent,
                          padx=14, pady=13, takefocus=True)
         button.bind('<ButtonPress-1>', lambda event: self.show_tip(text), add='+')
         return button
@@ -531,9 +551,8 @@ class Panel(object):
         section = self.section
         advanced_page = getattr(self, 'advanced_page', None)
         self.theme = chosen
-        self.bg, self.surface, self.ink, self.muted, self.control = PALETTES[chosen]
-        self.border = '#cbd6df' if chosen == 'light' else '#3b4a58'
-        self.icon_colour = '#386a73' if chosen == 'light' else '#91c1c7'
+        for name, value in THEMES[chosen].items():
+            setattr(self, name, value)
         self.connection_badges = []
         for child in self.root.winfo_children():
             if child != self.dock:
@@ -546,7 +565,7 @@ class Panel(object):
             tk.Label(self.banner, image=self.artwork, bg='white', bd=0, padx=8).pack(side='left', anchor='n', padx=(0, 18))
         else:
             brand = self.label(self.banner, 'LESA', 30)
-            brand.config(fg=ACCENT)
+            brand.config(fg=self.accent)
             brand.pack(side='left', padx=(0, 18))
         identity = tk.Frame(self.banner, bg=self.bg)
         identity.pack(side='left', anchor='s')
@@ -655,8 +674,8 @@ class Panel(object):
         text, kind, colour = connection(self.light_state, self.args.live_lights)
         if hasattr(self, 'connection_text'):
             set_changed(self.connection_text, text)
-        colours = {'good': '#23794c' if self.theme == 'light' else '#87c6a1',
-                   'waiting': self.icon_colour, 'warning': '#9a650b' if self.theme == 'light' else '#e6ba66',
+        colours = {'good': '#23794c' if self.theme == 'light' else self.ink,
+                   'waiting': self.icon_colour, 'warning': '#9a650b' if self.theme == 'light' else self.ink,
                    'neutral': self.muted}
         for button, legacy in getattr(self, 'connection_badges', []):
             if button.winfo_exists():
@@ -726,11 +745,11 @@ class Panel(object):
         self.tips_button.config(text='Tips: ' + ('On' if self.help_on else 'Off'))
         selected_mode = {'guide': 'visitor', 'support': 'health'}.get(self.mode, self.mode)
         for key, button in self.nav_buttons.items():
-            button.config(bg=ACCENT if key == selected_mode else self.control,
-                          fg='white' if key == selected_mode else self.ink,
-                          activebackground=ACCENT if key == selected_mode else self.control,
-                          activeforeground='white' if key == selected_mode else self.ink,
-                          image=self.icon(key, 'white' if key == selected_mode else self.ink))
+            button.config(bg=self.accent if key == selected_mode else self.control,
+                          fg=self.selected_ink if key == selected_mode else self.ink,
+                          activebackground=self.accent if key == selected_mode else self.control,
+                          activeforeground=self.selected_ink if key == selected_mode else self.ink,
+                          image=self.icon(key, self.selected_ink if key == selected_mode else self.ink))
         if self.mode == 'original':
             self.root.withdraw()
             self.dock.deiconify()
@@ -785,7 +804,7 @@ class Panel(object):
         for button in self.footer.winfo_children():
             if isinstance(button, tk.Button) and button.cget('text') == 'Settings':
                 selected = self.mode in ('settings', 'about')
-                button.config(bg=ACCENT if selected else self.control, fg='white' if selected else self.ink)
+                button.config(bg=self.accent if selected else self.control, fg=self.selected_ink if selected else self.ink)
 
     def rebuild_body(self, build):
         """Prepare one unmapped page, then replace and destroy the previous page."""
@@ -828,7 +847,7 @@ class Panel(object):
                 button.config(font=(FONT, 22))
                 if index == 0:
                     button.config(image=self.icon('on' if title == 'Lights on' else 'off',
-                                                'white' if accent else self.icon_colour), compound='left')
+                                                self.selected_ink if accent else self.icon_colour), compound='left')
                     self.light_buttons.append(button)
                     self.home_power_buttons.append((button, 'on' if title == 'Lights on' else 'off', title))
                 else:
@@ -864,7 +883,7 @@ class Panel(object):
             button = self.button(sidebar, label, lambda page=page: self.open_advanced(page),
                                  self.advanced_page == page)
             button.config(font=(FONT, 16), anchor='w', padx=12, pady=8,
-                          image=self.icon('date' if page == 'clock' else page, 'white' if self.advanced_page == page else self.ink, 24), compound='left')
+                          image=self.icon('date' if page == 'clock' else page, self.selected_ink if self.advanced_page == page else self.ink, 24), compound='left')
             button.grid(row=index, column=0, sticky='nsew', pady=(0, 10))
             self.advanced_sidebar_buttons.append((button, page))
         self.rebuild_advanced_detail()
@@ -874,13 +893,13 @@ class Panel(object):
         shell = self.body
         for button, page in self.advanced_sidebar_buttons:
             selected = self.advanced_page == page
-            colour = ACCENT if selected else self.control
+            colour = self.accent if selected else self.control
             if button.cget('bg') != colour:
-                button.config(bg=colour, fg='white' if selected else self.ink,
-                              highlightbackground=ACCENT if selected else self.border,
-                              activebackground='#10575e' if selected else self.pressed_colour(),
-                              activeforeground='white' if selected else self.ink,
-                              image=self.icon('date' if page == 'clock' else page, 'white' if selected else self.ink, 24))
+                button.config(bg=colour, fg=self.selected_ink if selected else self.ink,
+                              highlightbackground=self.accent if selected else self.border,
+                              activebackground=self.accent_pressed if selected else self.pressed_colour(),
+                              activeforeground=self.selected_ink if selected else self.ink,
+                              image=self.icon('date' if page == 'clock' else page, self.selected_ink if selected else self.ink, 24))
         previous = self.advanced_detail
         detail = tk.Frame(shell, bg=self.bg)
         self.body = detail
@@ -1164,7 +1183,7 @@ class Panel(object):
         self.label(row, unit, 16, True).pack(side='left', padx=10, anchor='s', pady=12)
         scale = TouchSlider(group, variable=variable, from_=low, to=high, resolution=step,
                             orient='horizontal', background=self.surface, track=self.control,
-                            accent=ACCENT, border=self.border, ink=self.ink)
+                            accent=self.accent, border=self.border, ink=self.ink)
         scale.pack(fill='x', padx=20, pady=(4, 0))
         limits = tk.Frame(group, bg=self.surface)
         limits.pack(fill='x', padx=20, pady=(4, 4))
@@ -1225,7 +1244,7 @@ class Panel(object):
             number.pack()
             scale = TouchSlider(cell, variable=value, from_=100, to=0, resolution=1,
                                 orient='vertical', background=self.bg, track=self.control,
-                                accent=ACCENT, border=self.border, ink=self.ink, length=200)
+                                accent=self.accent, border=self.border, ink=self.ink, length=200)
             scale.pack(fill='both', expand=True)
             self.bind_slider(scale, 'channels')
             self.light_buttons.append(scale)
@@ -1249,7 +1268,7 @@ class Panel(object):
         self.apply('channels', values=[item.get() for item in self.channel_values])
 
     def apply(self, action, immediate=False, **arguments):
-        if self.mode != 'room' or self.light_state not in ('ready', 'applying') or self.release_target or self.closing:
+        if self.mode != 'room' or self.light_state not in ('ready', 'applying') or self.release_target or self.closing or getattr(self, 'running', False):
             self.status_text.set('Lighting unavailable. Use Legacy or ask staff.')
             return
         # Immutable complete intent, one unsent selection shared by all light controls.
@@ -1294,7 +1313,7 @@ class Panel(object):
         for button in self.light_buttons:
             if button.winfo_exists():
                 button.config(state='normal' if self.light_state in ('ready', 'applying')
-                              and not self.release_target and not self.closing else 'disabled')
+                              and not self.release_target and not self.closing and not getattr(self, 'running', False) else 'disabled')
         self.update_power_highlights()
 
     def experiment_view(self):
@@ -1437,11 +1456,11 @@ class Panel(object):
         menu = tk.OptionMenu(topic, selected, *[item[0] for item in SUPPORT],
                              command=lambda name: self.choose_support([item[0] for item in SUPPORT].index(name)))
         menu.config(font=(FONT, 18), bg=self.control, fg=self.ink, highlightthickness=1,
-                    highlightbackground=self.border, highlightcolor=ACCENT, bd=0, padx=18, pady=10,
+                    highlightbackground=self.border, highlightcolor=self.accent, bd=0, padx=18, pady=10,
                     activebackground=self.pressed_colour(), activeforeground=self.ink,
                     image=self.icon('dropdown', self.ink, 24), compound='right', indicatoron=False)
         menu['menu'].config(font=(FONT, 18), bg=self.control, fg=self.ink,
-                            activebackground=ACCENT, activeforeground='white', activeborderwidth=0)
+                            activebackground=self.accent, activeforeground=self.selected_ink, activeborderwidth=0)
         menu.pack(side='left', fill='y')
         title, kind, text, commands = SUPPORT[self.support_page]
         card = tk.Frame(self.body, bg=self.bg, highlightbackground=self.border, highlightthickness=1)
@@ -1456,7 +1475,7 @@ class Panel(object):
             overview.pack_forget()
             self.label(content, 'Room host · reference commands', 12, True).pack(anchor='w', pady=(8, 4))
             code = self.label(content, commands, 13)
-            code.config(font=('monospace', 13), bg=self.control, padx=10, pady=6)
+            code.config(font=('DejaVu Sans Mono', 13), bg=self.control, padx=10, pady=6)
             self.wrap_label(code).pack(fill='x')
             self.label(content, 'Reference only. This panel does not execute these commands.', 14, True).pack(anchor='w', pady=(8, 0))
         if commands:
@@ -1534,13 +1553,13 @@ class Panel(object):
         detail.pack(fill='both', expand=True, padx=22, pady=16)
         for index, (title, kind, text, commands) in enumerate(SUPPORT):
             button = self.row_buttons(topics, [(title, lambda index=index: self.choose_support(index), index == self.support_page)])[0]
-            button.config(image=self.icon(kind, 'white' if index == self.support_page else self.ink), compound='left')
+            button.config(image=self.icon(kind, self.selected_ink if index == self.support_page else self.ink), compound='left')
         title, kind, text, commands = SUPPORT[self.support_page]
         self.label(detail, title, 24).pack(anchor='w', pady=(0, 8))
         self.wrap_label(self.label(detail, text, 18)).pack(fill='x')
         if commands:
             code = self.label(detail, commands, 16)
-            code.config(font=('monospace', 15), bg=self.control, padx=10, pady=8)
+            code.config(font=('DejaVu Sans Mono', 15), bg=self.control, padx=10, pady=8)
             self.wrap_label(code).pack(fill='x', pady=(12, 0))
 
     def choose_support(self, index):
@@ -1553,9 +1572,7 @@ class Panel(object):
         self.support_commands_visible = not self.support_commands_visible
         self.render()
 
-    def update_health(self):
-        if self.mode != 'health':
-            return
+    def refresh_resources(self):
         now = monotonic()
         pending = getattr(self, 'health_pending', None)
         if pending is not None:
@@ -1574,6 +1591,11 @@ class Panel(object):
             self.health_worker.start()
         if not self.status_worker and now - self.room_status_at >= 60:
             self.start_status()
+
+    def update_health(self):
+        if self.mode != 'health':
+            return
+        self.refresh_resources()
         h = self.health_cache
         if not h:
             self.health_details.config(text='Checking panel resources…')
@@ -1593,12 +1615,12 @@ class Panel(object):
         for key, used in [('ram', 100 * (1 - h['ram_available'] / float(h['ram_total']))), ('disk', h['disk_used'])]:
             canvas = self.health_rows[key][1]
             canvas.delete('all')
-            canvas.create_rectangle(0, 0, max(1, canvas.winfo_width()) * used / 100, 24, fill=ACCENT, outline='')
+            canvas.create_rectangle(0, 0, max(1, canvas.winfo_width()) * used / 100, 24, fill=self.accent, outline='')
         self.health_details.config(text='CPU temperature: %.1f C     /     Uptime: %.1f days\n'
                                        'Load average, one minute: %.2f' %
                                        (h['temperature'], h['uptime'], h['load']))
         self.power_label.config(text='Power: ' + h['power'],
-                                fg='#c69c32' if h['power'].startswith('Current') else self.muted)
+                                fg=('#9a650b' if self.theme == 'light' else self.ink) if h['power'].startswith('Current') else self.muted)
         self.services_label.config(text=self.room_status)
 
     def start_status(self):
@@ -2051,6 +2073,9 @@ class Panel(object):
             self.show('original')
             return
         self.closing = reason
+        if getattr(self, 'control_bridge', None):
+            self.control_bridge.close()
+            self.control_bridge = None
         if getattr(self, 'weather_worker', None) and self.weather_worker.poll() is None:
             self.weather_worker.kill()
         if self.status_worker and self.status_worker.poll() is None:
@@ -2109,6 +2134,7 @@ def main(argv=None):
     parser.add_argument('--duration', type=float, default=600, help='Trial lifetime: 1..1800 s; 0 requires --keep-switcher')
     parser.add_argument('--keep-switcher', action='store_true', help='Keep touch navigation above Original after leaving the beta')
     parser.add_argument('--start-mode', choices=['room', 'original'], default='room', help='Initial view with --keep-switcher')
+    parser.add_argument('--control-socket', help='Private local socket for the optional trusted-network browser gateway')
     parser.add_argument('--profile', help='Data-only JSON: title, sensors, stages, annotations')
     parser.add_argument('--journal', help='New private JSONL UI journal; never an existing recording context file')
     parser.add_argument('--preferences', help='Private appearance JSON file; saved choices override appearance CLI defaults')

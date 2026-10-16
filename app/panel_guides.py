@@ -14,7 +14,7 @@ DEMO = (
      'It does not start a recorder. Arrange recording separately and coordinate the study with the room host.\n\n'
      'Room tools → System & help shows room service availability. Availability alone does not prove usable sensor data.'),
     ('How it connects', 'health',
-     'Use the cabinet panel for room controls. The website shows read-only room information.\n\n'
+     'The touch panel and trusted-network website share Beta controls. Legacy’s original controls remain on the touch panel.\n\n'
      'The lighting badge shows this panel’s connection: Ready, Sending, Offline or Uncertain. Tap it for System & help.\n\n'
      'Weather is an outdoor model estimate, separate from indoor measurements. Source details are under Room tools → Date & weather.'),
 )
@@ -28,11 +28,11 @@ SUPPORT = (
      'An undervoltage warning means the Pi supply voltage is too low. This can slow the panel and affect storage reliability.\n\n'
      'Check the supply, cable and connector. A separately powered LCD does not rule out a Pi power problem.\n\n'
      'Do not hide the warning or keep power-cycling to clear it. Shut down normally before changing power.',
-     'Panel terminal: vcgencmd get_throttled'),
+     'vcgencmd get_throttled'),
     ('Ubuntu checks', 'health',
      'Use a Terminal on the Ubuntu room computer. These commands inspect state; they do not start devices.\n\n'
      'ROS owns room controls. Status owns the TV display and its clients. Session presence alone does not prove health.',
-     'hostname; uptime\nfree -m; df -h /\ntmux list-sessions\nsource /opt/ros/indigo/setup.bash\nsource ~/catkin_ws/devel/setup.bash\ntimeout 10 rosservice list'),
+     'hostname\nuptime\nfree -m\ndf -h /\ntmux list-sessions\nsource /opt/ros/indigo/setup.bash\nsource ~/catkin_ws/devel/setup.bash\ntimeout 10 rosservice list'),
     ('Start services', 'health',
      'Room host only: stop experiments and check tmux sessions first. '
      'startROS.py replaces the ROS session; startStatus.py replaces Status. Do not use them as a quick connection fix.\n\n'
@@ -41,7 +41,7 @@ SUPPORT = (
     ('Restart computer', 'off',
      'Room host only: stop recordings and coordinate with other room users. Restarting interrupts shared controls and feeds.\n\n'
      'Use the Ubuntu Restart action or its Terminal command below. After the desktop and network return, check ROS and Status; service autostart is not verified.',
-     'Ubuntu room computer only:\nsudo reboot'),
+     'sudo reboot'),
 )
 
 

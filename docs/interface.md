@@ -94,3 +94,39 @@ fields are omitted so older samples remain readable; probabilities must be finit
 and within 0..100, and a daily low cannot exceed its high. Home labels rain as
 today's maximum forecast probability. Daily details are hidden for older readings.
 Attribution and model time remain in Date & weather and website Weather details.
+
+
+## Optional browser gateway, version 1
+
+The panel remains the only lighting command owner. `--control-socket` enables a
+private mode-0600 Unix socket; a same-user browser service may relay requests.
+Socket threads only read immutable snapshots or enqueue bounded requests. The Tk
+thread validates current ownership/state and calls the existing panel methods.
+No new hardware adapter, blind command, shell executor or recording adapter exists.
+
+A command has exactly `id`, `revision`, `action`, `arguments`. IDs are unique,
+16–80 alphanumeric/hyphen characters. The revision identifies the panel session,
+journal sequence and view generation. A stale revision returns409 without executing.
+Duplicate IDs return their original receipt; differing payloads with a reused ID
+are refused. Queued requests expire after two seconds. Lost acceptance is uncertain:
+clients query receipts and never automatically repeat commands.
+
+The shared actions cover on/off, CCT/level, eight channels, admitted presets,
+instruction start/pause/previous/next/known annotations, panel appearance/clock/
+weather/idle preferences, disabled-blinds visibility, Home, Legacy, clock view and
+blank display. All inputs are bounded enums or integers. Lighting requires ready
+readback, no pending/queued/held touch and no running instructions. Legacy and
+uncertain states block lighting. Panel and browser use these same study guards.
+Acceptance is not lighting confirmation, annotation persistence or recording.
+
+The opt-in HTTP gateway exposes `/api/controller` and `/api/command`. Commands
+require the exact configured Host, matching Origin, a per-service nonce and bounded
+JSON. The existing source-subnet allowlist applies to every request. Everyone in
+that subnet can control the room; there is no separate user identity system.
+`/api/status` and diagnostics remain observation-only. Service-start and restart
+references are display/copy text, never command actions.
+
+`app/design_tokens.py` owns theme roles. `app/export_room_content.py` exports the
+panel-owned guide/help and Lucide paths for browser fallback and offline demos.
+The live snapshot supplies current preferences, controls, receipts, guide/help and
+experiment state. Original Legacy controls are external to this common Beta API.

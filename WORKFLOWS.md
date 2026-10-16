@@ -334,3 +334,28 @@ authorized light-control/restoration trial. Verify original blinds and HTTP demo
 controls through their existing owners when the room permits those actions.
 Confirm power/storage health before an unattended reboot test. Record untested
 behavior explicitly.
+
+
+## Trusted-network browser controls
+
+The browser release must include the gateway and the panel must include its local
+bridge. Set `SCR_CONTROL_SOCKET` in the private panel deployment file and
+`SCR_WEB_CONTROL_SOCKET` in the browser service’s private EnvironmentFile to the
+same absolute socket path under the panel user’s private cache. Both processes run
+as that user. The launchers pass their explicit socket options; omitting them keeps
+browser control disabled. The fixed bind address and trusted-client subnet still
+determine who can access the site. No separate staff login is implemented.
+
+Deploy and qualify both compatible releases. Keep the original application and
+room servers running. The panel gracefully releases lighting before its selector
+changes; preserve its receipts. Restart only the owned browser service after
+selecting its release. Check controller availability and receipt handling with a
+same-value display preference, not an actuator command. If the panel bridge is
+unavailable, web controls disable while the panel and guide/help remain usable.
+
+Common actions and their rejection rules are owned by
+[the interface contract](docs/interface.md#optional-browser-gateway-version-1).
+Changing a website page does not move room devices. Explicit Legacy/display
+controls affect the cabinet. A running instruction session blocks lighting on
+both interfaces until paused. Blind movement and external Legacy actuator buttons
+remain outside this gateway. Reference commands may be copied, never executed.
