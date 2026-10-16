@@ -1,30 +1,24 @@
 # Contributors and agents
 
-- SCR is a small, trusted room project. Prefer short, practical changes and
-  readable controls over new layers, release bureaucracy or speculative features.
-  Keep everyday actions direct and detailed controls together in Room tools.
-- Keep common panel and website behaviour consistent. Use the plain version from
-  app/panel_version.py for About and development tracking; everyday headers say
-  Beta. Put Git/build details only in About. Preserve Legacy as the older baseline
-  for backtracking, identified by Git history. Refresh the private
-  screenshot gallery and interactive demo after verified deployments.
-- Read README.md for room-user behaviour, WORKFLOWS.md for operation, and
-  docs/interface.md for profiles, events and adapter contracts. Technical details
-  remain available to human maintainers; do not create parallel documentation.
-- Public PRs, commits and docs lead with what changes, why, and the effect on users.
-  Put necessary technical evidence below or link to its owner. Distinguish planned
-  work, implemented behaviour, tested scope and unresolved limits. Avoid private
-  incident history, credentials, host configuration and participant information.
-- General panel code belongs here. Project-X owns its optional recorder integration.
-  Preserve the original application and shared room-service owners. Verify the
-  deployed version and exact process before live actions; do not reuse old PIDs.
-- One controller owns each hardware resource. Do not restart ROS/Status or install
-  packages to make a query work. These launchers replace whole room sessions.
-  Uncertain light results block writes and automatic retries; preserve receipts.
-- Use an experiment branch and a draft PR. Do not merge to main without researcher
-  approval. Never force-push or rewrite history. Keep commits cohesive.
-- Run `python -m pytest tests` for code changes. For UI changes, check the target
-  font/resolution, internal text fit, touch targets, wake behaviour and failure states.
-  Docs-only changes need link and diff checks; they do not require a live reload.
-- Keep one current private handoff with source/deployment, evidence, limits and the
-  next check. README is the human entrypoint; code/contracts own technical detail.
+SCR is a small room project used mostly by students, researchers and visitors.
+Keep it simple: small readable changes, no new layers or process unless they
+remove more than they add.
+
+- **Where things live:** README.md (room users), WORKFLOWS.md (setup and
+  operation), docs/interface.md (contracts). Don't create parallel docs.
+- **Consistency:** the panel and website share behaviour, wording and the version
+  in app/panel_version.py. Headers say Beta; Git/build details appear only in About.
+  Legacy (the original app) stays intact as the fallback.
+- **Room safety:** one controller owns each piece of hardware. Never restart
+  ROS/Status or install packages on room machines to make something work.
+  Uncertain light results block changes and retries until checked. Before a live
+  action, check the deployed version and the current process.
+- **Ownership:** general panel code belongs here; Project-X owns its recorder
+  integration.
+- **Git:** work on a branch with a draft PR; the researcher approves merges to
+  main. No force-push or history rewrites.
+- **Checks:** `python -m pytest tests` (CI runs it on every push). For UI changes,
+  look at the panel at 1280×800 and the website on phone and desktop, light and dark.
+- **Writing:** PRs and commits lead with what changes for room users. Keep
+  evidence short and below. No credentials, host details or participant information.
+- Keep the short private handoff (.local/README.md) current after deployments.
