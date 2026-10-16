@@ -67,10 +67,10 @@ def server():
     thread.join(timeout=2)
 
 
-def request(server, method, path, headers=None):
+def request(server, method, path, headers=None, body=None):
     connection = http.client.HTTPConnection(*server.server_address, timeout=7)
     try:
-        connection.request(method, path, headers=headers or {})
+        connection.request(method, path, body=body, headers=headers or {})
         response = connection.getresponse()
         return response.status, response.read(), dict(response.headers)
     finally:
@@ -168,3 +168,24 @@ def test_weather_cache_preserves_provenance_on_failure():
     assert result['observed_at'] == original
     assert result['data'] == value
     assert result['observation_age_s'] >= 1900
+
+def test_gateway_requires_exact_origin_nonce_and_bounded_json_without_polling_devices(server):
+    class Gateway:
+        def __init__(self):self.calls=[]
+        def read(self):return {'available':True,'revision':'one'}
+        def exchange(self,value):self.calls.append(value);return {'ok':True,'code':202,'id':value['id']}
+    gateway=Gateway();server.controller=gateway;server.control_nonce='test-nonce'
+    code,body,_=request(server,'GET','/api/controller')
+    assert code==200 and json.loads(body)['csrf']=='test-nonce' and not gateway.calls
+    payload=json.dumps({'id':'known-command-0001','revision':'one','action':'off','arguments':{}})
+    headers={'Origin':'http://'+server.expected_host,'X-SCR-Token':'test-nonce','Content-Type':'application/json'}
+    for override in ({'Origin':'http://foreign.test'},{'X-SCR-Token':'wrong'},{'Host':'foreign.test'}):
+        assert request(server,'POST','/api/command',dict(headers,**override),payload)[0]==403
+    assert not gateway.calls
+    assert request(server,'POST','/api/command',dict(headers,**{'Content-Type':'text/plain'}),payload)[0]==400
+    assert not gateway.calls
+    assert request(server,'POST','/api/command',headers,payload)[0]==202
+    assert len(gateway.calls)==1 and gateway.calls[0]['action']=='off'
+    for method in ('PUT','DELETE','PATCH','OPTIONS'):
+        assert request(server,method,'/api/command',headers,payload)[0]==405
+    assert len(gateway.calls)==1

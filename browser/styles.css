@@ -119,3 +119,6 @@ main { padding-block: 26px; }
 .weather-icon { width: 96px; height: 96px; object-fit: contain; }
 .control-icon { width: 24px; height: 24px; flex-shrink: 0; }
 .essential-actions button, .home-tools a { display: flex; align-items: center; justify-content: center; gap: 10px; }
+
+body{background:var(--bg,#fff)}
+[data-theme=dark] .warm{color:var(--ink)}

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Read-only SCR status page. Python 3.11+, no installed dependencies.
+"""SCR browser interface with read-only diagnostics and an optional panel gateway.
+
+Python 3.11+, no installed dependencies.
 
 Author: Diyanko Bhowmik, with Codex assistance. No control adapter is imported.
 """
@@ -9,6 +11,8 @@ import http.client
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import ipaddress
 import json
+import secrets
+import hmac
 from pathlib import Path
 import shutil
 import socket
@@ -28,6 +32,9 @@ GROUPS = {
 }
 ASSETS = {'/': ('index.html', 'text/html'), '/styles.css': ('styles.css', 'text/css'),
           '/status.js': ('status.js', 'text/javascript'),
+          '/design.js': ('design.js','text/javascript'), '/theme.js': ('theme.js','text/javascript'),
+          '/room.js': ('room.js','text/javascript'), '/room.css': ('room.css','text/css'),
+          '/tools': ('tools.html','text/html'), '/room-content.json': ('room-content.json','application/json'),
           '/diagnostics': ('diagnostics.html', 'text/html'), '/guide': ('guide.html', 'text/html'),
           '/logo.jpg': ('lesa-logo.jpeg', 'image/jpeg')}
 
@@ -267,7 +274,12 @@ class Handler(BaseHTTPRequestHandler):
             self.respond(403)
             return
         path = self.path
-        if path == '/api/status':
+        if path == '/api/controller':
+            gateway = getattr(self.server, 'controller', None)
+            value = gateway.read() if gateway else {'available':False,'detail':'Browser control is not configured.'}
+            value['csrf'] = getattr(self.server, 'control_nonce', '')
+            self.respond(200, json.dumps(value, allow_nan=False).encode(), 'application/json')
+        elif path == '/api/status':
             self.respond(200, json.dumps(self.server.snapshot.read(), allow_nan=False).encode(), 'application/json')
         elif path in ASSETS:
             filename, content_type = ASSETS[path]
@@ -278,13 +290,36 @@ class Handler(BaseHTTPRequestHandler):
     do_HEAD = do_GET
 
     def do_POST(self):
-        self.respond(405, b'Read-only endpoint')
+        gateway=getattr(self.server,'controller',None)
+        if self.path!='/api/command' or gateway is None:
+            self.respond(405,b'Control is not configured');return
+        if (self.headers.get('Host')!=self.server.expected_host or
+            self.headers.get('Origin')!='http://'+self.server.expected_host or
+            not hmac.compare_digest(self.headers.get('X-SCR-Token',''),self.server.control_nonce)):
+            self.respond(403);return
+        try:
+            length=int(self.headers.get('Content-Length','0'))
+            if (not 1<=length<=4096 or self.headers.get('Transfer-Encoding') or
+                self.headers.get('Content-Type')!='application/json'):
+                raise ValueError('Invalid command body')
+            value=json.loads(self.rfile.read(length))
+            if not isinstance(value,dict):raise ValueError('Invalid command')
+            reply=gateway.exchange(value)
+            status=int(reply.get('code',503))
+            if status not in (202,400,408,409,503):status=503
+            self.respond(status,json.dumps(reply,allow_nan=False).encode(),'application/json')
+        except ValueError:
+            self.respond(400,b'Invalid command')
+        except OSError:
+            self.respond(503,b'Command receipt unknown. Check the panel; do not retry.')
 
-    do_PUT = do_DELETE = do_PATCH = do_OPTIONS = do_POST
+    def unsupported(self):self.respond(405)
+    do_PUT = do_DELETE = do_PATCH = do_OPTIONS = unsupported
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--panel-control-socket', help='Opt in to trusted-network controls through the existing panel owner')
     parser.add_argument('--bind', default='127.0.0.1', help='Explicit private IPv4 address; default is local-only')
     parser.add_argument('--allow-clients', help='Trusted IPv4 subnet in CIDR form; required for room-network hosting')
     parser.add_argument('--port', type=int, default=8768)
@@ -319,10 +354,16 @@ def main():
     server.allowed_clients = allowed
     server.expected_host = '%s:%d' % server.server_address
     server.snapshot = snapshot
+    server.controller = None
+    server.control_nonce = secrets.token_urlsafe(32)
+    if args.panel_control_socket:
+        from controller import Controller
+        if not Path(args.panel_control_socket).is_absolute():parser.error('Panel socket path must be absolute')
+        server.controller = Controller(args.panel_control_socket)
     stopped = threading.Event()
     worker = threading.Thread(target=snapshot.run, args=(stopped,), daemon=True)
     worker.start()
-    print('Read-only room status: http://' + server.expected_host, flush=True)
+    print('Room interface: http://' + server.expected_host, flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
