@@ -98,7 +98,7 @@ function tools(root,page){
     detail.append(el('p','Changing the lock does not move the blinds.','subtle'));
     detail.append(el('h3','Blinds on Home'));choices(detail,[['Show','blinds_display','disabled'],['Hide','blinds_display','hidden']]);
   }else if(page==='system')system(detail);
-  else{const version=el('p',undefined,'muted'),build=el('p',undefined,'subtle');version.id='app-version';build.id='app-build';build.hidden=true;detail.append(el('h3','Smart Conference Room'),el('p','Touch panel and browser · Beta mode','muted'),version,build,el('p','Built by Diyanko Bhowmik'),el('p','Original contributors are credited in the repository history.','muted'));const a=el('a','github.com/LESA-RPI/scr.touch_panel');a.href='https://github.com/LESA-RPI/scr.touch_panel';detail.append(a,el('p','Icons: Lucide · lucide.dev','subtle'));}
+  else{const version=el('p',undefined,'muted'),build=el('p',undefined,'subtle');version.id='app-version';build.id='app-build';build.hidden=true;detail.append(el('h3','Smart Conference Room'),el('p','Touch panel and browser','muted'),version,build,el('p','Built by Diyanko Bhowmik'),el('p','Original contributors are credited in the repository history.','muted'));const a=el('a','github.com/LESA-RPI/scr.touch_panel');a.href='https://github.com/LESA-RPI/scr.touch_panel';detail.append(a,el('p','Icons: Lucide · lucide.dev','subtle'));}
 }
 let selectedProgramme='Sun';
 function lighting(detail,tab){
@@ -199,12 +199,14 @@ async function copy(value){
 }
 function legacy(root){root.append(el('h2','Legacy view'),el('p','Legacy is the original application on the touch panel. Its device controls remain on that panel.','muted'));
   const preview=el('div',undefined,'legacy-preview'),head=el('div',undefined,'legacy-header');head.append(el('strong','Smart Conference Room'),el('span','Legacy view','badge'),button('Home',()=>command('home').then(ok=>{if(ok)location.hash='home';}),{icon:'home',action:'home'}));preview.append(head,el('p','The matching panel header stays visible above the original controls. Use Home to return to everyday lighting.'));root.append(preview);
-  root.append(button('Open Legacy on touch panel',()=>command('legacy'),{action:'legacy'}),el('p','Opening Legacy restores the starting Beta light settings before handing over. Blind commands stay disabled in Beta; do not operate the original blind controls.','subtle'));
+  root.append(button('Open Legacy on touch panel',()=>command('legacy'),{action:'legacy'}),el('p','Opening Legacy restores the starting light settings before handing over. Blind controls remain disabled here; do not operate the original blind controls.','subtle'));
 }
 function update(id,text){if($(id)&&$(id).textContent!==String(text))$(id).textContent=text;}
 function sync(){
   const p=state?.preferences||{},s=state?.lights||{},available=state?.available===true;
-  update('app-version','Version '+(state?.app_version||content.app_version||'Beta'));
+  const version=String(state?.app_version||content.app_version||'').match(/^\d+\.\d+\.\d+/)?.[0]||'';
+  for(const badge of document.querySelectorAll('.version-badge')){badge.textContent=version;badge.hidden=!version;}
+  update('app-version',version?'Version '+version:'');
   if($('app-build')){const build=state?.build_commit;$('app-build').hidden=!/^[0-9a-f]{7,40}$/.test(build||'');update('app-build',build?'Build '+build.slice(0,7):'');}
   if(state?.palette)window.SCRDesign.apply(state.palette,p.resolved_theme);
   update('connection',!available&&powerRequest?.accepted?(powerRequest.operation==='reboot'?'Restarting panel':'Shutting down panel'):!available?'Panel unavailable':state.mode==='original'?'Legacy':state.busy?'Sending':state.can_control?'Ready':s.state==='failed'?'Uncertain':'Controls unavailable');

@@ -19,7 +19,7 @@ automatically retried. Confirmed readback alone selects Lights on/off. Pending,
 uncertain or disconnected states clear that selection. Running instructions block
 lighting from both interfaces. All three original blind actions are visible;
 movement has a saved Locked/Unlocked setting, locked by default, and requires a connected
-controller. None is installed in Beta. Gradient, Sun and Circ remain visible with
+controller. None is installed in the new interface. Gradient, Sun and Circ remain visible with
 disconnected Apply/Start controls until their adapters are integrated. Empty Legacy
 placeholders and the redundant Enable Sliders gate are omitted. Experiment mode does not
 start a recorder. Service-start/restart references are monospace text with Copy,
@@ -58,4 +58,4 @@ Panel-owned guide/help, design roles and Lucide paths are exported by
 Live controller state supplies the same content and preferences. Preserve source
 provenance when rebuilding browser assets. The artwork notices remain in
 [browser/icons/LICENSE](browser/icons/LICENSE). Original contributors are retained
-in repository history. Beta is maintained by Diyanko Bhowmik.
+in repository history. The interface is maintained by Diyanko Bhowmik.

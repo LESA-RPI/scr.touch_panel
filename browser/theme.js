@@ -1,3 +1,3 @@
 /* Extra diagnostics remain observation-only and share the panel's visual roles. */
-(()=>{async function refresh(){try{const response=await fetch('/api/controller',{cache:'no-store'});const value=await response.json();window.SCRDesign.apply(value.palette,value.preferences?.resolved_theme);}catch(_){}}
+(()=>{let fallback='';const version=value=>{const number=String(value||fallback).match(/^\d+\.\d+\.\d+/)?.[0]||'';for(const badge of document.querySelectorAll('.version-badge')){badge.textContent=number;badge.hidden=!number;}};fetch('/room-content.json').then(reply=>reply.json()).then(value=>{fallback=value.app_version||'';version();}).catch(()=>{});async function refresh(){try{const response=await fetch('/api/controller',{cache:'no-store'});const value=await response.json();window.SCRDesign.apply(value.palette,value.preferences?.resolved_theme);version(value.app_version);}catch(_){}}
 refresh();setInterval(refresh,15000);})();

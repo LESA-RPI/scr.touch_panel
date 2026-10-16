@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "app_version": "0.2.0-beta",
+  "app_version": "0.2.0",
   "icons": {
     "tools": [
       {
@@ -752,7 +752,7 @@
     {
       "title": "Room controls",
       "icon": "home",
-      "text": "Home always returns to everyday lighting controls. Opening a page does not change the lights.\n\nLegacy opens the original interface after restoring Beta’s starting lighting scene. Use Home in the Legacy bar to return.\n\nLift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller."
+      "text": "Home always returns to everyday lighting controls. Opening a page does not change the lights.\n\nLegacy opens the original interface after restoring the starting lighting scene. Use Home in the Legacy bar to return.\n\nLift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller."
     },
     {
       "title": "Sensors and experiments",
@@ -762,7 +762,7 @@
     {
       "title": "How it connects",
       "icon": "health",
-      "text": "The touch panel and trusted-network website share Beta controls. Legacy’s original controls remain on the touch panel.\n\nThe lighting badge shows this panel’s connection: Ready, Sending, Offline or Uncertain. Tap it for System & help.\n\nWeather is an outdoor model estimate, separate from indoor measurements. Source details are under Room tools → Date & weather."
+      "text": "The touch panel and trusted-network website share the same room controls. Legacy’s original controls remain on the touch panel.\n\nThe lighting badge shows this panel’s connection: Ready, Sending, Offline or Uncertain. Tap it for System & help.\n\nWeather is an outdoor model estimate, separate from indoor measurements. Source details are under Room tools → Date & weather."
     }
   ],
   "help": [
