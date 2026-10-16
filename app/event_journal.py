@@ -1,7 +1,9 @@
 """Bounded, ordered panel logging without storage I/O on the Tk thread."""
+
 from __future__ import print_function
 import os
 import threading
+
 try:
     import Queue as queue
 except ImportError:
@@ -16,17 +18,17 @@ class EventJournal(object):
         self.error, self.output_error = None, None
         self.done = threading.Event()
         self.closing = False
-        self.thread = threading.Thread(target=self._run, name='scr-panel-journal')
+        self.thread = threading.Thread(target=self._run, name="scr-panel-journal")
         self.thread.daemon = True
         self.thread.start()
 
     def append(self, line, sequence, durable=False):
         if self.error or self.closing:
-            raise IOError(self.error or 'Panel journal is closing')
+            raise IOError(self.error or "Panel journal is closing")
         try:
             self.pending.put_nowait((line, sequence, durable))
         except queue.Full:
-            self.error = 'Panel journal queue is full; event not saved'
+            self.error = "Panel journal queue is full; event not saved"
             raise IOError(self.error)
 
     def poll(self):
@@ -44,7 +46,9 @@ class EventJournal(object):
         stream = None
         try:
             if self.path:
-                stream = os.fdopen(os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), 'w')
+                stream = os.fdopen(
+                    os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w"
+                )
             while not self.closing or not self.pending.empty():
                 try:
                     batch = [self.pending.get(timeout=0.05)]
@@ -55,7 +59,7 @@ class EventJournal(object):
                         batch.append(self.pending.get_nowait())
                     except queue.Empty:
                         break
-                lines = ''.join(item[0] for item in batch)
+                lines = "".join(item[0] for item in batch)
                 if stream:
                     stream.write(lines)
                     stream.flush()
@@ -82,7 +86,7 @@ class EventJournal(object):
                 stream.flush()
                 os.fsync(stream.fileno())
         except (IOError, OSError, queue.Full) as error:
-            self.error = str(error) or 'Panel journal write failed'
+            self.error = str(error) or "Panel journal write failed"
         finally:
             if stream:
                 try:

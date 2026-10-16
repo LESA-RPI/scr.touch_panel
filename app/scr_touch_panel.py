@@ -5,6 +5,7 @@
 Python 3.11+, installed Tk and Pillow. Data-only profiles and
 a private UI journal work standalone. An opt-in adapter uses existing ROS lights.
 """
+
 from __future__ import print_function
 import argparse
 import base64
@@ -30,9 +31,16 @@ from touch_slider import TouchSlider
 from panel_guides import DEMO, SUPPORT, connection
 from command_reference import command_tokens
 from help_reference import reference
-from room_controls import LIGHTING_TABS, SCENES, PROGRAMMES, BLIND_ACTIONS, blind_readiness
+from room_controls import (
+    LIGHTING_TABS,
+    SCENES,
+    PROGRAMMES,
+    BLIND_ACTIONS,
+    blind_readiness,
+)
 from panel_power import PowerActions
 from panel_version import VERSION, BUILD_COMMIT
+
 try:
     import Tkinter as tk
     from tkFont import Font
@@ -40,58 +48,96 @@ except ImportError:
     import tkinter as tk
     from tkinter.font import Font
 
-FONT = 'Cantarell'
-CHANNELS = ('Blue 1', 'Blue 2', 'Blue 3', 'Lime', 'Amber', 'Orange', 'Red 1', 'Red 2')
-CHANNEL_COLOURS = ('#4764bc', '#337cb9', '#2198c2', '#86a83b', '#c69c32', '#d47d34', '#ba6052', '#a84658')
-ACCENT = THEMES['light']['accent']
-ADVANCED_PAGES = [('Lighting', 'lighting'),
-                  ('Experiment mode', 'experiment'), ('Appearance', 'appearance'),
-                  ('Date & weather', 'clock'), ('Screen & controls', 'screen'),
-                  ('System & help', 'system'), ('About', 'about')]
+FONT = "Cantarell"
+CHANNELS = ("Blue 1", "Blue 2", "Blue 3", "Lime", "Amber", "Orange", "Red 1", "Red 2")
+CHANNEL_COLOURS = (
+    "#4764bc",
+    "#337cb9",
+    "#2198c2",
+    "#86a83b",
+    "#c69c32",
+    "#d47d34",
+    "#ba6052",
+    "#a84658",
+)
+ACCENT = THEMES["light"]["accent"]
+ADVANCED_PAGES = [
+    ("Lighting", "lighting"),
+    ("Experiment mode", "experiment"),
+    ("Appearance", "appearance"),
+    ("Date & weather", "clock"),
+    ("Screen & controls", "screen"),
+    ("System & help", "system"),
+    ("About", "about"),
+]
 # Only presentation references travel with retained pages. Controller state, intent
 # generations and preferences always belong to the live Panel, never a cached page.
-PAGE_REFERENCES = ('light_buttons', 'home_power_buttons', 'scene_buttons', 'blind_buttons',
-    'blind_status_label', 'light_feedback_card', 'weather_symbol', 'weather_symbol_size',
-    'weather_symbol_key', 'weather_symbol_item', 'weather_measurements', 'weather_metric_cells',
-    'weather_metric_values', 'weather_notice', 'daylight_label', 'daylight_canvas',
-    'daylight_drawn', 'weather_rendered_minute')
-DEFAULT_PROFILE = {'title': 'Room activity instructions', 'sensors': 'Ceiling and colour sensors',
-                   'stages': ['Leave the room empty', 'Please sit still',
-                              'Make small seated movements', 'Walk around the room',
-                              'Leave the room empty again'],
-                   'annotations': ['Activity started', 'Activity finished', 'Unexpected event']}
-TIPS = {'Lights on': 'Standard white: selects 3500 K and light-level input 1000 for all lights.',
-        'Lights off': 'Sends zero drive to all light channels. The panel screen stays on.',
-        'Advanced controls': 'Adjust eight colour-channel drives. Values are controller percentages, not measured light.',
-        'Room': 'Everyday lighting. Changes send automatically after your touch settles.',
-        'Visitor': 'Room introduction and a large clock. Opening this page does not change lighting.',
-        'Experiment mode': 'Instructions, elapsed time and panel annotations. No sensor recording starts.',
-        'System': 'Panel resources and advertised room services. Presence does not prove sensor health.',
-        'Legacy': 'Restores the starting lighting, then shows the original room controls.',
-        'Blank screen': 'Shows black pixels. Hold still for 2 seconds to return; the backlight remains on.',
-        'Settings': 'Appearance, date/time and screen options. Appearance choices can be saved on this device.',
-        'About panel': 'Panel credits and source repository. No room settings change.',
-        'Start instructions': 'Starts the instruction timer only. It does not start sensor collection.',
-        'Next instruction': 'Shows the next instruction. The final instruction does not wrap.',
-        'End trial and restore': 'Restores confirmed trial changes and returns to the original program.'}
+PAGE_REFERENCES = (
+    "light_buttons",
+    "home_power_buttons",
+    "scene_buttons",
+    "blind_buttons",
+    "blind_status_label",
+    "light_feedback_card",
+    "weather_symbol",
+    "weather_symbol_size",
+    "weather_symbol_key",
+    "weather_symbol_item",
+    "weather_measurements",
+    "weather_metric_cells",
+    "weather_metric_values",
+    "weather_notice",
+    "daylight_label",
+    "daylight_canvas",
+    "daylight_drawn",
+    "weather_rendered_minute",
+)
+DEFAULT_PROFILE = {
+    "title": "Room activity instructions",
+    "sensors": "Ceiling and colour sensors",
+    "stages": [
+        "Leave the room empty",
+        "Please sit still",
+        "Make small seated movements",
+        "Walk around the room",
+        "Leave the room empty again",
+    ],
+    "annotations": ["Activity started", "Activity finished", "Unexpected event"],
+}
+TIPS = {
+    "Lights on": "Standard white: selects 3500 K and light-level input 1000 for all lights.",
+    "Lights off": "Sends zero drive to all light channels. The panel screen stays on.",
+    "Advanced controls": "Adjust eight colour-channel drives. Values are controller percentages, not measured light.",
+    "Room": "Everyday lighting. Changes send automatically after your touch settles.",
+    "Visitor": "Room introduction and a large clock. Opening this page does not change lighting.",
+    "Experiment mode": "Instructions, elapsed time and panel annotations. No sensor recording starts.",
+    "System": "Panel resources and advertised room services. Presence does not prove sensor health.",
+    "Legacy": "Restores the starting lighting, then shows the original room controls.",
+    "Blank screen": "Shows black pixels. Hold still for 2 seconds to return; the backlight remains on.",
+    "Settings": "Appearance, date/time and screen options. Appearance choices can be saved on this device.",
+    "About panel": "Panel credits and source repository. No room settings change.",
+    "Start instructions": "Starts the instruction timer only. It does not start sensor collection.",
+    "Next instruction": "Shows the next instruction. The final instruction does not wrap.",
+    "End trial and restore": "Restores confirmed trial changes and returns to the original program.",
+}
 
 
 def monotonic():
-    if hasattr(time, 'monotonic'):
+    if hasattr(time, "monotonic"):
         return time.monotonic()
-    with open('/proc/uptime') as stream:
+    with open("/proc/uptime") as stream:
         return float(stream.read().split()[0])
 
 
 def set_changed(variable, value):
     """Avoid scheduling redraws for unchanged clock/status values."""
-    if not hasattr(variable, 'get') or variable.get() != value:
+    if not hasattr(variable, "get") or variable.get() != value:
         variable.set(value)
 
 
 def boot_identity():
     try:
-        with open('/proc/sys/kernel/random/boot_id') as stream:
+        with open("/proc/sys/kernel/random/boot_id") as stream:
             return stream.read().strip()
     except IOError:
         return None
@@ -100,27 +146,38 @@ def boot_identity():
 def health():
     result = {}
     try:
-        with open('/proc/meminfo') as stream:
-            memory = dict((line.split(':')[0], int(line.split()[1])) for line in stream)
-        result.update(ram_available=memory['MemAvailable'] // 1024,
-                      ram_total=memory['MemTotal'] // 1024, load=os.getloadavg()[0])
-        disk = os.statvfs('/')
-        result.update(disk_available=disk.f_bavail * disk.f_frsize / float(2 ** 30),
-                      disk_used=100 * (1 - disk.f_bfree / float(disk.f_blocks)))
-        with open('/sys/class/thermal/thermal_zone0/temp') as stream:
-            result['temperature'] = float(stream.read()) / 1000
-        with open('/proc/uptime') as stream:
-            result['uptime'] = float(stream.read().split()[0]) / 86400
+        with open("/proc/meminfo") as stream:
+            memory = dict((line.split(":")[0], int(line.split()[1])) for line in stream)
+        result.update(
+            ram_available=memory["MemAvailable"] // 1024,
+            ram_total=memory["MemTotal"] // 1024,
+            load=os.getloadavg()[0],
+        )
+        disk = os.statvfs("/")
+        result.update(
+            disk_available=disk.f_bavail * disk.f_frsize / float(2**30),
+            disk_used=100 * (1 - disk.f_bfree / float(disk.f_blocks)),
+        )
+        with open("/sys/class/thermal/thermal_zone0/temp") as stream:
+            result["temperature"] = float(stream.read()) / 1000
+        with open("/proc/uptime") as stream:
+            result["uptime"] = float(stream.read().split()[0]) / 86400
     except (IOError, OSError, KeyError, ValueError) as error:
-        result['error'] = str(error)
+        result["error"] = str(error)
     try:
-        reply = subprocess.check_output(['timeout', '2', 'vcgencmd', 'get_throttled']).decode('ascii').strip()
-        flags = int(reply.split('=')[1], 16)
-        result['power'] = ('Current undervoltage detected' if flags & 1 else 'No current undervoltage')
+        reply = (
+            subprocess.check_output(["timeout", "2", "vcgencmd", "get_throttled"])
+            .decode("ascii")
+            .strip()
+        )
+        flags = int(reply.split("=")[1], 16)
+        result["power"] = (
+            "Current undervoltage detected" if flags & 1 else "No current undervoltage"
+        )
         if flags & (1 << 16):
-            result['power'] += ' / past warning since boot'
+            result["power"] += " / past warning since boot"
     except (OSError, ValueError, IndexError, subprocess.CalledProcessError):
-        result['power'] = 'Power status unavailable'
+        result["power"] = "Power status unavailable"
     return result
 
 
@@ -130,137 +187,182 @@ def profile(path):
         with open(path) as stream:
             value = json.load(stream)
     if not isinstance(value, dict) or set(value) - set(DEFAULT_PROFILE):
-        raise ValueError('Profile permits title, sensors, stages and annotations only')
+        raise ValueError("Profile permits title, sensors, stages and annotations only")
     merged = dict(DEFAULT_PROFILE)
     merged.update(value)
     text_types = (str,) if sys.version_info[0] == 3 else (basestring,)
-    for key in ('title', 'sensors'):
+    for key in ("title", "sensors"):
         if not isinstance(merged[key], text_types) or not 1 <= len(merged[key]) <= 100:
-            raise ValueError('Title/sensors must contain 1..100 characters')
-    for key, maximum in [('stages', 20), ('annotations', 4)]:
+            raise ValueError("Title/sensors must contain 1..100 characters")
+    for key, maximum in [("stages", 20), ("annotations", 4)]:
         items = merged[key]
-        limit = 60 if key == 'stages' else 20
-        if (not isinstance(items, list) or not 1 <= len(items) <= maximum or
-                any(not isinstance(item, text_types) or not 1 <= len(item) <= limit for item in items)
-                or len(set(items)) != len(items)):
-            raise ValueError('Provide distinct, short %s labels' % key)
+        limit = 60 if key == "stages" else 20
+        if (
+            not isinstance(items, list)
+            or not 1 <= len(items) <= maximum
+            or any(
+                not isinstance(item, text_types) or not 1 <= len(item) <= limit
+                for item in items
+            )
+            or len(set(items)) != len(items)
+        ):
+            raise ValueError("Provide distinct, short %s labels" % key)
     return merged
 
 
 def clock_minutes(text):
     try:
-        hours, minutes = map(int, text.split(':'))
+        hours, minutes = map(int, text.split(":"))
         if not 0 <= hours <= 23 or not 0 <= minutes <= 59:
             raise ValueError()
         return 60 * hours + minutes
     except ValueError:
-        raise argparse.ArgumentTypeError('Use HH:MM in the panel local timezone')
+        raise argparse.ArgumentTypeError("Use HH:MM in the panel local timezone")
 
 
 def scheduled_theme(now, light_at, dark_at):
-    light = light_at <= now < dark_at if light_at < dark_at else now >= light_at or now < dark_at
-    return 'light' if light else 'dark'
+    light = (
+        light_at <= now < dark_at
+        if light_at < dark_at
+        else now >= light_at or now < dark_at
+    )
+    return "light" if light else "dark"
 
 
 def light_selection(action, arguments):
     """Describe requested controller inputs; never imply optical measurement."""
-    if action == 'cct':
-        return '%d K input / level %d' % (arguments['cct'], arguments['intensity'])
-    values = tuple(arguments['values'])
+    if action == "cct":
+        return "%d K input / level %d" % (arguments["cct"], arguments["intensity"])
+    values = tuple(arguments["values"])
     for name, preset in PRESETS.items():
         if values == preset:
-            return name + ' scene'
-    return 'Custom eight-channel mix'
+            return name + " scene"
+    return "Custom eight-channel mix"
 
 
 def confirmation_age(now, confirmed_at):
     if confirmed_at is None:
-        return ''
+        return ""
     seconds = max(0, now - confirmed_at)
     if seconds < 60:
-        return 'just now'
+        return "just now"
     if seconds < 3600:
-        return '%d min ago' % (seconds // 60)
+        return "%d min ago" % (seconds // 60)
     if seconds < 86400:
-        return '%d h ago' % (seconds // 3600)
-    return '%d d ago' % (seconds // 86400)
+        return "%d h ago" % (seconds // 3600)
+    return "%d d ago" % (seconds // 86400)
 
 
 def confirmed_power(response):
     """Describe uniform controller readback, never optical or continuously live state."""
-    if response.get('state') == 'ready' and response.get('baseline') in PRESETS:
-        return 'off' if response['baseline'] == 'Off' else 'on'
-    values = response.get('words')
-    if (response.get('state') == 'completed' and isinstance(values, list) and len(values) == 8
-            and all(isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 65535 for v in values)):
-        return 'on' if any(values) else 'off'
+    if response.get("state") == "ready" and response.get("baseline") in PRESETS:
+        return "off" if response["baseline"] == "Off" else "on"
+    values = response.get("words")
+    if (
+        response.get("state") == "completed"
+        and isinstance(values, list)
+        and len(values) == 8
+        and all(
+            isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 65535
+            for v in values
+        )
+    ):
+        return "on" if any(values) else "off"
     return None
 
 
 def confirmed_scene(response):
     """Match an admitted baseline or exact confirmed drive words, never a selection."""
-    if response.get('state') == 'ready' and response.get('baseline') in PRESETS:
-        return response['baseline']
-    if response.get('state') == 'completed' and confirmed_power(response) is not None:
-        values = tuple(response['words'])
-        return next((name for name, preset in PRESETS.items() if values == setter_words(preset)), None)
+    if response.get("state") == "ready" and response.get("baseline") in PRESETS:
+        return response["baseline"]
+    if response.get("state") == "completed" and confirmed_power(response) is not None:
+        values = tuple(response["words"])
+        return next(
+            (
+                name
+                for name, preset in PRESETS.items()
+                if values == setter_words(preset)
+            ),
+            None,
+        )
     return None
 
 
 class Panel(object):
     def __init__(self, args):
         self.args, self.profile = args, profile(args.profile)
-        saved, preference_error = load_preferences(getattr(args, 'preferences', None),
-                                                  {'light_at': args.light_at, 'dark_at': args.dark_at})
+        saved, preference_error = load_preferences(
+            getattr(args, "preferences", None),
+            {"light_at": args.light_at, "dark_at": args.dark_at},
+        )
         for key, value in saved.items():
             setattr(args, key, value)
-        self.preferences = Preferences(args.preferences) if getattr(args, 'preferences', None) else None
+        self.preferences = (
+            Preferences(args.preferences)
+            if getattr(args, "preferences", None)
+            else None
+        )
         self.preference_error = preference_error
         self.weather_worker, self.weather_started = None, None
-        self.weather_checked, self.weather_good, self.weather_last_text = -900, None, None
+        self.weather_checked, self.weather_good, self.weather_last_text = (
+            -900,
+            None,
+            None,
+        )
         self.weather_reading, self.weather_rendered_minute = None, None
-        self.settings_category = 'appearance'
-        self.advanced_page, self.last_advanced_page = None, 'lighting'
-        self.lighting_tab,self.selected_programme='white','Sun'
+        self.settings_category = "appearance"
+        self.advanced_page, self.last_advanced_page = None, "lighting"
+        self.lighting_tab, self.selected_programme = "white", "Sun"
         self.guide_page, self.support_page = -1, 0
         self.support_commands_visible = False
         self.support_step = 0
         self.started, self.run_id, self.sequence = monotonic(), uuid.uuid4().hex, 0
         self.boot_id, self.last_touch = boot_identity(), self.started
-        self.idle_timeout = getattr(args, 'idle_timeout', 300)
-        self.blinds_display = getattr(args, 'blinds_display', 'disabled')
-        self.blinds_enabled = getattr(args,'blinds_enabled',False)
-        self.blind_controller=None
-        self.blind_buttons=[]
+        self.idle_timeout = getattr(args, "idle_timeout", 300)
+        self.blinds_display = getattr(args, "blinds_display", "disabled")
+        self.blinds_enabled = getattr(args, "blinds_enabled", False)
+        self.blind_controller = None
+        self.blind_buttons = []
         self.idle_active, self.press_active = False, False
-        self.clock_24 = getattr(args, 'clock_format', '24') == '24'
-        self.temperature_unit = getattr(args, 'temperature_unit', 'f')
-        self.help_on = getattr(args, 'tips', 'on') == 'on'
+        self.clock_24 = getattr(args, "clock_format", "24") == "24"
+        self.temperature_unit = getattr(args, "temperature_unit", "f")
+        self.help_on = getattr(args, "tips", "on") == "on"
         self.status_worker, self.status_started, self.room_status_at = None, None, -60
-        self.room_status = 'Room services: not checked'
+        self.room_status = "Room services: not checked"
         self.closed, self.closing = False, None
         self.stage, self.running, self.elapsed, self.run_started = 0, False, 0.0, None
-        self.keep_switcher = getattr(args, 'keep_switcher', False)
-        self.mode, self.section, self.blank_return = (getattr(args, 'start_mode', 'room')
-                                                     if self.keep_switcher else 'room'), 'basic', 'room'
-        self.trial_deadline = self.started + args.duration if args.duration and self.mode != 'original' else None
+        self.keep_switcher = getattr(args, "keep_switcher", False)
+        self.mode, self.section, self.blank_return = (
+            (getattr(args, "start_mode", "room") if self.keep_switcher else "room"),
+            "basic",
+            "room",
+        )
+        self.trial_deadline = (
+            self.started + args.duration
+            if args.duration and self.mode != "original"
+            else None
+        )
         self.hold = self.hold_origin = None
         self.theme_choice, self.theme = args.theme, None
         self.health_at, self.health_cache = -10, {}
         self.health_worker, self.health_pending = None, None
-        self.worker, self.pending, self.worker_buffer = None, None, ''
+        self.worker, self.pending, self.worker_buffer = None, None, ""
         self.queued_intent, self.intent_timer, self.slider_drag = None, None, None
         self.view_generation = 0
-        self.light_state, self.release_target = 'disconnected', None
-        self.confirmed_light = 'Not checked'
-        self.confirmed_at, self.light_message = None, 'Lighting not connected'
+        self.light_state, self.release_target = "disconnected", None
+        self.confirmed_light = "Not checked"
+        self.confirmed_at, self.light_message = None, "Lighting not connected"
         self.confirmed_power = None
         self.confirmed_scene = None
         self.home_power_buttons = []
         self.scene_buttons = []
         self.light_buttons = []
-        self.power = PowerActions(enabled=sys.platform.startswith('linux') and not args.windowed
-                                  and args.live_lights and bool(args.journal))
+        self.power = PowerActions(
+            enabled=sys.platform.startswith("linux")
+            and not args.windowed
+            and args.live_lights
+            and bool(args.journal)
+        )
         self.power_deadline = self.power_sequence = None
         self.power_cleanup_confirmed = self.power_checkpoint_saved = False
         self.power_dialog, self.power_buttons = None, []
@@ -268,80 +370,126 @@ class Panel(object):
         self.journal = EventJournal(args.journal, sys.stdout)
         self.pending_annotation = None
         self.root = tk.Tk()
-        self.font_family = Font(root=self.root, font=(FONT, 19)).actual('family')
+        self.font_family = Font(root=self.root, font=(FONT, 19)).actual("family")
         self.icon_cache = {}
         self.body_cache, self.detail_cache = {}, {}
         self.body_key = self.advanced_detail_key = None
-        for key, size, width in [('title', 27, 1200), ('sensors', 18, 1130), ('annotations', 19, 270)]:
-            labels = self.profile[key] if key == 'annotations' else [self.profile[key]]
-            if any(Font(root=self.root, font=(FONT, size)).measure(label) > width for label in labels):
+        for key, size, width in [
+            ("title", 27, 1200),
+            ("sensors", 18, 1130),
+            ("annotations", 19, 270),
+        ]:
+            labels = self.profile[key] if key == "annotations" else [self.profile[key]]
+            if any(
+                Font(root=self.root, font=(FONT, size)).measure(label) > width
+                for label in labels
+            ):
                 self.root.destroy()
                 if self.journal:
                     self.journal.close()
-                raise ValueError('Shorten profile %s text to fit the touch layout' % key)
-        self.root.title('LESA Smart Conference Room · ' + VERSION)
-        if (self.root.winfo_screenwidth(), self.root.winfo_screenheight()) != (1280, 800) and not args.windowed:
+                raise ValueError(
+                    "Shorten profile %s text to fit the touch layout" % key
+                )
+        self.root.title("LESA Smart Conference Room · " + VERSION)
+        if (self.root.winfo_screenwidth(), self.root.winfo_screenheight()) != (
+            1280,
+            800,
+        ) and not args.windowed:
             self.root.destroy()
-            raise ValueError('Expected 1280x800; use --windowed for local review')
-        self.root.geometry('1280x800+0+0')
+            raise ValueError("Expected 1280x800; use --windowed for local review")
+        self.root.geometry("1280x800+0+0")
         self.root.overrideredirect(not args.windowed)
-        self.root.attributes('-topmost', True)
-        self.root.bind('<Escape>', lambda event: self.close('escape'))
-        self.root.protocol('WM_DELETE_WINDOW', lambda: self.close('window_close'))
-        self.root.bind_all('<ButtonRelease-1>', self.slider_released, add='+')
-        self.root.bind_all('<ButtonPress-1>', lambda event: self.activity(True), add='+')
-        self.root.bind_all('<ButtonRelease-1>', lambda event: self.activity(False), add='+')
-        self.root.bind_all('<KeyPress>', lambda event: self.activity(), add='+')
-        self.root.bind_class('PanelWake', '<ButtonPress-1>', lambda event: self.wake_idle(True))
-        self.root.bind_class('PanelWake', '<ButtonRelease-1>', lambda event: self.wake_idle(False))
-        self.root.bind_class('PanelWake', '<B1-Motion>', lambda event: 'break' if self.idle_active else None)
-        self.root.bind_class('PanelWake', '<KeyPress>', lambda event: self.wake_idle(False))
+        self.root.attributes("-topmost", True)
+        self.root.bind("<Escape>", lambda event: self.close("escape"))
+        self.root.protocol("WM_DELETE_WINDOW", lambda: self.close("window_close"))
+        self.root.bind_all("<ButtonRelease-1>", self.slider_released, add="+")
+        self.root.bind_all(
+            "<ButtonPress-1>", lambda event: self.activity(True), add="+"
+        )
+        self.root.bind_all(
+            "<ButtonRelease-1>", lambda event: self.activity(False), add="+"
+        )
+        self.root.bind_all("<KeyPress>", lambda event: self.activity(), add="+")
+        self.root.bind_class(
+            "PanelWake", "<ButtonPress-1>", lambda event: self.wake_idle(True)
+        )
+        self.root.bind_class(
+            "PanelWake", "<ButtonRelease-1>", lambda event: self.wake_idle(False)
+        )
+        self.root.bind_class(
+            "PanelWake",
+            "<B1-Motion>",
+            lambda event: "break" if self.idle_active else None,
+        )
+        self.root.bind_class(
+            "PanelWake", "<KeyPress>", lambda event: self.wake_idle(False)
+        )
         self.cct, self.intensity = tk.IntVar(value=3500), tk.IntVar(value=1000)
-        self.channel_values = [tk.IntVar(value=value) for value in PRESETS['Fid']]
-        self.status_text = tk.StringVar(value='Use Lights on or Lights off. Fine adjustments are in Advanced.')
-        self.light_text = tk.StringVar(value='Lighting not connected - controls are unavailable')
+        self.channel_values = [tk.IntVar(value=value) for value in PRESETS["Fid"]]
+        self.status_text = tk.StringVar(
+            value="Use Lights on or Lights off. Fine adjustments are in Advanced."
+        )
+        self.light_text = tk.StringVar(
+            value="Lighting not connected - controls are unavailable"
+        )
         self.connection_text = tk.StringVar()
         self.visitor_time, self.visitor_date = tk.StringVar(), tk.StringVar()
-        self.idle_digits,self.idle_period=tk.StringVar(),tk.StringVar()
-        self.visitor_time.trace_add('write',self.sync_idle_clock)
+        self.idle_digits, self.idle_period = tk.StringVar(), tk.StringVar()
+        self.visitor_time.trace_add("write", self.sync_idle_clock)
         self.preference_text = tk.StringVar(value=self.preference_summary())
-        self.weather_text = tk.StringVar(value='Not configured. A location is needed.')
-        self.home_weather_text = tk.StringVar(value='Weather not configured')
-        self.weather_temperature = tk.StringVar(value='—')
-        self.weather_condition = tk.StringVar(value='Weather unavailable')
-        self.annotation_text = tk.StringVar(value=('Annotations belong to the panel journal, separate from recordings.'
-                                                  if args.journal else 'Annotations go to panel output only. No recording starts.'))
+        self.weather_text = tk.StringVar(value="Not configured. A location is needed.")
+        self.home_weather_text = tk.StringVar(value="Weather not configured")
+        self.weather_temperature = tk.StringVar(value="—")
+        self.weather_condition = tk.StringVar(value="Weather unavailable")
+        self.annotation_text = tk.StringVar(
+            value=(
+                "Annotations belong to the panel journal, separate from recordings."
+                if args.journal
+                else "Annotations go to panel output only. No recording starts."
+            )
+        )
         self.power_text = tk.StringVar(value=self.power.message)
         self.artwork = None
         if args.logo:
             from PIL import Image
+
             artwork = Image.open(args.logo)
             # Viewport of the supplied 900-square logo. Keep its original pixels and colours.
             if artwork.size == (900, 900):
                 artwork = artwork.crop((55, 160, 780, 578))
-            resampling = getattr(Image, 'Resampling', Image)
+            resampling = getattr(Image, "Resampling", Image)
             artwork.thumbnail((116, 66), resampling.LANCZOS)
             buffer = BytesIO()
-            artwork.save(buffer, format='PNG')
-            self.artwork = tk.PhotoImage(data=base64.b64encode(buffer.getvalue()).decode('ascii'))
+            artwork.save(buffer, format="PNG")
+            self.artwork = tk.PhotoImage(
+                data=base64.b64encode(buffer.getvalue()).decode("ascii")
+            )
         self.dock = tk.Toplevel(self.root)
         self.dock.overrideredirect(True)
-        self.dock.attributes('-topmost', True)
+        self.dock.attributes("-topmost", True)
         self.dock.withdraw()
         self.set_theme()
-        if args.live_lights and self.mode != 'original':
+        if args.live_lights and self.mode != "original":
             self.start_worker()
         self.tick()
         self.root.after(100, self.poll_worker)
-        self.emit('panel_opened', duration_s=args.duration, profile=self.profile, author='Diyanko Bhowmik')
+        self.emit(
+            "panel_opened",
+            duration_s=args.duration,
+            profile=self.profile,
+            author="Diyanko Bhowmik",
+        )
         self.control_bridge = None
-        if getattr(args, 'control_socket', None):
+        if getattr(args, "control_socket", None):
             from panel_control import Bridge
+
             try:
                 self.control_bridge = Bridge(args.control_socket)
             except (OSError, ValueError) as error:
-                self.status_text.set('Browser controls unavailable. The touch panel still works.')
-                self.emit('browser_bridge_unavailable', detail=str(error))
+                self.status_text.set(
+                    "Browser controls unavailable. The touch panel still works."
+                )
+                self.emit("browser_bridge_unavailable", detail=str(error))
             else:
                 self.poll_control()
 
@@ -349,39 +497,63 @@ class Panel(object):
         if self.closed or self.closing or self.control_bridge is None:
             return
         import panel_remote
+
         self.refresh_resources()
-        self.control_bridge.drain(lambda: panel_remote.snapshot(self),
-                                  lambda request: panel_remote.execute(self, request))
+        self.control_bridge.drain(
+            lambda: panel_remote.snapshot(self),
+            lambda request: panel_remote.execute(self, request),
+        )
         self.root.after(80, self.poll_control)
 
     def emit(self, event, **values):
         self.sequence += 1
-        values.update(version=1, event=event, mode=self.mode, panel_run_id=self.run_id,
-                      boot_id=self.boot_id,
-                      sequence=self.sequence, utc=datetime.datetime.utcnow().isoformat() + 'Z',
-                      elapsed_s=round(monotonic() - self.started, 3), instruction_index=self.stage,
-                      instruction=self.profile['stages'][self.stage], recording=False)
-        line = json.dumps(values, sort_keys=True) + '\n'
+        values.update(
+            version=1,
+            event=event,
+            mode=self.mode,
+            panel_run_id=self.run_id,
+            boot_id=self.boot_id,
+            sequence=self.sequence,
+            utc=datetime.datetime.utcnow().isoformat() + "Z",
+            elapsed_s=round(monotonic() - self.started, 3),
+            instruction_index=self.stage,
+            instruction=self.profile["stages"][self.stage],
+            recording=False,
+        )
+        line = json.dumps(values, sort_keys=True) + "\n"
         try:
-            self.journal.append(line, self.sequence, durable=event in ('annotation', 'power_requested'))
+            self.journal.append(
+                line, self.sequence, durable=event in ("annotation", "power_requested")
+            )
         except (IOError, OSError) as error:
-            if event == 'annotation':
+            if event == "annotation":
                 raise
-            self.status_text.set('Panel journal unavailable: ' + str(error))
+            self.status_text.set("Panel journal unavailable: " + str(error))
         return self.sequence
 
-    def label(self, parent, text='', size=20, muted=False):
-        return tk.Label(parent, text=text, font=(FONT, size), fg=self.muted if muted else self.ink,
-                        bg=parent.cget('bg'), anchor='w', justify='left')
+    def label(self, parent, text="", size=20, muted=False):
+        return tk.Label(
+            parent,
+            text=text,
+            font=(FONT, size),
+            fg=self.muted if muted else self.ink,
+            bg=parent.cget("bg"),
+            anchor="w",
+            justify="left",
+        )
 
     def wrap_label(self, label):
         """Wrap to allocated width, including narrower settings/weather cards."""
         label.config(wraplength=600)
+
         def fit(event):
-            width = max(1, event.width - 2*label.winfo_pixels(str(label.cget('padx'))) - 8)
-            if label.winfo_pixels(str(label.cget('wraplength'))) != width:
+            width = max(
+                1, event.width - 2 * label.winfo_pixels(str(label.cget("padx"))) - 8
+            )
+            if label.winfo_pixels(str(label.cget("wraplength"))) != width:
                 label.config(wraplength=width)
-        label.bind('<Configure>', fit)
+
+        label.bind("<Configure>", fit)
         return label
 
     def lighting_feedback(self, message):
@@ -389,71 +561,108 @@ class Panel(object):
         self.refresh_confirmation_age()
 
     def refresh_confirmation_age(self):
-        age = confirmation_age(monotonic(), getattr(self, 'confirmed_at', None))
-        suffix = ' / ' + age if age else ''
-        text = (self.light_message + '\nLast confirmed drive: ' +
-                getattr(self, 'confirmed_light', 'Not checked') + suffix)
-        if not hasattr(self.light_text, 'get') or self.light_text.get() != text:
+        age = confirmation_age(monotonic(), getattr(self, "confirmed_at", None))
+        suffix = " / " + age if age else ""
+        text = (
+            self.light_message
+            + "\nLast confirmed drive: "
+            + getattr(self, "confirmed_light", "Not checked")
+            + suffix
+        )
+        if not hasattr(self.light_text, "get") or self.light_text.get() != text:
             self.light_text.set(text)
-        if hasattr(self, 'feedback_message'):
-            set_changed(self.feedback_message, self.light_message.replace(' input / level ', ' · level '))
-            set_changed(self.feedback_detail, 'Recent settings: ' + self.confirmed_light.replace(' input / level ', ' · level ') + suffix)
-        card = getattr(self, 'light_feedback_card', None)
+        if hasattr(self, "feedback_message"):
+            set_changed(
+                self.feedback_message,
+                self.light_message.replace(" input / level ", " · level "),
+            )
+            set_changed(
+                self.feedback_detail,
+                "Recent settings: "
+                + self.confirmed_light.replace(" input / level ", " · level ")
+                + suffix,
+            )
+        card = getattr(self, "light_feedback_card", None)
         if card is not None and card.winfo_exists():
-            edge = self.warning if self.light_state == 'failed' else self.accent if self.pending or self.queued_intent else self.border
-            if getattr(card, '_edge', None) != edge:
+            edge = (
+                self.warning
+                if self.light_state == "failed"
+                else self.accent if self.pending or self.queued_intent else self.border
+            )
+            if getattr(card, "_edge", None) != edge:
                 card.config(highlightbackground=edge)
                 card._edge = edge
         self.update_power_highlights()
 
     def feedback_card(self, parent):
         """Keep results in the page flow, with separate message and readback lines."""
-        if not hasattr(self, 'feedback_message'):
+        if not hasattr(self, "feedback_message"):
             self.feedback_message = tk.StringVar()
             self.feedback_detail = tk.StringVar()
-        card = tk.Frame(parent, bg=parent.cget('bg'), highlightbackground=self.border, highlightthickness=1)
-        card.pack(fill='x', pady=(12, 0))
+        card = tk.Frame(
+            parent,
+            bg=parent.cget("bg"),
+            highlightbackground=self.border,
+            highlightthickness=1,
+        )
+        card.pack(fill="x", pady=(12, 0))
         self.light_feedback_card = card
-        content = tk.Frame(card, bg=card.cget('bg'))
-        content.pack(fill='x', padx=14, pady=12)
+        content = tk.Frame(card, bg=card.cget("bg"))
+        content.pack(fill="x", padx=14, pady=12)
         message = self.label(content, size=15)
         message.config(textvariable=self.feedback_message)
-        self.wrap_label(message).pack(fill='x')
+        self.wrap_label(message).pack(fill="x")
         detail = self.label(content, size=14, muted=True)
         detail.config(textvariable=self.feedback_detail)
-        self.wrap_label(detail).pack(fill='x', pady=(4, 0))
+        self.wrap_label(detail).pack(fill="x", pady=(4, 0))
         self.refresh_confirmation_age()
 
     def update_power_highlights(self):
-        certain = self.light_state == 'ready' and not getattr(self, 'running', False) and not any((self.pending, self.queued_intent, self.release_target, self.closing))
-        state = getattr(self, 'confirmed_power', None) if certain else None
-        for button, power, label in getattr(self, 'home_power_buttons', []):
+        certain = (
+            self.light_state == "ready"
+            and not getattr(self, "running", False)
+            and not any(
+                (self.pending, self.queued_intent, self.release_target, self.closing)
+            )
+        )
+        state = getattr(self, "confirmed_power", None) if certain else None
+        for button, power, label in getattr(self, "home_power_buttons", []):
             if button.winfo_exists():
                 selected = state == power
                 style = (selected, self.control, self.ink, self.icon_colour)
-                if getattr(button, '_power_style', None) == style:
+                if getattr(button, "_power_style", None) == style:
                     continue
                 button._power_style = style
-                button.config(bg=self.accent if selected else self.control,
-                              highlightbackground=self.accent if selected else self.border,
-                              fg=self.selected_ink if selected else self.ink,
-                              activeforeground=self.selected_ink if selected else self.ink,
-                              activebackground=self.accent_pressed if selected else self.pressed_colour(),
-                              text=label,
-                              image=self.icon(power, self.selected_ink if selected else self.icon_colour))
-        for button, name in getattr(self, 'scene_buttons', []):
+                button.config(
+                    bg=self.accent if selected else self.control,
+                    highlightbackground=self.accent if selected else self.border,
+                    fg=self.selected_ink if selected else self.ink,
+                    activeforeground=self.selected_ink if selected else self.ink,
+                    activebackground=(
+                        self.accent_pressed if selected else self.pressed_colour()
+                    ),
+                    text=label,
+                    image=self.icon(
+                        power, self.selected_ink if selected else self.icon_colour
+                    ),
+                )
+        for button, name in getattr(self, "scene_buttons", []):
             if button.winfo_exists():
-                selected = certain and getattr(self, 'confirmed_scene', None) == name
+                selected = certain and getattr(self, "confirmed_scene", None) == name
                 style = (selected, self.control, self.ink)
-                if getattr(button, '_scene_style', None) == style:
+                if getattr(button, "_scene_style", None) == style:
                     continue
                 button._scene_style = style
-                button.config(bg=self.accent if selected else self.control,
-                              highlightbackground=self.accent if selected else self.border,
-                              fg=self.selected_ink if selected else self.ink,
-                              activebackground=self.accent_pressed if selected else self.pressed_colour(),
-                              activeforeground=self.selected_ink if selected else self.ink,
-                              text=getattr(button, '_scene_label', name))
+                button.config(
+                    bg=self.accent if selected else self.control,
+                    highlightbackground=self.accent if selected else self.border,
+                    fg=self.selected_ink if selected else self.ink,
+                    activebackground=(
+                        self.accent_pressed if selected else self.pressed_colour()
+                    ),
+                    activeforeground=self.selected_ink if selected else self.ink,
+                    text=getattr(button, "_scene_label", name),
+                )
 
     def activity(self, pressed=None):
         self.last_touch = monotonic()
@@ -461,20 +670,35 @@ class Panel(object):
             self.press_active = pressed
 
     def idle_eligible(self):
-        return (self.idle_timeout > 0 and self.mode in ('room', 'advanced', 'settings', 'health', 'guide', 'support', 'about')
-                and self.light_state in ('ready', 'disconnected') and not self.running and not self.power_busy()
-                and not any((self.pending, self.queued_intent, self.intent_timer, self.slider_drag,
-                             self.release_target, self.closing, self.press_active)))
+        return (
+            self.idle_timeout > 0
+            and self.mode
+            in ("room", "advanced", "settings", "health", "guide", "support", "about")
+            and self.light_state in ("ready", "disconnected")
+            and not self.running
+            and not self.power_busy()
+            and not any(
+                (
+                    self.pending,
+                    self.queued_intent,
+                    self.intent_timer,
+                    self.slider_drag,
+                    self.release_target,
+                    self.closing,
+                    self.press_active,
+                )
+            )
+        )
 
     def update_idle(self):
         if self.idle_active:
-            if self.light_state == 'failed':
+            if self.light_state == "failed":
                 self.return_from_idle()
             return
         if self.idle_eligible() and monotonic() - self.last_touch >= self.idle_timeout:
             self.idle_active = True
-            self.show('visitor')
-            self.status_text.set('Touch anywhere for Home and light controls.')
+            self.show("visitor")
+            self.status_text.set("Touch anywhere for Home and light controls.")
             self.root.focus_set()
 
     def install_wake_bindings(self):
@@ -482,10 +706,11 @@ class Panel(object):
             if widget == self.dock:
                 return
             tags = widget.bindtags()
-            if 'PanelWake' not in tags:
-                widget.bindtags(('PanelWake',) + tags)
+            if "PanelWake" not in tags:
+                widget.bindtags(("PanelWake",) + tags)
             for child in widget.winfo_children():
                 visit(child)
+
         visit(self.root)
 
     def wake_idle(self, pressed):
@@ -494,44 +719,66 @@ class Panel(object):
         self.activity(pressed)
         if not pressed:
             self.root.after_idle(self.return_from_idle)
-        return 'break'
+        return "break"
 
     def return_from_idle(self):
         if not self.idle_active:
             return
         self.idle_active = False
         self.activity(False)
-        self.show('room')
+        self.show("room")
 
     def pressed_colour(self):
-        return THEMES[getattr(self, 'theme', None) or 'light']['pressed']
+        return THEMES[getattr(self, "theme", None) or "light"]["pressed"]
 
     def button(self, parent, text, action, accent=False):
-        button = tk.Button(parent, text=text, command=action, font=(FONT, 19),
-                         fg=self.selected_ink if accent else self.ink, bg=self.accent if accent else self.control,
-                         activebackground=self.accent_pressed if accent else self.pressed_colour(),
-                         activeforeground=self.selected_ink if accent else self.ink, disabledforeground=self.muted,
-                         bd=0, relief='flat', highlightthickness=1,
-                         highlightbackground=self.accent if accent else self.border, highlightcolor=self.accent,
-                         padx=14, pady=13, takefocus=True)
-        button.bind('<ButtonPress-1>', lambda event: self.show_tip(text), add='+')
+        button = tk.Button(
+            parent,
+            text=text,
+            command=action,
+            font=(FONT, 19),
+            fg=self.selected_ink if accent else self.ink,
+            bg=self.accent if accent else self.control,
+            activebackground=self.accent_pressed if accent else self.pressed_colour(),
+            activeforeground=self.selected_ink if accent else self.ink,
+            disabledforeground=self.muted,
+            bd=0,
+            relief="flat",
+            highlightthickness=1,
+            highlightbackground=self.accent if accent else self.border,
+            highlightcolor=self.accent,
+            padx=14,
+            pady=13,
+            takefocus=True,
+        )
+        button.bind("<ButtonPress-1>", lambda event: self.show_tip(text), add="+")
         return button
 
     def show_tip(self, text):
-        if self.help_on and not self.pending and self.light_state != 'failed':
+        if self.help_on and not self.pending and self.light_state != "failed":
             tip = TIPS.get(text)
-            if text in ('Fid', 'Sat', 'Dul'):
-                tip = 'Applies the room\'s ' + text + ' spectral scene to all lights. The name matches Legacy.'
-            if text in self.profile['annotations']:
-                tip = 'Saves "' + text + '" as a panel annotation. It is not a recording label yet.'
+            if text in ("Fid", "Sat", "Dul"):
+                tip = (
+                    "Applies the room's "
+                    + text
+                    + " spectral scene to all lights. The name matches Legacy."
+                )
+            if text in self.profile["annotations"]:
+                tip = (
+                    'Saves "'
+                    + text
+                    + '" as a panel annotation. It is not a recording label yet.'
+                )
             if tip:
                 self.status_text.set(tip)
 
     def photo(self, key, image):
         if key not in self.icon_cache:
             buffer = BytesIO()
-            image.save(buffer, format='PNG')
-            self.icon_cache[key] = tk.PhotoImage(data=base64.b64encode(buffer.getvalue()).decode('ascii'))
+            image.save(buffer, format="PNG")
+            self.icon_cache[key] = tk.PhotoImage(
+                data=base64.b64encode(buffer.getvalue()).decode("ascii")
+            )
         return self.icon_cache[key]
 
     def icon(self, kind, colour, size=32):
@@ -541,98 +788,126 @@ class Panel(object):
         return self.icon_cache[key]
 
     def row_buttons(self, parent, items, height=64):
-        row = tk.Frame(parent, bg=parent.cget('bg'), height=height)
-        row.pack(fill='x', pady=6)
+        row = tk.Frame(parent, bg=parent.cget("bg"), height=height)
+        row.pack(fill="x", pady=6)
         row.grid_propagate(False)
         row.rowconfigure(0, weight=1)
         buttons = []
         for index, (text, action, accent) in enumerate(items):
             button = self.button(row, text, action, accent)
             # Spacer columns keep the actual button widths equal, including the last.
-            row.columnconfigure(index * 2, weight=1, uniform='buttons')
+            row.columnconfigure(index * 2, weight=1, uniform="buttons")
             if index:
                 row.columnconfigure(index * 2 - 1, minsize=12)
-            button.grid(row=0, column=index * 2, sticky='nsew')
+            button.grid(row=0, column=index * 2, sticky="nsew")
             buttons.append(button)
         return buttons
 
     def set_theme(self):
-        if (self.theme is not None and self.theme_choice == 'auto' and
-                (self.mode == 'experiment' or monotonic() - self.last_touch < 60)):
+        if (
+            self.theme is not None
+            and self.theme_choice == "auto"
+            and (self.mode == "experiment" or monotonic() - self.last_touch < 60)
+        ):
             return
         local = time.localtime()
-        chosen = scheduled_theme(local.tm_hour * 60 + local.tm_min, self.args.light_at, self.args.dark_at)
-        chosen = chosen if self.theme_choice == 'auto' else self.theme_choice
+        chosen = scheduled_theme(
+            local.tm_hour * 60 + local.tm_min, self.args.light_at, self.args.dark_at
+        )
+        chosen = chosen if self.theme_choice == "auto" else self.theme_choice
         if chosen == self.theme:
             return
         self.cancel_intent()
         section = self.section
-        advanced_page = getattr(self, 'advanced_page', None)
+        advanced_page = getattr(self, "advanced_page", None)
         self.theme = chosen
         for name, value in THEMES[chosen].items():
             setattr(self, name, value)
         self.connection_badges = []
-        self.body_cache.clear();self.detail_cache.clear()
+        self.body_cache.clear()
+        self.detail_cache.clear()
         self.body_key = self.advanced_detail_key = None
         for child in self.root.winfo_children():
             if child != self.dock:
                 child.destroy()
-        self.blank_hint=None
+        self.blank_hint = None
         self.root.configure(bg=self.bg)
         self.banner = tk.Frame(self.root, bg=self.bg, height=76)
-        self.banner.pack(fill='x', padx=24, pady=(8, 6))
+        self.banner.pack(fill="x", padx=24, pady=(8, 6))
         self.banner.pack_propagate(False)
         if self.artwork:
-            tk.Label(self.banner, image=self.artwork, bg='white', bd=0, padx=8).pack(side='left', anchor='n', padx=(0, 18))
+            tk.Label(self.banner, image=self.artwork, bg="white", bd=0, padx=8).pack(
+                side="left", anchor="n", padx=(0, 18)
+            )
         else:
-            brand = self.label(self.banner, 'LESA', 30)
+            brand = self.label(self.banner, "LESA", 30)
             brand.config(fg=self.accent)
-            brand.pack(side='left', padx=(0, 18))
+            brand.pack(side="left", padx=(0, 18))
         identity = tk.Frame(self.banner, bg=self.bg)
-        identity.pack(side='left', anchor='s')
-        self.label(identity, 'Smart Conference Room', 32).pack(side='left', anchor='s')
+        identity.pack(side="left", anchor="s")
+        self.label(identity, "Smart Conference Room", 32).pack(side="left", anchor="s")
         badge = self.label(identity, VERSION, 16)
         badge.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
-        badge.pack(side='left', anchor='s', padx=(12, 0), pady=(0, 10))
+        badge.pack(side="left", anchor="s", padx=(12, 0), pady=(0, 10))
         self.clock = self.label(self.banner, size=17, muted=True)
         navigation = tk.Frame(self.banner, bg=self.bg, width=444, height=64)
-        navigation.pack(side='right')
+        navigation.pack(side="right")
         navigation.pack_propagate(False)
-        for column, text, action in [(0, 'Home', self.open_home),
-                                     (2, 'Legacy', lambda: self.show('original'))]:
+        for column, text, action in [
+            (0, "Home", self.open_home),
+            (2, "Legacy", lambda: self.show("original")),
+        ]:
             slot = tk.Frame(navigation, bg=self.bg, width=140, height=64)
             slot.grid(row=0, column=column, padx=(0, 12) if column == 0 else 0)
             slot.pack_propagate(False)
             button = self.button(slot, text, action)
-            button.config(image=self.icon('home' if column == 0 else 'original', self.ink, 24),
-                          compound='left', font=(FONT, 17), padx=6)
-            button.pack(fill='both', expand=True)
+            button.config(
+                image=self.icon("home" if column == 0 else "original", self.ink, 24),
+                compound="left",
+                font=(FONT, 17),
+                padx=6,
+            )
+            button.pack(fill="both", expand=True)
             if column == 0:
                 self.home_button = button
         self.add_connection_badge(navigation, column=1)
         self.footer = tk.Frame(self.root, bg=self.bg, height=80)
         self.footer.pack_propagate(False)
         self.tools_footer_button = self.guide_footer_button = None
-        for text, mode, gap in (('Demo & guide', 'guide', 0), ('Room tools', 'advanced', 12)):
-            button = self.button(self.footer, text, lambda mode=mode: self.open_guide() if mode == 'guide' else self.show(mode))
-            button.config(width=224, image=self.icon(mode, self.ink, 24), compound='left', font=(FONT, 18))
-            if mode == 'advanced':
+        for text, mode, gap in (
+            ("Demo & guide", "guide", 0),
+            ("Room tools", "advanced", 12),
+        ):
+            button = self.button(
+                self.footer,
+                text,
+                lambda mode=mode: (
+                    self.open_guide() if mode == "guide" else self.show(mode)
+                ),
+            )
+            button.config(
+                width=224,
+                image=self.icon(mode, self.ink, 24),
+                compound="left",
+                font=(FONT, 18),
+            )
+            if mode == "advanced":
                 self.tools_footer_button = button
             else:
                 self.guide_footer_button = button
-            button.pack(side='right', padx=(0, gap), pady=8)
+            button.pack(side="right", padx=(0, gap), pady=8)
         status = self.label(self.footer, size=17, muted=True)
         status.config(textvariable=self.status_text)
         self.wrap_label(status)
-        status.pack(side='left', fill='both', expand=True)
+        status.pack(side="left", fill="both", expand=True)
         self.body = tk.Frame(self.root, bg=self.bg)
         self.build_dock()
         self.render()
         if advanced_page:
             return
-        if section == 'channels' and self.mode == 'room':
+        if section == "channels" and self.mode == "room":
             self.channel_view()
-        elif section == 'lighting' and self.mode == 'room':
+        elif section == "lighting" and self.mode == "room":
             self.open_lighting()
 
     def build_dock(self):
@@ -641,142 +916,201 @@ class Panel(object):
             child.destroy()
         self.dock.configure(bg=self.bg)
         top = tk.Frame(self.dock, bg=self.bg, height=76)
-        top.pack(fill='x', padx=24, pady=(8, 6))
+        top.pack(fill="x", padx=24, pady=(8, 6))
         top.pack_propagate(False)
         if self.artwork:
-            tk.Label(top, image=self.artwork, bg='white', bd=0, padx=8).pack(side='left', anchor='n', padx=(0, 18))
+            tk.Label(top, image=self.artwork, bg="white", bd=0, padx=8).pack(
+                side="left", anchor="n", padx=(0, 18)
+            )
         else:
-            self.label(top, 'LESA', 30).pack(side='left', padx=(0, 18))
+            self.label(top, "LESA", 30).pack(side="left", padx=(0, 18))
         identity = tk.Frame(top, bg=self.bg)
-        identity.pack(side='left', anchor='s')
-        self.label(identity, 'Smart Conference Room', 32).pack(side='left', anchor='s')
+        identity.pack(side="left", anchor="s")
+        self.label(identity, "Smart Conference Room", 32).pack(side="left", anchor="s")
         badge = self.label(identity, VERSION, 16)
         badge.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
-        badge.pack(side='left', anchor='s', padx=(12, 0), pady=(0, 10))
+        badge.pack(side="left", anchor="s", padx=(12, 0), pady=(0, 10))
         navigation = tk.Frame(top, bg=self.bg, width=444, height=64)
-        navigation.pack(side='right')
+        navigation.pack(side="right")
         navigation.pack_propagate(False)
         home_slot = tk.Frame(navigation, bg=self.bg, width=140, height=64)
-        home_slot.pack(side='left', padx=(0, 12));home_slot.pack_propagate(False)
-        home = self.button(home_slot, 'Home', self.open_home)
-        home.config(font=(FONT, 17), padx=6, image=self.icon('home', self.ink, 24), compound='left')
-        home.pack(fill='both', expand=True)
-        mode = tk.Label(navigation, text='Legacy view', font=(FONT, 20), bg=self.control,
-                        fg=self.ink, image=self.icon('original', self.ink, 24), compound='left', padx=16)
-        mode.pack(side='left', fill='both', expand=True)
+        home_slot.pack(side="left", padx=(0, 12))
+        home_slot.pack_propagate(False)
+        home = self.button(home_slot, "Home", self.open_home)
+        home.config(
+            font=(FONT, 17),
+            padx=6,
+            image=self.icon("home", self.ink, 24),
+            compound="left",
+        )
+        home.pack(fill="both", expand=True)
+        mode = tk.Label(
+            navigation,
+            text="Legacy view",
+            font=(FONT, 20),
+            bg=self.control,
+            fg=self.ink,
+            image=self.icon("original", self.ink, 24),
+            compound="left",
+            padx=16,
+        )
+        mode.pack(side="left", fill="both", expand=True)
         row = tk.Frame(self.dock, bg=self.bg, height=48)
-        row.pack(fill='x', padx=24, pady=(0, 6));row.pack_propagate(False)
-        for title, kind, action, gap in [('Demo & guide', 'guide', self.open_guide, 0),
-                                         ('Room tools', 'advanced', lambda: self.show('advanced'), 12)]:
+        row.pack(fill="x", padx=24, pady=(0, 6))
+        row.pack_propagate(False)
+        for title, kind, action, gap in [
+            ("Demo & guide", "guide", self.open_guide, 0),
+            ("Room tools", "advanced", lambda: self.show("advanced"), 12),
+        ]:
             slot = tk.Frame(row, bg=self.bg, width=224, height=48)
-            slot.pack(side='right', padx=(0, gap));slot.pack_propagate(False)
+            slot.pack(side="right", padx=(0, gap))
+            slot.pack_propagate(False)
             button = self.button(slot, title, action)
-            button.config(font=(FONT, 17), pady=6, image=self.icon(kind, self.ink, 24), compound='left')
-            button.pack(fill='both', expand=True)
-        self.label(row, 'Legacy controls below · Home returns to the main screen', 16, True).pack(side='left', fill='y')
+            button.config(
+                font=(FONT, 17),
+                pady=6,
+                image=self.icon(kind, self.ink, 24),
+                compound="left",
+            )
+            button.pack(fill="both", expand=True)
+        self.label(
+            row, "Legacy controls below · Home returns to the main screen", 16, True
+        ).pack(side="left", fill="y")
 
     def add_connection_badge(self, parent, legacy=False, column=None):
         frame = tk.Frame(parent, bg=self.bg, width=140, height=64)
         if column is None:
-            frame.pack(side='right', padx=(8, 0))
+            frame.pack(side="right", padx=(8, 0))
         else:
             frame.grid(row=0, column=column, padx=(0, 12))
         frame.pack_propagate(False)
-        button = self.button(frame, '', lambda: self.open_advanced('system'))
-        button.config(font=(FONT, 15), padx=6, compound='left')
-        button.pack(fill='both', expand=True)
+        button = self.button(frame, "", lambda: self.open_advanced("system"))
+        button.config(font=(FONT, 15), padx=6, compound="left")
+        button.pack(fill="both", expand=True)
         self.connection_badges.append((button, legacy))
         self.update_connection_badges()
 
     def update_connection_badges(self):
         text, kind, colour = connection(self.light_state, self.args.live_lights)
-        if hasattr(self, 'connection_text'):
+        if hasattr(self, "connection_text"):
             set_changed(self.connection_text, text)
-        colours = {'good': THEMES[self.theme]['good'],
-                   'waiting': self.icon_colour, 'warning': THEMES[self.theme]['warning'],
-                   'neutral': self.muted}
-        for button, legacy in getattr(self, 'connection_badges', []):
+        colours = {
+            "good": THEMES[self.theme]["good"],
+            "waiting": self.icon_colour,
+            "warning": THEMES[self.theme]["warning"],
+            "neutral": self.muted,
+        }
+        for button, legacy in getattr(self, "connection_badges", []):
             if button.winfo_exists():
-                label, icon, ink = ('Legacy', 'original', self.muted) if legacy else (text, kind, colours[colour])
-                if button.cget('text') != label:
-                    button.config(text=label, fg=ink, activeforeground=ink, image=self.icon(icon, ink))
+                label, icon, ink = (
+                    ("Legacy", "original", self.muted)
+                    if legacy
+                    else (text, kind, colours[colour])
+                )
+                if button.cget("text") != label:
+                    button.config(
+                        text=label,
+                        fg=ink,
+                        activeforeground=ink,
+                        image=self.icon(icon, ink),
+                    )
 
     def show(self, mode, advanced_page=None):
         if self.release_target is not None or self.closing or self.power_busy():
             return
-        if mode == 'advanced':
+        if mode == "advanced":
             self.open_advanced()
             return
-        self.idle_active = mode == 'visitor'
+        self.idle_active = mode == "visitor"
         self.cancel_intent()
-        if mode == 'original':
+        if mode == "original":
             self.trial_deadline = None
-        if mode == 'original' and self.worker:
-            self.release_target = 'original'
-            self.status_text.set('Finishing lighting control before opening Legacy...')
-            if self.light_state not in ('ready', 'applying', 'connecting'):
+        if mode == "original" and self.worker:
+            self.release_target = "original"
+            self.status_text.set("Finishing lighting control before opening Legacy...")
+            if self.light_state not in ("ready", "applying", "connecting"):
                 if not self.worker.stdin.closed:
                     self.worker.stdin.close()
             elif not self.pending:
-                self.request('release')
+                self.request("release")
             return
-        if self.mode == 'original' and mode != 'original' and self.args.live_lights:
+        if self.mode == "original" and mode != "original" and self.args.live_lights:
             if not self.worker:
                 self.start_worker()
             else:
-                self.light_state = 'connecting'
-                self.request('acquire')
-        if self.mode == 'original' and mode != 'original' and self.keep_switcher:
-            self.trial_deadline = monotonic() + self.args.duration if self.args.duration else None
-        if mode == 'black':
-            self.blank_return = self.mode if self.mode not in ('black', 'original') else 'room'
+                self.light_state = "connecting"
+                self.request("acquire")
+        if self.mode == "original" and mode != "original" and self.keep_switcher:
+            self.trial_deadline = (
+                monotonic() + self.args.duration if self.args.duration else None
+            )
+        if mode == "black":
+            self.blank_return = (
+                self.mode if self.mode not in ("black", "original") else "room"
+            )
             self.blank_advanced_return = self.advanced_page
         self.cancel_hold()
-        self.mode, self.section = mode, ('lighting' if advanced_page in ('white', 'lighting') else
-                                        'channels' if advanced_page == 'scenes' else 'basic')
+        self.mode, self.section = mode, (
+            "lighting"
+            if advanced_page in ("white", "lighting")
+            else "channels" if advanced_page == "scenes" else "basic"
+        )
         self.advanced_page = advanced_page
-        if self.light_state != 'failed' and not self.pending:
-            messages = {'health': 'Live panel readings. No system settings change.',
-                        'room': '',
-                        'advanced': 'Fine adjustments and room tools. Opening a page does not operate devices.',
-                        'visitor': 'Visitor view does not change lighting. Recording status is unavailable here.',
-                        'experiment': 'Experiment mode: instructions and annotations. Recorder not connected.',
-                        'settings': 'Appearance settings belong to this device; they do not change room lighting.',
-                        'about': 'Panel credits and source repository. No room settings change.'}
-            messages.update(guide='',
-                            support='Instructions only. Commands are not executed by this panel.')
+        if self.light_state != "failed" and not self.pending:
+            messages = {
+                "health": "Live panel readings. No system settings change.",
+                "room": "",
+                "advanced": "Fine adjustments and room tools. Opening a page does not operate devices.",
+                "visitor": "Visitor view does not change lighting. Recording status is unavailable here.",
+                "experiment": "Experiment mode: instructions and annotations. Recorder not connected.",
+                "settings": "Appearance settings belong to this device; they do not change room lighting.",
+                "about": "Panel credits and source repository. No room settings change.",
+            }
+            messages.update(
+                guide="",
+                support="Instructions only. Commands are not executed by this panel.",
+            )
             if mode in messages:
                 self.status_text.set(messages[mode])
         self.render()
-        self.emit('mode_changed', target=mode)
+        self.emit("mode_changed", target=mode)
 
     def render(self):
         self.cancel_intent()
-        if getattr(self,'blank_hint',None) is not None:self.blank_hint.place_forget()
+        if getattr(self, "blank_hint", None) is not None:
+            self.blank_hint.place_forget()
         self.dock.withdraw()
-        if self.mode == 'original':
+        if self.mode == "original":
             self.root.withdraw()
             self.dock.deiconify()
             self.dock.update_idletasks()
-            self.dock.geometry('1280x144+0+0')
+            self.dock.geometry("1280x144+0+0")
             self.dock.lift()
             return
-        if self.root.state() == 'withdrawn':
+        if self.root.state() == "withdrawn":
             self.root.deiconify()
             self.root.lift()
-        for binding in ('<ButtonPress-1>', '<ButtonRelease-1>', '<B1-Motion>'):
+        for binding in ("<ButtonPress-1>", "<ButtonRelease-1>", "<B1-Motion>"):
             self.root.unbind(binding)
-        if self.mode == 'black':
+        if self.mode == "black":
             for widget in (self.banner, self.footer, self.body):
                 widget.pack_forget()
-            self.root.configure(bg='black')
-            if getattr(self,'blank_hint',None) is None:
-                self.blank_hint=tk.Label(self.root,text='Hold anywhere for 2 seconds to return',
-                                         font=(FONT,13),fg='#808080',bg='black',bd=0,padx=0,pady=0)
-            self.blank_hint.place(relx=.5,rely=1,y=-18,anchor='s')
-            self.root.bind('<ButtonPress-1>', self.begin_hold)
-            self.root.bind('<ButtonRelease-1>', lambda event: self.cancel_hold())
-            self.root.bind('<B1-Motion>', self.move_hold)
+            self.root.configure(bg="black")
+            if getattr(self, "blank_hint", None) is None:
+                self.blank_hint = tk.Label(
+                    self.root,
+                    text="Hold anywhere for 2 seconds to return",
+                    font=(FONT, 13),
+                    fg="#808080",
+                    bg="black",
+                    bd=0,
+                    padx=0,
+                    pady=0,
+                )
+            self.blank_hint.place(relx=0.5, rely=1, y=-18, anchor="s")
+            self.root.bind("<ButtonPress-1>", self.begin_hold)
+            self.root.bind("<ButtonRelease-1>", lambda event: self.cancel_hold())
+            self.root.bind("<B1-Motion>", self.move_hold)
             return
         self.root.configure(bg=self.bg)
         if self.idle_active:
@@ -786,27 +1120,38 @@ class Panel(object):
             self.install_wake_bindings()
             return
         if not self.banner.winfo_manager():
-            self.banner.pack(fill='x', padx=24, pady=(8, 6))
+            self.banner.pack(fill="x", padx=24, pady=(8, 6))
         self.clock.pack_forget()
-        if getattr(self, 'advanced_page', None):
+        if getattr(self, "advanced_page", None):
             self.tools_footer_button.pack_forget()
         elif not self.tools_footer_button.winfo_manager():
-            self.tools_footer_button.pack(side='right', padx=(0, 12), pady=8)
-        if self.mode == 'guide':
+            self.tools_footer_button.pack(side="right", padx=(0, 12), pady=8)
+        if self.mode == "guide":
             self.guide_footer_button.pack_forget()
         elif not self.guide_footer_button.winfo_manager():
-            placement = {'before': self.tools_footer_button} if self.tools_footer_button.winfo_manager() else {}
-            self.guide_footer_button.pack(side='right', pady=8, **placement)
+            placement = (
+                {"before": self.tools_footer_button}
+                if self.tools_footer_button.winfo_manager()
+                else {}
+            )
+            self.guide_footer_button.pack(side="right", pady=8, **placement)
         if self.tools_footer_button.winfo_manager():
-            self.tools_footer_button.pack_configure(padx=(0, 12) if self.guide_footer_button.winfo_manager() else 0)
+            self.tools_footer_button.pack_configure(
+                padx=(0, 12) if self.guide_footer_button.winfo_manager() else 0
+            )
         if not self.footer.winfo_manager():
-            self.footer.pack(side='bottom', fill='x', padx=24, pady=(8, 10))
-        if (getattr(self, 'advanced_page', None) and
-                getattr(self, 'advanced_shell', None) is self.body):
+            self.footer.pack(side="bottom", fill="x", padx=24, pady=(8, 10))
+        if (
+            getattr(self, "advanced_page", None)
+            and getattr(self, "advanced_shell", None) is self.body
+        ):
             self.rebuild_advanced_detail()
         else:
-            self.rebuild_body(self.advanced_view if getattr(self, 'advanced_page', None)
-                              else getattr(self, self.mode + '_view'))
+            self.rebuild_body(
+                self.advanced_view
+                if getattr(self, "advanced_page", None)
+                else getattr(self, self.mode + "_view")
+            )
         if self.idle_active:
             self.install_wake_bindings()
 
@@ -815,19 +1160,30 @@ class Panel(object):
         previous = self.body
         old_key = self.body_key
         if old_key is not None:
-            if old_key[0] == 'tools':self.remember_detail()
+            if old_key[0] == "tools":
+                self.remember_detail()
             self.body_cache[old_key] = (previous, self.page_references())
         key = None
         if self.advanced_page:
-            key = ('tools',)
-        elif self.mode == 'room' or self.idle_active:
-            key = ('idle' if self.idle_active else 'room', self.temperature_unit, self.blinds_display)
-        cached = self.body_cache.pop(key, None) if key is not None and key != old_key else None
+            key = ("tools",)
+        elif self.mode == "room" or self.idle_active:
+            key = (
+                "idle" if self.idle_active else "room",
+                self.temperature_unit,
+                self.blinds_display,
+            )
+        cached = (
+            self.body_cache.pop(key, None)
+            if key is not None and key != old_key
+            else None
+        )
         if cached:
             self.body, references = cached
             self.__dict__.update(references)
-            if key[0] == 'tools':self.rebuild_advanced_detail()
-            else:self.refresh_page()
+            if key[0] == "tools":
+                self.rebuild_advanced_detail()
+            else:
+                self.refresh_page()
         else:
             self.clear_page_references()
             self.body = tk.Frame(self.root, bg=self.bg)
@@ -840,82 +1196,128 @@ class Panel(object):
         self.body_key = key
         previous.pack_forget()
         self.root.focus_set()
-        self.body.pack(fill='both', expand=True, padx=24)
+        self.body.pack(fill="both", expand=True, padx=24)
         if old_key is None or old_key == key:
             self.body_cache.pop(old_key, None)
             previous.destroy()
 
     def page_references(self):
-        names = PAGE_REFERENCES + ('advanced_shell', 'advanced_sidebar_buttons',
-                                   'advanced_detail', 'advanced_detail_key')
+        names = PAGE_REFERENCES + (
+            "advanced_shell",
+            "advanced_sidebar_buttons",
+            "advanced_detail",
+            "advanced_detail_key",
+        )
         return {name: getattr(self, name) for name in names if hasattr(self, name)}
 
     def clear_page_references(self):
-        self.light_buttons, self.home_power_buttons, self.scene_buttons, self.blind_buttons = [], [], [], []
+        (
+            self.light_buttons,
+            self.home_power_buttons,
+            self.scene_buttons,
+            self.blind_buttons,
+        ) = ([], [], [], [])
 
     def remember_detail(self):
         key = self.advanced_detail_key
         if key is not None and self.advanced_detail is not None:
-            self.detail_cache[key] = (self.advanced_detail,
-                                     {name: getattr(self, name) for name in PAGE_REFERENCES if hasattr(self, name)})
+            self.detail_cache[key] = (
+                self.advanced_detail,
+                {
+                    name: getattr(self, name)
+                    for name in PAGE_REFERENCES
+                    if hasattr(self, name)
+                },
+            )
 
     def refresh_page(self):
         """Refresh mutable state and bind sliders to this navigation's generation."""
         for control in self.light_buttons:
             if isinstance(control, TouchSlider):
                 control.pressed = False
-                self.bind_slider(control, 'channels' if control.vertical else 'cct')
+                self.bind_slider(control, "channels" if control.vertical else "cct")
                 control.draw()
         self.update_light_buttons()
         self.update_blind_buttons()
         self.refresh_confirmation_age()
-        if self.mode in ('room','visitor') and not self.advanced_page:
+        if self.mode in ("room", "visitor") and not self.advanced_page:
             self.update_weather(force=True)
 
     def room_view(self):
-        self.blind_buttons=[]
+        self.blind_buttons = []
         row = tk.Frame(self.body, bg=self.bg)
-        row.pack(fill='both', expand=True, pady=(22, 10))
-        row.columnconfigure(0, weight=48, uniform='home')
-        row.columnconfigure(1, weight=52, uniform='home')
+        row.pack(fill="both", expand=True, pady=(22, 10))
+        row.columnconfigure(0, weight=48, uniform="home")
+        row.columnconfigure(1, weight=52, uniform="home")
         row.rowconfigure(0, weight=1)
         left, right = tk.Frame(row, bg=self.bg), tk.Frame(row, bg=self.bg)
-        left.grid(row=0, column=0, sticky='nsew', padx=(0, 28))
-        right.grid(row=0, column=1, sticky='nsew', padx=(28, 0))
+        left.grid(row=0, column=0, sticky="nsew", padx=(0, 28))
+        right.grid(row=0, column=1, sticky="nsew", padx=(28, 0))
         controls = tk.Frame(left, bg=self.bg)
-        controls.pack(fill='x', pady=(20, 12))
+        controls.pack(fill="x", pady=(20, 12))
         controls.columnconfigure(1, minsize=16)
-        groups = ('Lights', 'Blinds') if self.blinds_display == 'disabled' else ('Lights',)
+        groups = (
+            ("Lights", "Blinds") if self.blinds_display == "disabled" else ("Lights",)
+        )
         for index, title in enumerate(groups):
-            controls.columnconfigure(index * 2, weight=1, uniform='essentials')
+            controls.columnconfigure(index * 2, weight=1, uniform="essentials")
             group = tk.Frame(controls, bg=self.bg)
-            group.grid(row=0, column=index * 2, sticky='nsew')
-            self.label(group, title, 25).pack(anchor='w')
-            self.label(group, 'Whole room', 16, True).pack(anchor='w', pady=(2, 16))
-            actions = [('Lights on', self.lights_on, False),
-                       ('Lights off', lambda: self.preset('Off'), False)] if index == 0 else [
-                       (label,lambda name=name:self.blind_command(name),False) for name,label in BLIND_ACTIONS]
+            group.grid(row=0, column=index * 2, sticky="nsew")
+            self.label(group, title, 25).pack(anchor="w")
+            self.label(group, "Whole room", 16, True).pack(anchor="w", pady=(2, 16))
+            actions = (
+                [
+                    ("Lights on", self.lights_on, False),
+                    ("Lights off", lambda: self.preset("Off"), False),
+                ]
+                if index == 0
+                else [
+                    (label, lambda name=name: self.blind_command(name), False)
+                    for name, label in BLIND_ACTIONS
+                ]
+            )
             for title, action, accent in actions:
-                button = self.row_buttons(group, [(title, action, accent)], height=104 if index==0 else 65)[0]
-                button.config(font=(FONT, 22 if index==0 else 19))
+                button = self.row_buttons(
+                    group, [(title, action, accent)], height=104 if index == 0 else 65
+                )[0]
+                button.config(font=(FONT, 22 if index == 0 else 19))
                 if index == 0:
-                    button.config(image=self.icon('on' if title == 'Lights on' else 'off',
-                                                self.selected_ink if accent else self.icon_colour), compound='left')
+                    button.config(
+                        image=self.icon(
+                            "on" if title == "Lights on" else "off",
+                            self.selected_ink if accent else self.icon_colour,
+                        ),
+                        compound="left",
+                    )
                     self.light_buttons.append(button)
-                    self.home_power_buttons.append((button, 'on' if title == 'Lights on' else 'off', title))
+                    self.home_power_buttons.append(
+                        (button, "on" if title == "Lights on" else "off", title)
+                    )
                 else:
                     self.blind_buttons.append(button)
-            caption = self.label(group, 'Standard room lighting' if index == 0 else self.blind_state()['detail'], 17, True)
-            if index:self.blind_status_label=caption
-            self.wrap_label(caption).pack(fill='x', pady=(8, 0))
+            caption = self.label(
+                group,
+                (
+                    "Standard room lighting"
+                    if index == 0
+                    else self.blind_state()["detail"]
+                ),
+                17,
+                True,
+            )
+            if index:
+                self.blind_status_label = caption
+            self.wrap_label(caption).pack(fill="x", pady=(8, 0))
         self.feedback_card(left)
-        self.label(right, getattr(self.args, 'weather_name', 'Local time'), 18, True).pack(anchor='w')
+        self.label(
+            right, getattr(self.args, "weather_name", "Local time"), 18, True
+        ).pack(anchor="w")
         clock = self.label(right, size=64)
         clock.config(textvariable=self.visitor_time)
-        clock.pack(anchor='w', pady=(12, 0))
+        clock.pack(anchor="w", pady=(12, 0))
         date = self.label(right, size=23)
         date.config(textvariable=self.visitor_date)
-        self.wrap_label(date).pack(fill='x', pady=(0, 6))
+        self.wrap_label(date).pack(fill="x", pady=(0, 6))
         self.weather_contents(right, compact=True)
         self.update_light_buttons()
 
@@ -926,18 +1328,34 @@ class Panel(object):
         self.advanced_detail = None
         self.advanced_detail_key = None
         sidebar = tk.Frame(shell, bg=self.bg, width=280)
-        sidebar.pack(side='left', fill='y', padx=(0, 28), pady=(10, 0))
+        sidebar.pack(side="left", fill="y", padx=(0, 28), pady=(10, 0))
         sidebar.pack_propagate(False)
         sidebar.grid_propagate(False)
         sidebar.columnconfigure(0, weight=1)
-        self.label(sidebar, 'Room tools', 25).grid(row=0, column=0, sticky='w', pady=(0, 16))
+        self.label(sidebar, "Room tools", 25).grid(
+            row=0, column=0, sticky="w", pady=(0, 16)
+        )
         for index, (label, page) in enumerate(ADVANCED_PAGES, 1):
-            sidebar.rowconfigure(index, weight=1, uniform='tools')
-            button = self.button(sidebar, label, lambda page=page: self.open_advanced(page),
-                                 self.advanced_page == page)
-            button.config(font=(FONT, 16), anchor='w', padx=12, pady=8,
-                          image=self.icon('date' if page == 'clock' else page, self.selected_ink if self.advanced_page == page else self.ink, 24), compound='left')
-            button.grid(row=index, column=0, sticky='nsew', pady=(0, 10))
+            sidebar.rowconfigure(index, weight=1, uniform="tools")
+            button = self.button(
+                sidebar,
+                label,
+                lambda page=page: self.open_advanced(page),
+                self.advanced_page == page,
+            )
+            button.config(
+                font=(FONT, 16),
+                anchor="w",
+                padx=12,
+                pady=8,
+                image=self.icon(
+                    "date" if page == "clock" else page,
+                    self.selected_ink if self.advanced_page == page else self.ink,
+                    24,
+                ),
+                compound="left",
+            )
+            button.grid(row=index, column=0, sticky="nsew", pady=(0, 10))
             self.advanced_sidebar_buttons.append((button, page))
         self.rebuild_advanced_detail()
 
@@ -950,53 +1368,75 @@ class Panel(object):
         for button, page in self.advanced_sidebar_buttons:
             selected = self.advanced_page == page
             colour = self.accent if selected else self.control
-            if button.cget('bg') != colour:
-                button.config(bg=colour, fg=self.selected_ink if selected else self.ink,
-                              highlightbackground=self.accent if selected else self.border,
-                              activebackground=self.accent_pressed if selected else self.pressed_colour(),
-                              activeforeground=self.selected_ink if selected else self.ink,
-                              image=self.icon('date' if page == 'clock' else page, self.selected_ink if selected else self.ink, 24))
-        key = (self.lighting_tab, self.selected_programme if self.lighting_tab == 'programmes' else None) if self.advanced_page == 'lighting' else None
+            if button.cget("bg") != colour:
+                button.config(
+                    bg=colour,
+                    fg=self.selected_ink if selected else self.ink,
+                    highlightbackground=self.accent if selected else self.border,
+                    activebackground=(
+                        self.accent_pressed if selected else self.pressed_colour()
+                    ),
+                    activeforeground=self.selected_ink if selected else self.ink,
+                    image=self.icon(
+                        "date" if page == "clock" else page,
+                        self.selected_ink if selected else self.ink,
+                        24,
+                    ),
+                )
+        key = (
+            (
+                self.lighting_tab,
+                self.selected_programme if self.lighting_tab == "programmes" else None,
+            )
+            if self.advanced_page == "lighting"
+            else None
+        )
         if key is not None and key == old_key:
             self.detail_cache.pop(key, None)
             self.refresh_page()
             return
-        cached = self.detail_cache.pop(key, None) if key is not None and key != old_key else None
+        cached = (
+            self.detail_cache.pop(key, None)
+            if key is not None and key != old_key
+            else None
+        )
         if cached:
             detail, references = cached
             self.__dict__.update(references)
             self.refresh_page()
-            if previous is not None:previous.pack_forget()
+            if previous is not None:
+                previous.pack_forget()
             self.root.focus_set()
-            detail.pack(side='left', fill='both', expand=True, pady=(10, 0))
+            detail.pack(side="left", fill="both", expand=True, pady=(10, 0))
             self.advanced_detail, self.advanced_detail_key = detail, key
-            if old_key is None and previous is not None:previous.destroy()
+            if old_key is None and previous is not None:
+                previous.destroy()
             return
         self.clear_page_references()
         detail = tk.Frame(shell, bg=self.bg)
         self.body = detail
         try:
             page = self.advanced_page
-            if page == 'lighting':
+            if page == "lighting":
                 self.lighting_contents()
-            elif page == 'experiment':
+            elif page == "experiment":
                 self.experiment_view()
-            elif page == 'system':
+            elif page == "system":
                 self.system_contents()
-            elif page == 'about':
+            elif page == "about":
                 self.about_contents(detail)
             else:
                 self.settings_category = page
                 self.settings_contents(detail)
                 saved = self.label(detail, size=15, muted=True)
                 saved.config(textvariable=self.preference_text)
-                self.wrap_label(saved).pack(fill='x', pady=(8, 0))
+                self.wrap_label(saved).pack(fill="x", pady=(8, 0))
         finally:
             self.body = shell
         if previous is not None:
             previous.pack_forget()
         self.root.focus_set()
-        detail.pack(side='left', fill='both', expand=True, pady=(10, 0))
+        detail.pack(side="left", fill="both", expand=True, pady=(10, 0))
         self.advanced_detail = detail
         self.advanced_detail_key = key
         if previous is not None and (old_key is None or old_key == key):
@@ -1006,28 +1446,44 @@ class Panel(object):
     def open_advanced(self, page=None):
         page = page or self.last_advanced_page
         tab = None
-        if page in ('white','scenes','programmes','channels'):
-            tab = 'channels' if page=='scenes' else page
-            page='lighting'
+        if page in ("white", "scenes", "programmes", "channels"):
+            tab = "channels" if page == "scenes" else page
+            page = "lighting"
         if page not in dict((key, label) for label, key in ADVANCED_PAGES):
             return
-        target = 'room' if page == 'lighting' else ('experiment' if page == 'experiment' else
-                  'health' if page == 'system' else 'about' if page == 'about' else 'settings')
+        target = (
+            "room"
+            if page == "lighting"
+            else (
+                "experiment"
+                if page == "experiment"
+                else (
+                    "health"
+                    if page == "system"
+                    else "about" if page == "about" else "settings"
+                )
+            )
+        )
         if self.release_target or self.closing:
             return
-        if getattr(self, 'mode', None) == target and getattr(self, 'advanced_page', None) == page:
-            if tab is not None and tab != self.lighting_tab:self.choose_lighting_tab(tab)
+        if (
+            getattr(self, "mode", None) == target
+            and getattr(self, "advanced_page", None) == page
+        ):
+            if tab is not None and tab != self.lighting_tab:
+                self.choose_lighting_tab(tab)
             return
-        if tab is not None:self.lighting_tab=tab
+        if tab is not None:
+            self.lighting_tab = tab
         self.last_advanced_page = page
         self.show(target, advanced_page=page)
 
     def open_home(self):
-        if self.mode != 'room' or getattr(self, 'advanced_page', None):
-            self.show('room')
+        if self.mode != "room" or getattr(self, "advanced_page", None):
+            self.show("room")
 
     def open_lighting(self):
-        self.open_advanced('white')
+        self.open_advanced("white")
 
     def choose_lighting_tab(self, tab):
         if tab not in dict((key, label) for label, key in LIGHTING_TABS):
@@ -1037,75 +1493,174 @@ class Panel(object):
         self.rebuild_advanced_detail()
 
     def lighting_contents(self):
-        self.label(self.body, 'Lighting', 27).pack(anchor='w')
-        tabs = self.row_buttons(self.body, [(label, lambda key=key: self.choose_lighting_tab(key),
-                                            self.lighting_tab == key) for label, key in LIGHTING_TABS], height=54)
+        self.label(self.body, "Lighting", 27).pack(anchor="w")
+        tabs = self.row_buttons(
+            self.body,
+            [
+                (
+                    label,
+                    lambda key=key: self.choose_lighting_tab(key),
+                    self.lighting_tab == key,
+                )
+                for label, key in LIGHTING_TABS
+            ],
+            height=54,
+        )
         for button in tabs:
             button.config(font=(FONT, 17))
-        if self.lighting_tab == 'white':
-            self.label(self.body, 'Selected values apply after your touch settles.', 16, True).pack(anchor='w', pady=(2, 8))
-            self.slider_group(self.body, 'Colour temperature', self.cct, 1600, 10000, 100, 'K', compact=True)
-            self.slider_group(self.body, 'Light level', self.intensity, 0, 1900, 25, 'controller units', compact=True)
+        if self.lighting_tab == "white":
+            self.label(
+                self.body, "Selected values apply after your touch settles.", 16, True
+            ).pack(anchor="w", pady=(2, 8))
+            self.slider_group(
+                self.body,
+                "Colour temperature",
+                self.cct,
+                1600,
+                10000,
+                100,
+                "K",
+                compact=True,
+            )
+            self.slider_group(
+                self.body,
+                "Light level",
+                self.intensity,
+                0,
+                1900,
+                25,
+                "controller units",
+                compact=True,
+            )
             self.feedback_card(self.body)
-        elif self.lighting_tab == 'scenes':
-            self.label(self.body, 'Original scene names and mixtures from Legacy.', 16, True).pack(anchor='w', pady=(2, 8))
+        elif self.lighting_tab == "scenes":
+            self.label(
+                self.body, "Original scene names and mixtures from Legacy.", 16, True
+            ).pack(anchor="w", pady=(2, 8))
             grid = tk.Frame(self.body, bg=self.bg)
-            grid.pack(fill='x')
+            grid.pack(fill="x")
             for index, scene in enumerate(SCENES):
-                grid.columnconfigure(index % 2, weight=1, uniform='scene')
-                card = tk.Frame(grid, bg=self.surface, highlightthickness=1, highlightbackground=self.border)
-                card.grid(row=index // 2, column=index % 2, sticky='nsew', padx=(0, 10) if index % 2 == 0 else 0, pady=(0, 10))
-                self.label(card, scene['label'], 21).pack(anchor='w', padx=16, pady=(8, 0))
-                note = self.label(card, scene['detail'], 15, True)
-                self.wrap_label(note).pack(fill='x', padx=16, pady=(0, 6))
-                button = self.button(card, 'Apply scene' if scene['id'] != 'Gradient' else 'Fixture control not connected',
-                                     lambda name=scene['id']: self.preset(name))
+                grid.columnconfigure(index % 2, weight=1, uniform="scene")
+                card = tk.Frame(
+                    grid,
+                    bg=self.surface,
+                    highlightthickness=1,
+                    highlightbackground=self.border,
+                )
+                card.grid(
+                    row=index // 2,
+                    column=index % 2,
+                    sticky="nsew",
+                    padx=(0, 10) if index % 2 == 0 else 0,
+                    pady=(0, 10),
+                )
+                self.label(card, scene["label"], 21).pack(
+                    anchor="w", padx=16, pady=(8, 0)
+                )
+                note = self.label(card, scene["detail"], 15, True)
+                self.wrap_label(note).pack(fill="x", padx=16, pady=(0, 6))
+                button = self.button(
+                    card,
+                    (
+                        "Apply scene"
+                        if scene["id"] != "Gradient"
+                        else "Fixture control not connected"
+                    ),
+                    lambda name=scene["id"]: self.preset(name),
+                )
                 button.config(font=(FONT, 15), pady=8)
-                button.pack(fill='x', padx=16, pady=(0, 10), ipady=3)
-                if scene['id'] == 'Gradient':
-                    button.config(state='disabled')
+                button.pack(fill="x", padx=16, pady=(0, 10), ipady=3)
+                if scene["id"] == "Gradient":
+                    button.config(state="disabled")
                 else:
-                    button._scene_label = 'Apply scene'
+                    button._scene_label = "Apply scene"
                     self.light_buttons.append(button)
-                    self.scene_buttons.append((button, scene['id']))
+                    self.scene_buttons.append((button, scene["id"]))
             self.feedback_card(self.body)
-        elif self.lighting_tab == 'programmes':
-            self.label(self.body, 'Choose a finite light cycle from Legacy.', 16, True).pack(anchor='w', pady=(2, 8))
-            buttons = self.row_buttons(self.body, [(item['label'] + ' · ' + item['subtitle'],
-                      lambda name=item['id']: self.choose_programme(name), self.selected_programme == item['id'])
-                      for item in PROGRAMMES], height=76)
-            for button in buttons:button.config(font=(FONT, 17))
-            item = next(item for item in PROGRAMMES if item['id'] == self.selected_programme)
-            card = tk.Frame(self.body, bg=self.surface, highlightthickness=1, highlightbackground=self.border)
-            card.pack(fill='x', pady=10)
-            self.label(card, item['subtitle'], 23).pack(anchor='w', padx=20, pady=(16, 8))
-            note = self.label(card, item['detail'] + '\n\nThese are light demonstrations, independent of the clock and weather.', 18)
-            self.wrap_label(note).pack(fill='x', padx=20, pady=(0, 16))
-            self.label(self.body, 'Programme runner not connected · no programme is running', 16, True).pack(anchor='w', pady=10)
-            for button in self.row_buttons(self.body, [('Start programme', lambda: None, False), ('Stop programme', lambda: None, False)], height=58):
-                button.config(state='disabled')
+        elif self.lighting_tab == "programmes":
+            self.label(
+                self.body, "Choose a finite light cycle from Legacy.", 16, True
+            ).pack(anchor="w", pady=(2, 8))
+            buttons = self.row_buttons(
+                self.body,
+                [
+                    (
+                        item["label"] + " · " + item["subtitle"],
+                        lambda name=item["id"]: self.choose_programme(name),
+                        self.selected_programme == item["id"],
+                    )
+                    for item in PROGRAMMES
+                ],
+                height=76,
+            )
+            for button in buttons:
+                button.config(font=(FONT, 17))
+            item = next(
+                item for item in PROGRAMMES if item["id"] == self.selected_programme
+            )
+            card = tk.Frame(
+                self.body,
+                bg=self.surface,
+                highlightthickness=1,
+                highlightbackground=self.border,
+            )
+            card.pack(fill="x", pady=10)
+            self.label(card, item["subtitle"], 23).pack(
+                anchor="w", padx=20, pady=(16, 8)
+            )
+            note = self.label(
+                card,
+                item["detail"]
+                + "\n\nThese are light demonstrations, independent of the clock and weather.",
+                18,
+            )
+            self.wrap_label(note).pack(fill="x", padx=20, pady=(0, 16))
+            self.label(
+                self.body,
+                "Programme runner not connected · no programme is running",
+                16,
+                True,
+            ).pack(anchor="w", pady=10)
+            for button in self.row_buttons(
+                self.body,
+                [
+                    ("Start programme", lambda: None, False),
+                    ("Stop programme", lambda: None, False),
+                ],
+                height=58,
+            ):
+                button.config(state="disabled")
         else:
             self.channels_view(embedded=True)
         self.update_light_buttons()
 
     def choose_programme(self, name):
-        if name in [item['id'] for item in PROGRAMMES]:
+        if name in [item["id"] for item in PROGRAMMES]:
             self.selected_programme = name
-            self.choose_lighting_tab('programmes')
+            self.choose_lighting_tab("programmes")
 
     def blind_state(self):
-        controller = getattr(self, 'blind_controller', None)
-        busy = bool(self.pending or self.queued_intent or self.release_target or self.closing or getattr(self, 'running', False)
-                    or self.mode == 'original')
-        return blind_readiness(getattr(self, 'blinds_enabled', False),
-                               bool(controller and controller.connected), busy)
+        controller = getattr(self, "blind_controller", None)
+        busy = bool(
+            self.pending
+            or self.queued_intent
+            or self.release_target
+            or self.closing
+            or getattr(self, "running", False)
+            or self.mode == "original"
+        )
+        return blind_readiness(
+            getattr(self, "blinds_enabled", False),
+            bool(controller and controller.connected),
+            busy,
+        )
 
     def blind_command(self, name):
         if name not in dict(BLIND_ACTIONS):
-            raise ValueError('Unknown blind action')
+            raise ValueError("Unknown blind action")
         readiness = self.blind_state()
-        if not readiness['available']:
-            self.status_text.set('Blinds · ' + readiness['detail'])
+        if not readiness["available"]:
+            self.status_text.set("Blinds · " + readiness["detail"])
             return False
         # An optional owner adapter must enqueue without blocking Tk. No driver is installed here.
         self.blind_controller.submit(name)
@@ -1113,156 +1668,236 @@ class Panel(object):
 
     def update_blind_buttons(self):
         readiness = self.blind_state()
-        for button in getattr(self, 'blind_buttons', []):
-            if button.winfo_exists():button.config(state='normal' if readiness['available'] else 'disabled')
-        label = getattr(self, 'blind_status_label', None)
-        if label is not None and label.winfo_exists():label.config(text=readiness['detail'])
+        for button in getattr(self, "blind_buttons", []):
+            if button.winfo_exists():
+                button.config(state="normal" if readiness["available"] else "disabled")
+        label = getattr(self, "blind_status_label", None)
+        if label is not None and label.winfo_exists():
+            label.config(text=readiness["detail"])
 
-    def sync_idle_clock(self,*unused):
-        value=self.visitor_time.get()
-        digits,period=value.rsplit(' ',1) if value.endswith((' AM',' PM')) else (value,'')
-        set_changed(self.idle_digits,digits);set_changed(self.idle_period,period)
+    def sync_idle_clock(self, *unused):
+        value = self.visitor_time.get()
+        digits, period = (
+            value.rsplit(" ", 1) if value.endswith((" AM", " PM")) else (value, "")
+        )
+        set_changed(self.idle_digits, digits)
+        set_changed(self.idle_period, period)
 
     def screensaver_view(self):
         top = tk.Frame(self.body, bg=self.bg, height=76)
-        top.pack(fill='x', padx=28, pady=(28, 0))
+        top.pack(fill="x", padx=28, pady=(28, 0))
         top.pack_propagate(False)
         if self.artwork:
-            tk.Label(top, image=self.artwork, bg='white', bd=0).pack(side='left', anchor='n', padx=(0, 20))
-        self.label(top, 'Smart Conference Room', 28).pack(side='left', anchor='s')
-        self.label(top, 'SCREEN SAVER', 17, True).pack(side='right')
+            tk.Label(top, image=self.artwork, bg="white", bd=0).pack(
+                side="left", anchor="n", padx=(0, 20)
+            )
+        self.label(top, "Smart Conference Room", 28).pack(side="left", anchor="s")
+        self.label(top, "SCREEN SAVER", 17, True).pack(side="right")
         bottom = tk.Frame(self.body, bg=self.bg)
-        bottom.pack(side='bottom', fill='x', padx=100, pady=(0, 44))
-        self.row_buttons(bottom, [('Touch anywhere to open controls', self.return_from_idle, True)], height=72)
-        hint = self.label(bottom, 'Home gives you Lights on and Lights off', 17, True)
-        hint.config(anchor='center')
-        hint.pack(fill='x', pady=(12, 0))
+        bottom.pack(side="bottom", fill="x", padx=100, pady=(0, 44))
+        self.row_buttons(
+            bottom,
+            [("Touch anywhere to open controls", self.return_from_idle, True)],
+            height=72,
+        )
+        hint = self.label(bottom, "Home gives you Lights on and Lights off", 17, True)
+        hint.config(anchor="center")
+        hint.pack(fill="x", pady=(12, 0))
         row = tk.Frame(self.body, bg=self.bg)
-        row.pack(fill='both', expand=True, padx=48, pady=(44, 24))
-        row.columnconfigure(0, weight=46, uniform='idle')
+        row.pack(fill="both", expand=True, padx=48, pady=(44, 24))
+        row.columnconfigure(0, weight=46, uniform="idle")
         row.columnconfigure(1, minsize=1)
-        row.columnconfigure(2, weight=54, uniform='idle')
+        row.columnconfigure(2, weight=54, uniform="idle")
         left = tk.Frame(row, bg=self.bg)
-        left.grid(row=0, column=0, sticky='nsew', padx=(18, 32))
-        tk.Frame(row, bg=self.border, width=1).grid(row=0, column=1, sticky='ns', pady=(0, 20))
+        left.grid(row=0, column=0, sticky="nsew", padx=(18, 32))
+        tk.Frame(row, bg=self.border, width=1).grid(
+            row=0, column=1, sticky="ns", pady=(0, 20)
+        )
         right = tk.Frame(row, bg=self.bg)
-        right.grid(row=0, column=2, sticky='nsew', padx=(32, 18))
-        self.label(left, 'LOCAL TIME', 16, True).pack(anchor='w')
-        time_row=tk.Frame(left,bg=self.bg)
-        time_row.pack(fill='x',pady=(20,12))
+        right.grid(row=0, column=2, sticky="nsew", padx=(32, 18))
+        self.label(left, "LOCAL TIME", 16, True).pack(anchor="w")
+        time_row = tk.Frame(left, bg=self.bg)
+        time_row.pack(fill="x", pady=(20, 12))
         self.sync_idle_clock()
         clock = self.label(time_row, size=104)
         clock.config(textvariable=self.idle_digits)
-        clock.pack(side='left')
-        period=self.label(time_row,size=24,muted=True)
+        clock.pack(side="left")
+        period = self.label(time_row, size=24, muted=True)
         period.config(textvariable=self.idle_period)
-        period.pack(side='left',anchor='s',padx=(12,0),pady=(0,22))
+        period.pack(side="left", anchor="s", padx=(12, 0), pady=(0, 22))
         date = self.label(left, size=21)
         date.config(textvariable=self.visitor_date)
-        self.wrap_label(date).pack(fill='x')
+        self.wrap_label(date).pack(fill="x")
         self.weather_contents(right, compact=True, large=True)
 
     def weather_contents(self, right, compact=False, large=False):
-        heading=tk.Frame(right,bg=right.cget('bg'));heading.pack(fill='x')
-        self.label(heading, 'OUTDOOR WEATHER' if compact else 'WEATHER · ' + getattr(self.args, 'weather_name', 'Local area'), 16, True).pack(side='left')
-        if large:self.label(heading,getattr(self.args,'weather_name','Local area'),14,True).pack(side='right')
-        reading = tk.Frame(right, bg=right.cget('bg'))
-        reading.pack(fill='x', pady=(12, 4) if large else (6, 2) if compact else (18, 6))
+        heading = tk.Frame(right, bg=right.cget("bg"))
+        heading.pack(fill="x")
+        self.label(
+            heading,
+            (
+                "OUTDOOR WEATHER"
+                if compact
+                else "WEATHER · " + getattr(self.args, "weather_name", "Local area")
+            ),
+            16,
+            True,
+        ).pack(side="left")
+        if large:
+            self.label(
+                heading, getattr(self.args, "weather_name", "Local area"), 14, True
+            ).pack(side="right")
+        reading = tk.Frame(right, bg=right.cget("bg"))
+        reading.pack(
+            fill="x", pady=(12, 4) if large else (6, 2) if compact else (18, 6)
+        )
         self.weather_symbol_size = 128 if large else 96
-        self.weather_symbol = tk.Canvas(reading, width=self.weather_symbol_size, height=self.weather_symbol_size,
-                                        bg=right.cget('bg'), highlightthickness=0)
+        self.weather_symbol = tk.Canvas(
+            reading,
+            width=self.weather_symbol_size,
+            height=self.weather_symbol_size,
+            bg=right.cget("bg"),
+            highlightthickness=0,
+        )
         self.weather_symbol_key = None
         self.weather_symbol_item = None
-        self.weather_symbol.pack(side='right', pady=0 if compact else 12)
+        self.weather_symbol.pack(side="right", pady=0 if compact else 12)
         size = 72 if large else 50 if compact else 68
         temperature = self.label(reading, size=size)
         temperature.config(textvariable=self.weather_temperature)
-        temperature.pack(side='left')
-        self.label(reading, self.temperature_unit.upper(), 24, True).pack(side='left', anchor='s', pady=18, padx=4)
+        temperature.pack(side="left")
+        self.label(reading, self.temperature_unit.upper(), 24, True).pack(
+            side="left", anchor="s", pady=18, padx=4
+        )
         condition = self.label(right, size=26 if large else 23)
         condition.config(textvariable=self.weather_condition)
-        self.wrap_label(condition).pack(fill='x')
-        self.weather_measurements=tk.Frame(right,bg=right.cget('bg'))
-        self.weather_measurements.pack(fill='x',pady=(10 if large else 6,2))
-        self.weather_metric_cells=[];self.weather_metric_values=[]
-        for index,(title,unused) in enumerate(weather_data.measurements({})):
-            self.weather_measurements.columnconfigure(index%2,weight=1,uniform='forecast')
-            cell=tk.Frame(self.weather_measurements,bg=right.cget('bg'))
-            cell.grid(row=index//2,column=index%2,sticky='ew',padx=(0,18) if index%2==0 else (18,0),pady=4 if large else 2)
-            cell.columnconfigure(0,weight=1)
-            self.label(cell,title,17 if large else 16,True).grid(row=0,column=0,sticky='w')
-            value=self.label(cell,'—',17 if large else 16)
-            value.grid(row=0,column=1,sticky='e',padx=(12,0))
-            self.weather_metric_cells.append(cell);self.weather_metric_values.append(value)
-        self.weather_notice=self.label(self.weather_measurements,size=16,muted=True)
+        self.wrap_label(condition).pack(fill="x")
+        self.weather_measurements = tk.Frame(right, bg=right.cget("bg"))
+        self.weather_measurements.pack(fill="x", pady=(10 if large else 6, 2))
+        self.weather_metric_cells = []
+        self.weather_metric_values = []
+        for index, (title, unused) in enumerate(weather_data.measurements({})):
+            self.weather_measurements.columnconfigure(
+                index % 2, weight=1, uniform="forecast"
+            )
+            cell = tk.Frame(self.weather_measurements, bg=right.cget("bg"))
+            cell.grid(
+                row=index // 2,
+                column=index % 2,
+                sticky="ew",
+                padx=(0, 18) if index % 2 == 0 else (18, 0),
+                pady=4 if large else 2,
+            )
+            cell.columnconfigure(0, weight=1)
+            self.label(cell, title, 17 if large else 16, True).grid(
+                row=0, column=0, sticky="w"
+            )
+            value = self.label(cell, "—", 17 if large else 16)
+            value.grid(row=0, column=1, sticky="e", padx=(12, 0))
+            self.weather_metric_cells.append(cell)
+            self.weather_metric_values.append(value)
+        self.weather_notice = self.label(self.weather_measurements, size=16, muted=True)
         self.wrap_label(self.weather_notice)
         self.daylight_label = self.label(right, size=21)
-        self.daylight_label.pack(anchor='w', pady=(8, 2) if compact else (18, 2))
-        self.daylight_canvas = tk.Canvas(right, height=60, bg=right.cget('bg'), highlightthickness=0)
+        self.daylight_label.pack(anchor="w", pady=(8, 2) if compact else (18, 2))
+        self.daylight_canvas = tk.Canvas(
+            right, height=60, bg=right.cget("bg"), highlightthickness=0
+        )
         self.daylight_drawn = None
-        self.daylight_canvas.pack(fill='x')
-        self.daylight_canvas.bind('<Configure>', lambda event: self.update_daylight())
+        self.daylight_canvas.pack(fill="x")
+        self.daylight_canvas.bind("<Configure>", lambda event: self.update_daylight())
         self.update_weather(force=True)
         self.start_weather()
 
     def weather_is_earlier(self):
-        data=self.weather_reading
-        return bool(data and (self.weather_good is None or monotonic()-self.weather_good>1800
-                    or any(data[key][:10]!=datetime.date.today().isoformat() for key in ('model_time','sunrise','sunset'))
-                    or self.weather_text.get().startswith('Last available')))
+        data = self.weather_reading
+        return bool(
+            data
+            and (
+                self.weather_good is None
+                or monotonic() - self.weather_good > 1800
+                or any(
+                    data[key][:10] != datetime.date.today().isoformat()
+                    for key in ("model_time", "sunrise", "sunset")
+                )
+                or self.weather_text.get().startswith("Last available")
+            )
+        )
 
     def update_weather(self, force=False):
-        if self.mode not in ('room', 'visitor') or self.mode == 'room' and self.section != 'basic':
+        if (
+            self.mode not in ("room", "visitor")
+            or self.mode == "room"
+            and self.section != "basic"
+        ):
             return
         now = datetime.datetime.now()
-        minute = now.strftime('%Y-%m-%dT%H:%M')
-        earlier=self.weather_is_earlier()
-        render_key=(minute,earlier)
+        minute = now.strftime("%Y-%m-%dT%H:%M")
+        earlier = self.weather_is_earlier()
+        render_key = (minute, earlier)
         if not force and render_key == self.weather_rendered_minute:
             return
         self.weather_rendered_minute = render_key
         data = self.weather_reading
-        readings=weather_data.measurements(data or {},self.temperature_unit,earlier)
-        show=bool(data and not earlier)
-        for index,cell in enumerate(self.weather_metric_cells):
+        readings = weather_data.measurements(data or {}, self.temperature_unit, earlier)
+        show = bool(data and not earlier)
+        for index, cell in enumerate(self.weather_metric_cells):
             if show:
-                if not cell.winfo_manager():cell.grid()
-                if self.weather_metric_values[index].cget('text') != readings[index][1]:
+                if not cell.winfo_manager():
+                    cell.grid()
+                if self.weather_metric_values[index].cget("text") != readings[index][1]:
                     self.weather_metric_values[index].config(text=readings[index][1])
-            elif cell.winfo_manager():cell.grid_remove()
+            elif cell.winfo_manager():
+                cell.grid_remove()
         if show:
-            if self.weather_notice.winfo_manager():self.weather_notice.grid_remove()
+            if self.weather_notice.winfo_manager():
+                self.weather_notice.grid_remove()
         else:
-            notice=weather_data.details(data,self.temperature_unit,earlier=True) if data else 'Weather unavailable'
+            notice = (
+                weather_data.details(data, self.temperature_unit, earlier=True)
+                if data
+                else "Weather unavailable"
+            )
             self.weather_notice.config(text=notice)
-            self.weather_notice.grid(row=0,column=0,columnspan=2,sticky='ew',pady=4)
+            self.weather_notice.grid(row=0, column=0, columnspan=2, sticky="ew", pady=4)
         if not data:
-            set_changed(self.weather_temperature,'—');set_changed(self.weather_condition,'Weather unavailable')
+            set_changed(self.weather_temperature, "—")
+            set_changed(self.weather_condition, "Weather unavailable")
             if self.weather_symbol_key is not None:
                 self.weather_symbol.delete(self.weather_symbol_item)
                 self.weather_symbol_key = None
                 self.weather_symbol_item = None
             self.update_daylight()
             return
-        primary = data['temperature_c'] if self.temperature_unit == 'c' else data['temperature_f']
-        set_changed(self.weather_temperature,u'%.0f°' % primary)
-        set_changed(self.weather_condition,data['condition'])
-        sunrise, sunset = weather_data.local_time(data['sunrise']), weather_data.local_time(data['sunset'])
+        primary = (
+            data["temperature_c"]
+            if self.temperature_unit == "c"
+            else data["temperature_f"]
+        )
+        set_changed(self.weather_temperature, "%.0f°" % primary)
+        set_changed(self.weather_condition, data["condition"])
+        sunrise, sunset = weather_data.local_time(
+            data["sunrise"]
+        ), weather_data.local_time(data["sunset"])
         current_day = sunrise.date() == now.date() == sunset.date()
         night = current_day and not sunrise <= now < sunset
-        kind = panel_icons.weather_kind(data['code'], night)
+        kind = panel_icons.weather_kind(data["code"], night)
         # Earlier daylight data cannot establish whether it is currently day or night.
-        if not current_day and data['code'] in (0, 1, 2):
-            kind = 'circle-question-mark'
+        if not current_day and data["code"] in (0, 1, 2):
+            kind = "circle-question-mark"
         size = self.weather_symbol_size
-        key = ('weather', kind, self.theme, size)
+        key = ("weather", kind, self.theme, size)
         if key not in self.icon_cache:
             self.photo(key, panel_icons.weather(kind, self.theme, size))
         if self.weather_symbol_key != key:
             if self.weather_symbol_item is None:
-                self.weather_symbol_item = self.weather_symbol.create_image(size // 2, size // 2, image=self.icon_cache[key])
+                self.weather_symbol_item = self.weather_symbol.create_image(
+                    size // 2, size // 2, image=self.icon_cache[key]
+                )
             else:
-                self.weather_symbol.itemconfigure(self.weather_symbol_item,image=self.icon_cache[key],state='normal')
+                self.weather_symbol.itemconfigure(
+                    self.weather_symbol_item, image=self.icon_cache[key], state="normal"
+                )
             self.weather_symbol_key = key
         self.update_daylight()
 
@@ -1271,42 +1906,100 @@ class Panel(object):
         canvas = self.daylight_canvas
         data = self.weather_reading
         earlier = self.weather_is_earlier()
-        day = weather_data.daylight(data, datetime.datetime.now()) if data and not earlier else None
-        text = (day['label'] if day else 'Daylight times unavailable' if not data else
-                'Daylight information is not current' if earlier else 'Daylight times are from another date')
-        key = (canvas.winfo_width(), text, None if day is None else tuple(sorted(day.items())))
+        day = (
+            weather_data.daylight(data, datetime.datetime.now())
+            if data and not earlier
+            else None
+        )
+        text = (
+            day["label"]
+            if day
+            else (
+                "Daylight times unavailable"
+                if not data
+                else (
+                    "Daylight information is not current"
+                    if earlier
+                    else "Daylight times are from another date"
+                )
+            )
+        )
+        key = (
+            canvas.winfo_width(),
+            text,
+            None if day is None else tuple(sorted(day.items())),
+        )
         if key == self.daylight_drawn:
             return
         self.daylight_drawn = key
-        if self.daylight_label.cget('text') != text:self.daylight_label.config(text=text)
-        canvas.delete('all')
-        if day is None or canvas.winfo_width() < 2:return
-        left, right, y = 8, max(24, canvas.winfo_width()-8), 22
-        position = left + (right-left) * day['fraction']
-        canvas.create_line(left, y, right, y, fill=self.control, width=6, capstyle='round')
+        if self.daylight_label.cget("text") != text:
+            self.daylight_label.config(text=text)
+        canvas.delete("all")
+        if day is None or canvas.winfo_width() < 2:
+            return
+        left, right, y = 8, max(24, canvas.winfo_width() - 8), 22
+        position = left + (right - left) * day["fraction"]
+        canvas.create_line(
+            left, y, right, y, fill=self.control, width=6, capstyle="round"
+        )
         if position > left:
-            canvas.create_line(left, y, position, y, fill=self.icon_colour, width=6, capstyle='round')
-        canvas.create_oval(position-7, y-7, position+7, y+7, fill=self.icon_colour, outline=self.surface, width=2)
-        canvas.create_text(left, 46, text='Sunrise ' + day['sunrise'], anchor='w', font=(FONT, 15), fill=self.muted)
-        canvas.create_text(right, 46, text='Sunset ' + day['sunset'], anchor='e', font=(FONT, 15), fill=self.muted)
+            canvas.create_line(
+                left, y, position, y, fill=self.icon_colour, width=6, capstyle="round"
+            )
+        canvas.create_oval(
+            position - 7,
+            y - 7,
+            position + 7,
+            y + 7,
+            fill=self.icon_colour,
+            outline=self.surface,
+            width=2,
+        )
+        canvas.create_text(
+            left,
+            46,
+            text="Sunrise " + day["sunrise"],
+            anchor="w",
+            font=(FONT, 15),
+            fill=self.muted,
+        )
+        canvas.create_text(
+            right,
+            46,
+            text="Sunset " + day["sunset"],
+            anchor="e",
+            font=(FONT, 15),
+            fill=self.muted,
+        )
 
     def start_weather(self):
         now = monotonic()
-        if (self.weather_worker or now - self.weather_checked < 900 or
-                getattr(self.args, 'weather_latitude', None) is None):
+        if (
+            self.weather_worker
+            or now - self.weather_checked < 900
+            or getattr(self.args, "weather_latitude", None) is None
+        ):
             return
         self.weather_checked, self.weather_started = now, now
         if not self.weather_last_text:
-            self.weather_text.set('Loading weather...')
-        command = [sys.executable, '-B', os.path.join(os.path.dirname(__file__), 'weather.py'),
-                   str(self.args.weather_latitude), str(self.args.weather_longitude), self.args.timezone]
+            self.weather_text.set("Loading weather...")
+        command = [
+            sys.executable,
+            "-B",
+            os.path.join(os.path.dirname(__file__), "weather.py"),
+            str(self.args.weather_latitude),
+            str(self.args.weather_longitude),
+            self.args.timezone,
+        ]
         try:
-            self.weather_worker = subprocess.Popen(command, close_fds=True, stdout=subprocess.PIPE)
+            self.weather_worker = subprocess.Popen(
+                command, close_fds=True, stdout=subprocess.PIPE
+            )
         except OSError:
-            self.weather_text.set('Weather unavailable. Room controls still work.')
+            self.weather_text.set("Weather unavailable. Room controls still work.")
 
     def poll_weather(self):
-        worker = getattr(self, 'weather_worker', None)
+        worker = getattr(self, "weather_worker", None)
         if not worker:
             return
         if worker.poll() is None:
@@ -1314,53 +2007,82 @@ class Panel(object):
                 worker.kill()
             return
         try:
-            reply = json.loads(worker.stdout.read(4097).decode('utf-8'))
+            reply = json.loads(worker.stdout.read(4097).decode("utf-8"))
             data = weather_data.validate(reply)
-            text = u'Open-Meteo · model ' + data['model_time'].replace('T', ' ')
+            text = "Open-Meteo · model " + data["model_time"].replace("T", " ")
             self.weather_reading = data
             self.weather_last_text, self.weather_good = text, monotonic()
             self.weather_text.set(text)
             self.update_weather(force=True)
         except (ValueError, KeyError, TypeError, IOError):
-            self.weather_text.set(('Last available weather (refresh failed):\n' + self.weather_last_text)
-                                  if self.weather_last_text else 'Weather unavailable. Room controls still work.')
+            self.weather_text.set(
+                ("Last available weather (refresh failed):\n" + self.weather_last_text)
+                if self.weather_last_text
+                else "Weather unavailable. Room controls still work."
+            )
         finally:
             worker.stdout.close()
             if worker.stderr:
                 worker.stderr.close()
             self.weather_worker = None
 
-    def slider_group(self, parent, title, variable, low, high, step, unit, compact=False):
-        group = tk.Frame(parent, bg=self.surface, highlightbackground=self.border, highlightthickness=1)
-        group.pack(fill='x', pady=(0, 8))
-        if not compact:self.label(group, title, 18).pack(anchor='w', padx=20, pady=(6, 0))
+    def slider_group(
+        self, parent, title, variable, low, high, step, unit, compact=False
+    ):
+        group = tk.Frame(
+            parent,
+            bg=self.surface,
+            highlightbackground=self.border,
+            highlightthickness=1,
+        )
+        group.pack(fill="x", pady=(0, 8))
+        if not compact:
+            self.label(group, title, 18).pack(anchor="w", padx=20, pady=(6, 0))
         row = tk.Frame(group, bg=self.surface, height=56)
-        row.pack(fill='x', padx=20, pady=(14, 0) if compact else (8, 0))
+        row.pack(fill="x", padx=20, pady=(14, 0) if compact else (8, 0))
         row.pack_propagate(False)
         minus_area, plus_area = tk.Frame(row, width=64), tk.Frame(row, width=64)
-        plus_area.pack(side='right', fill='y')
-        minus_area.pack(side='right', fill='y', padx=(8, 8))
+        plus_area.pack(side="right", fill="y")
+        minus_area.pack(side="right", fill="y", padx=(8, 8))
         minus_area.pack_propagate(False)
         plus_area.pack_propagate(False)
-        minus = self.button(minus_area, '-', lambda: self.step_slider(variable, low, high, -step))
-        plus = self.button(plus_area, '+', lambda: self.step_slider(variable, low, high, step))
-        for button in (minus, plus):button.config(pady=8)
-        minus.pack(fill='both', expand=True)
-        plus.pack(fill='both', expand=True)
-        if compact:self.label(row, title, 18).pack(side='left', padx=(0, 20))
+        minus = self.button(
+            minus_area, "-", lambda: self.step_slider(variable, low, high, -step)
+        )
+        plus = self.button(
+            plus_area, "+", lambda: self.step_slider(variable, low, high, step)
+        )
+        for button in (minus, plus):
+            button.config(pady=8)
+        minus.pack(fill="both", expand=True)
+        plus.pack(fill="both", expand=True)
+        if compact:
+            self.label(row, title, 18).pack(side="left", padx=(0, 20))
         value = self.label(row, size=30 if compact else 33)
         value.config(textvariable=variable)
-        value.pack(side='left')
-        self.label(row, unit, 16, True).pack(side='left', padx=10, anchor='s', pady=12)
-        scale = TouchSlider(group, variable=variable, from_=low, to=high, resolution=step,
-                            orient='horizontal', background=self.surface, track=self.control,
-                            accent=self.accent, border=self.border, ink=self.ink)
-        scale.pack(fill='x', padx=20, pady=(4, 0))
+        value.pack(side="left")
+        self.label(row, unit, 16, True).pack(side="left", padx=10, anchor="s", pady=12)
+        scale = TouchSlider(
+            group,
+            variable=variable,
+            from_=low,
+            to=high,
+            resolution=step,
+            orient="horizontal",
+            background=self.surface,
+            track=self.control,
+            accent=self.accent,
+            border=self.border,
+            ink=self.ink,
+        )
+        scale.pack(fill="x", padx=20, pady=(4, 0))
         limits = tk.Frame(group, bg=self.surface)
-        limits.pack(fill='x', padx=20, pady=(4, 8))
-        self.label(limits, 'Min {:,} {}'.format(low, unit), 13, True).pack(side='left')
-        self.label(limits, 'Max {:,} {}'.format(high, unit), 13, True).pack(side='right')
-        self.bind_slider(scale, 'cct')
+        limits.pack(fill="x", padx=20, pady=(4, 8))
+        self.label(limits, "Min {:,} {}".format(low, unit), 13, True).pack(side="left")
+        self.label(limits, "Max {:,} {}".format(high, unit), 13, True).pack(
+            side="right"
+        )
+        self.bind_slider(scale, "cct")
         self.light_buttons.extend([minus, plus, scale])
 
     def step_slider(self, variable, low, high, step):
@@ -1373,47 +2095,73 @@ class Panel(object):
             scale.on_start = lambda: self.slider_pressed(scale, action, generation)
             scale.on_end = lambda: self.slider_released(None)
         else:
-            scale.bind('<ButtonPress-1>', lambda event: self.slider_pressed(scale, action, generation), add='+')
-        scale.config(command=lambda value: self.slider_changed(scale, action, generation))
+            scale.bind(
+                "<ButtonPress-1>",
+                lambda event: self.slider_pressed(scale, action, generation),
+                add="+",
+            )
+        scale.config(
+            command=lambda value: self.slider_changed(scale, action, generation)
+        )
 
     def slider_pressed(self, scale, action, generation):
-        if generation == self.view_generation and scale.cget('state') != 'disabled':
+        if generation == self.view_generation and scale.cget("state") != "disabled":
             self.slider_drag = (scale, action, generation)
             if self.help_on:
-                self.status_text.set('Warm to cool white: kelvin and controller light-level input.'
-                                     if action == 'cct' else 'Eight channel percentages. Changes send automatically.')
+                self.status_text.set(
+                    "Warm to cool white: kelvin and controller light-level input."
+                    if action == "cct"
+                    else "Eight channel percentages. Changes send automatically."
+                )
 
     def slider_changed(self, scale, action, generation):
-        if self.slider_drag == (scale, action, generation) and generation == self.view_generation:
-            self.cct_apply() if action == 'cct' else self.channels_apply()
+        if (
+            self.slider_drag == (scale, action, generation)
+            and generation == self.view_generation
+        ):
+            self.cct_apply() if action == "cct" else self.channels_apply()
 
     def slider_released(self, event):
         drag, self.slider_drag = self.slider_drag, None
-        if drag and drag[2] == self.view_generation and self.mode == 'room':
-            self.cct_apply() if drag[1] == 'cct' else self.channels_apply()
+        if drag and drag[2] == self.view_generation and self.mode == "room":
+            self.cct_apply() if drag[1] == "cct" else self.channels_apply()
 
     def channel_view(self):
-        self.open_advanced('scenes')
+        self.open_advanced("scenes")
 
     def channels_view(self, embedded=False):
-        if not embedded:self.label(self.body, 'Lighting channels', 27).pack(anchor='w')
-        self.label(self.body, 'Adjust the eight room-wide channel percentages.', 16, True).pack(anchor='w', pady=(4, 8))
+        if not embedded:
+            self.label(self.body, "Lighting channels", 27).pack(anchor="w")
+        self.label(
+            self.body, "Adjust the eight room-wide channel percentages.", 16, True
+        ).pack(anchor="w", pady=(4, 8))
         editor = tk.Frame(self.body, bg=self.bg)
-        editor.pack(fill='x', pady=14)
+        editor.pack(fill="x", pady=14)
         for index, (name, value) in enumerate(zip(CHANNELS, self.channel_values)):
-            editor.columnconfigure(index, weight=1, uniform='channel')
+            editor.columnconfigure(index, weight=1, uniform="channel")
             cell = tk.Frame(editor, bg=self.bg)
-            cell.grid(row=0, column=index, sticky='nsew', padx=4)
+            cell.grid(row=0, column=index, sticky="nsew", padx=4)
             self.label(cell, name, 15).pack()
-            tk.Frame(cell, height=8, bg=CHANNEL_COLOURS[index]).pack(fill='x', pady=8)
+            tk.Frame(cell, height=8, bg=CHANNEL_COLOURS[index]).pack(fill="x", pady=8)
             number = self.label(cell, size=16)
             number.config(textvariable=value)
             number.pack()
-            scale = TouchSlider(cell, variable=value, from_=100, to=0, resolution=1,
-                                orient='vertical', background=self.bg, track=self.control,
-                                accent=self.accent, border=self.border, ink=self.ink, length=200)
-            scale.pack(fill='both', expand=True)
-            self.bind_slider(scale, 'channels')
+            scale = TouchSlider(
+                cell,
+                variable=value,
+                from_=100,
+                to=0,
+                resolution=1,
+                orient="vertical",
+                background=self.bg,
+                track=self.control,
+                accent=self.accent,
+                border=self.border,
+                ink=self.ink,
+                length=200,
+            )
+            scale.pack(fill="both", expand=True)
+            self.bind_slider(scale, "channels")
             self.light_buttons.append(scale)
         self.feedback_card(self.body)
         self.update_light_buttons()
@@ -1421,22 +2169,30 @@ class Panel(object):
     def preset(self, name):
         for variable, value in zip(self.channel_values, PRESETS[name]):
             variable.set(value)
-        self.apply('channels', immediate=True, values=list(PRESETS[name]))
+        self.apply("channels", immediate=True, values=list(PRESETS[name]))
 
     def lights_on(self):
         self.cct.set(3500)
         self.intensity.set(1000)
-        self.apply('cct', immediate=True, cct=self.cct.get(), intensity=self.intensity.get())
+        self.apply(
+            "cct", immediate=True, cct=self.cct.get(), intensity=self.intensity.get()
+        )
 
     def cct_apply(self):
-        self.apply('cct', cct=self.cct.get(), intensity=self.intensity.get())
+        self.apply("cct", cct=self.cct.get(), intensity=self.intensity.get())
 
     def channels_apply(self):
-        self.apply('channels', values=[item.get() for item in self.channel_values])
+        self.apply("channels", values=[item.get() for item in self.channel_values])
 
     def apply(self, action, immediate=False, **arguments):
-        if self.mode != 'room' or self.light_state not in ('ready', 'applying') or self.release_target or self.closing or getattr(self, 'running', False):
-            self.status_text.set('Lighting unavailable. Use Legacy or ask staff.')
+        if (
+            self.mode != "room"
+            or self.light_state not in ("ready", "applying")
+            or self.release_target
+            or self.closing
+            or getattr(self, "running", False)
+        ):
+            self.status_text.set("Lighting unavailable. Use Legacy or ask staff.")
             return
         # Immutable complete intent, one unsent selection shared by all light controls.
         arguments = json.loads(json.dumps(arguments))
@@ -1446,11 +2202,17 @@ class Panel(object):
         self.intent_timer = None
         if immediate:
             if self.pending:
-                self.lighting_feedback('Selected: ' + light_selection(action, arguments) + ' / waiting for current request')
+                self.lighting_feedback(
+                    "Selected: "
+                    + light_selection(action, arguments)
+                    + " / waiting for current request"
+                )
             self.dispatch_intent()
             return
         self.intent_timer = self.root.after(250, self.dispatch_intent)
-        self.lighting_feedback('Selected: ' + light_selection(action, arguments) + ' / waiting to send')
+        self.lighting_feedback(
+            "Selected: " + light_selection(action, arguments) + " / waiting to send"
+        )
 
     def cancel_intent(self):
         if self.intent_timer is not None:
@@ -1463,383 +2225,698 @@ class Panel(object):
         if self.pending:
             return
         intent, self.queued_intent = self.queued_intent, None
-        if (not intent or intent[2] != self.view_generation or self.mode != 'room' or
-                self.light_state != 'ready' or self.release_target or self.closing):
+        if (
+            not intent
+            or intent[2] != self.view_generation
+            or self.mode != "room"
+            or self.light_state != "ready"
+            or self.release_target
+            or self.closing
+        ):
             return
         action, arguments = intent[:2]
-        self.light_state = 'applying'
-        self.lighting_feedback('Sending: ' + light_selection(action, arguments) + ' / awaiting confirmation')
-        self.status_text.set('Updating lights. Waiting for confirmation…')
+        self.light_state = "applying"
+        self.lighting_feedback(
+            "Sending: "
+            + light_selection(action, arguments)
+            + " / awaiting confirmation"
+        )
+        self.status_text.set("Updating lights. Waiting for confirmation…")
         if not self.request(action, arguments):
-            self.light_state = 'failed'
+            self.light_state = "failed"
             self.cancel_intent()
-            self.lighting_feedback('Lighting adapter unavailable. Use Legacy or ask staff.')
+            self.lighting_feedback(
+                "Lighting adapter unavailable. Use Legacy or ask staff."
+            )
         self.update_light_buttons()
 
     def update_light_buttons(self):
         for button in self.light_buttons:
             if button.winfo_exists():
-                button.config(state='normal' if self.light_state in ('ready', 'applying')
-                              and not self.release_target and not self.closing and not getattr(self, 'running', False) else 'disabled')
+                button.config(
+                    state=(
+                        "normal"
+                        if self.light_state in ("ready", "applying")
+                        and not self.release_target
+                        and not self.closing
+                        and not getattr(self, "running", False)
+                        else "disabled"
+                    )
+                )
         self.update_power_highlights()
         self.update_blind_buttons()
 
     def experiment_view(self):
-        self.label(self.body, 'Experiment mode', 27).pack(anchor='w')
-        title = self.label(self.body, self.profile['title'], 17, True)
-        self.wrap_label(title).pack(fill='x')
-        self.label(self.body, 'Recorder not connected · instructions and panel annotations only', 17, True).pack(anchor='w', pady=(6, 8))
+        self.label(self.body, "Experiment mode", 27).pack(anchor="w")
+        title = self.label(self.body, self.profile["title"], 17, True)
+        self.wrap_label(title).pack(fill="x")
+        self.label(
+            self.body,
+            "Recorder not connected · instructions and panel annotations only",
+            17,
+            True,
+        ).pack(anchor="w", pady=(6, 8))
         area = tk.Frame(self.body, bg=self.surface, height=184)
-        area.pack(fill='x', pady=6)
+        area.pack(fill="x", pady=6)
         area.pack_propagate(False)
         self.stage_label = self.label(area, size=24)
         self.stage_label.config(height=2)
-        self.wrap_label(self.stage_label).pack(fill='x', padx=22, pady=(8, 2))
+        self.wrap_label(self.stage_label).pack(fill="x", padx=22, pady=(8, 2))
         status = tk.Frame(area, bg=self.surface, height=50)
-        status.pack(fill='x', padx=22)
+        status.pack(fill="x", padx=22)
         status.pack_propagate(False)
         self.run_label = self.label(status, size=17, muted=True)
-        self.run_label.pack(side='left')
+        self.run_label.pack(side="left")
         self.timer_label = self.label(status, size=26)
-        self.timer_label.pack(side='right')
-        metadata = self.label(area, 'Profile describes: ' + self.profile['sensors'], 16, True)
-        self.wrap_label(metadata).pack(fill='x', padx=22, pady=(0, 4))
-        self.row_buttons(self.body, [('Start instructions', self.start_preview, True),
-                                     ('Pause', self.stop_preview, False)], height=60)
-        self.row_buttons(self.body, [('Previous instruction', self.previous_stage, False),
-                                     ('Next instruction', self.next_stage, False)], height=60)
-        self.row_buttons(self.body, [(label, lambda label=label: self.mark(label), False)
-                                    for label in self.profile['annotations']])
+        self.timer_label.pack(side="right")
+        metadata = self.label(
+            area, "Profile describes: " + self.profile["sensors"], 16, True
+        )
+        self.wrap_label(metadata).pack(fill="x", padx=22, pady=(0, 4))
+        self.row_buttons(
+            self.body,
+            [
+                ("Start instructions", self.start_preview, True),
+                ("Pause", self.stop_preview, False),
+            ],
+            height=60,
+        )
+        self.row_buttons(
+            self.body,
+            [
+                ("Previous instruction", self.previous_stage, False),
+                ("Next instruction", self.next_stage, False),
+            ],
+            height=60,
+        )
+        self.row_buttons(
+            self.body,
+            [
+                (label, lambda label=label: self.mark(label), False)
+                for label in self.profile["annotations"]
+            ],
+        )
         annotation = self.label(self.body, size=16, muted=True)
         annotation.config(textvariable=self.annotation_text, height=2)
-        self.wrap_label(annotation).pack(fill='x')
+        self.wrap_label(annotation).pack(fill="x")
         self.update_session()
 
     def start_preview(self):
-        if self.power_busy():return
+        if self.power_busy():
+            return
         if not self.running:
             self.run_started, self.running = monotonic(), True
-            self.emit('practice_started')
+            self.emit("practice_started")
         self.update_session()
 
     def stop_preview(self):
         if self.running:
             self.elapsed += monotonic() - self.run_started
             self.running = False
-            self.emit('practice_paused')
+            self.emit("practice_paused")
         self.update_session()
 
-    def mark(self, label='Unexpected event'):
+    def mark(self, label="Unexpected event"):
         try:
-            sequence = self.emit('annotation', label=label, scope='panel_practice')
-            self.pending_annotation = (sequence, label, time.strftime('%H:%M:%S'))
-            self.annotation_text.set('Saving annotation: ' + label)
+            sequence = self.emit("annotation", label=label, scope="panel_practice")
+            self.pending_annotation = (sequence, label, time.strftime("%H:%M:%S"))
+            self.annotation_text.set("Saving annotation: " + label)
         except (IOError, OSError) as error:
             self.pending_annotation = None
-            self.annotation_text.set('Annotation not saved: ' + str(error))
+            self.annotation_text.set("Annotation not saved: " + str(error))
 
     def previous_stage(self):
         if self.stage > 0:
             self.stage -= 1
-            self.emit('instruction_selected')
+            self.emit("instruction_selected")
         self.update_session()
 
     def next_stage(self):
-        if self.stage < len(self.profile['stages']) - 1:
+        if self.stage < len(self.profile["stages"]) - 1:
             self.stage += 1
-            self.emit('instruction_selected')
+            self.emit("instruction_selected")
         else:
             self.stop_preview()
-            self.annotation_text.set('Final instruction reached. Instructions paused; recorder not connected.')
+            self.annotation_text.set(
+                "Final instruction reached. Instructions paused; recorder not connected."
+            )
         self.update_session()
 
     def update_session(self):
-        if self.mode != 'experiment':
+        if self.mode != "experiment":
             return
         elapsed = self.elapsed + (monotonic() - self.run_started if self.running else 0)
-        self.stage_label.config(text=self.profile['stages'][self.stage])
-        self.timer_label.config(text='Elapsed  %02d:%02d' % divmod(int(elapsed), 60))
-        self.run_label.config(text='Instruction %d of %d   /   %s' % (
-            self.stage + 1, len(self.profile['stages']), 'Running' if self.running else 'Paused'))
+        self.stage_label.config(text=self.profile["stages"][self.stage])
+        self.timer_label.config(text="Elapsed  %02d:%02d" % divmod(int(elapsed), 60))
+        self.run_label.config(
+            text="Instruction %d of %d   /   %s"
+            % (
+                self.stage + 1,
+                len(self.profile["stages"]),
+                "Running" if self.running else "Paused",
+            )
+        )
 
     def system_contents(self):
         self.health_rendered = None
         heading = tk.Frame(self.body, bg=self.bg, height=50)
-        heading.pack(fill='x', pady=(0, 8));heading.pack_propagate(False)
-        self.label(heading, 'System & help', 27).pack(side='left')
+        heading.pack(fill="x", pady=(0, 8))
+        heading.pack_propagate(False)
+        self.label(heading, "System & help", 27).pack(side="left")
         self.power_buttons = []
-        for operation, title in (('shutdown', 'Shut down Pi'), ('reboot', 'Restart Pi')):
-            button = self.button(heading, title, lambda operation=operation:self.confirm_power(operation))
+        for operation, title in (
+            ("shutdown", "Shut down Pi"),
+            ("reboot", "Restart Pi"),
+        ):
+            button = self.button(
+                heading,
+                title,
+                lambda operation=operation: self.confirm_power(operation),
+            )
             button.config(font=(FONT, 15), pady=8, padx=12)
-            button.pack(side='right', padx=(12, 0), fill='y')
+            button.pack(side="right", padx=(12, 0), fill="y")
             self.power_buttons.append((button, operation))
         self.poll_power()
         if not self.support_commands_visible:
-            self.label(self.body, 'Read-only checks. Available services may not be producing sensor data.', 15, True).pack(anchor='w', pady=(0, 10))
+            self.label(
+                self.body,
+                "Read-only checks. Available services may not be producing sensor data.",
+                15,
+                True,
+            ).pack(anchor="w", pady=(0, 10))
         overview = tk.Frame(self.body, bg=self.bg)
-        overview.pack(fill='x', pady=(0, 12))
-        overview.columnconfigure(0, weight=1, uniform='system')
+        overview.pack(fill="x", pady=(0, 12))
+        overview.columnconfigure(0, weight=1, uniform="system")
         overview.columnconfigure(1, minsize=12)
-        overview.columnconfigure(2, weight=1, uniform='system')
+        overview.columnconfigure(2, weight=1, uniform="system")
         overview.rowconfigure(0, weight=1)
         cards = []
-        for column, title in ((0, 'Panel health'), (2, 'Room connection')):
-            card = tk.Frame(overview, bg=self.bg, highlightbackground=self.border, highlightthickness=1)
-            card.grid(row=0, column=column, sticky='nsew')
+        for column, title in ((0, "Panel health"), (2, "Room connection")):
+            card = tk.Frame(
+                overview,
+                bg=self.bg,
+                highlightbackground=self.border,
+                highlightthickness=1,
+            )
+            card.grid(row=0, column=column, sticky="nsew")
             content = tk.Frame(card, bg=self.bg)
-            content.pack(fill='both', expand=True, padx=14, pady=10)
-            self.label(content, title, 17).pack(anchor='w', pady=(0, 6))
+            content.pack(fill="both", expand=True, padx=14, pady=10)
+            self.label(content, title, 17).pack(anchor="w", pady=(0, 6))
             cards.append(content)
         self.health_details = self.label(cards[0], size=15)
-        self.wrap_label(self.health_details).pack(fill='x', pady=(0, 6))
+        self.wrap_label(self.health_details).pack(fill="x", pady=(0, 6))
         self.power_label = self.label(cards[0], size=15, muted=True)
-        self.wrap_label(self.power_label).pack(fill='x')
+        self.wrap_label(self.power_label).pack(fill="x")
         row = tk.Frame(cards[1], bg=self.bg)
-        row.pack(fill='x', pady=(0, 4))
-        self.label(row, 'Lighting', 15, True).pack(side='left', padx=(0, 12))
+        row.pack(fill="x", pady=(0, 4))
+        self.label(row, "Lighting", 15, True).pack(side="left", padx=(0, 12))
         state = self.label(row, size=20)
         state.config(textvariable=self.connection_text)
-        state.pack(side='left')
+        state.pack(side="left")
         blinds = self.blind_state()
-        blind_label = 'Disabled' if not blinds['enabled'] else 'Disconnected' if not blinds['connected'] else 'Ready' if blinds['available'] else 'Busy'
-        self.label(row, 'Blinds · ' + blind_label, 13, True).pack(side='right')
+        blind_label = (
+            "Disabled"
+            if not blinds["enabled"]
+            else (
+                "Disconnected"
+                if not blinds["connected"]
+                else "Ready" if blinds["available"] else "Busy"
+            )
+        )
+        self.label(row, "Blinds · " + blind_label, 13, True).pack(side="right")
         self.services_label = self.label(cards[1], size=13, muted=True)
-        self.wrap_label(self.services_label).pack(fill='x')
+        self.wrap_label(self.services_label).pack(fill="x")
         topic = tk.Frame(self.body, bg=self.bg, height=58)
-        topic.pack(fill='x', pady=(0, 4))
+        topic.pack(fill="x", pady=(0, 4))
         topic.pack_propagate(False)
-        self.label(topic, 'Help topic', 18).pack(side='left', padx=(0, 20))
+        self.label(topic, "Help topic", 18).pack(side="left", padx=(0, 20))
         selected = tk.StringVar(value=SUPPORT[self.support_page][0])
-        menu = tk.OptionMenu(topic, selected, *[item[0] for item in SUPPORT],
-                             command=lambda name: self.choose_support([item[0] for item in SUPPORT].index(name)))
-        menu.config(font=(FONT, 18), bg=self.control, fg=self.ink, highlightthickness=1,
-                    highlightbackground=self.border, highlightcolor=self.accent, bd=0, padx=18, pady=10,
-                    activebackground=self.pressed_colour(), activeforeground=self.ink,
-                    image=self.icon('dropdown', self.ink, 24), compound='right', indicatoron=False)
-        menu['menu'].config(font=(FONT, 18), bg=self.control, fg=self.ink,
-                            activebackground=self.accent, activeforeground=self.selected_ink, activeborderwidth=0)
-        menu.pack(side='left', fill='y')
+        menu = tk.OptionMenu(
+            topic,
+            selected,
+            *[item[0] for item in SUPPORT],
+            command=lambda name: self.choose_support(
+                [item[0] for item in SUPPORT].index(name)
+            ),
+        )
+        menu.config(
+            font=(FONT, 18),
+            bg=self.control,
+            fg=self.ink,
+            highlightthickness=1,
+            highlightbackground=self.border,
+            highlightcolor=self.accent,
+            bd=0,
+            padx=18,
+            pady=10,
+            activebackground=self.pressed_colour(),
+            activeforeground=self.ink,
+            image=self.icon("dropdown", self.ink, 24),
+            compound="right",
+            indicatoron=False,
+        )
+        menu["menu"].config(
+            font=(FONT, 18),
+            bg=self.control,
+            fg=self.ink,
+            activebackground=self.accent,
+            activeforeground=self.selected_ink,
+            activeborderwidth=0,
+        )
+        menu.pack(side="left", fill="y")
         title, kind, text, commands = SUPPORT[self.support_page]
-        card = tk.Frame(self.body, bg=self.bg, highlightbackground=self.border, highlightthickness=1)
-        card.pack(fill='x', pady=(6, 0))
+        card = tk.Frame(
+            self.body, bg=self.bg, highlightbackground=self.border, highlightthickness=1
+        )
+        card.pack(fill="x", pady=(6, 0))
         content = tk.Frame(card, bg=self.bg)
-        content.pack(fill='x', padx=20, pady=14)
+        content.pack(fill="x", padx=20, pady=14)
         show_commands = commands and self.support_commands_visible
         if not show_commands:
-            for index, paragraph in enumerate(text.split('\n\n')):
-                self.wrap_label(self.label(content, paragraph, 15)).pack(fill='x', pady=(4 if index else 0, 0))
+            for index, paragraph in enumerate(text.split("\n\n")):
+                self.wrap_label(self.label(content, paragraph, 15)).pack(
+                    fill="x", pady=(4 if index else 0, 0)
+                )
         else:
             overview.pack_forget()
             guide = reference(title)
-            steps = guide['steps']
-            self.support_step = max(0, min(self.support_step, len(steps)-1))
+            steps = guide["steps"]
+            self.support_step = max(0, min(self.support_step, len(steps) - 1))
             step = steps[self.support_step]
-            commands = step['commands']
-            context = self.label(content, guide['machine'] + ' · ' + guide['effect'], 14, True)
-            if title in ('Start services', 'Restart computer'):context.config(fg=self.warning)
-            context.pack(anchor='w', pady=(4, 8))
-            self.label(content, step['title'], 22).pack(anchor='w', pady=(0, 8))
-            self.wrap_label(self.label(content, step['why'], 16)).pack(fill='x', pady=(0, 12))
-            mono = 'Consolas' if sys.platform == 'win32' else 'DejaVu Sans Mono'
-            code = tk.Text(content, font=(mono, 13), height=len(commands.splitlines()), width=1,
-                           bg=self.control, fg=self.ink, bd=0, highlightthickness=0,
-                           padx=16, pady=12, wrap='none', takefocus=False, cursor='arrow')
-            for kind, colour, style in (('command', self.ink, 'bold'), ('option', self.muted, 'normal'),
-                                        ('path', self.accent, 'normal'), ('string', self.accent, 'normal'),
-                                        ('number', self.muted, 'normal'), ('comment', self.muted, 'italic'),
-                                        ('operator', self.ink, 'bold')):
+            commands = step["commands"]
+            context = self.label(
+                content, guide["machine"] + " · " + guide["effect"], 14, True
+            )
+            if title in ("Start services", "Restart computer"):
+                context.config(fg=self.warning)
+            context.pack(anchor="w", pady=(4, 8))
+            self.label(content, step["title"], 22).pack(anchor="w", pady=(0, 8))
+            self.wrap_label(self.label(content, step["why"], 16)).pack(
+                fill="x", pady=(0, 12)
+            )
+            mono = "Consolas" if sys.platform == "win32" else "DejaVu Sans Mono"
+            code = tk.Text(
+                content,
+                font=(mono, 13),
+                height=len(commands.splitlines()),
+                width=1,
+                bg=self.control,
+                fg=self.ink,
+                bd=0,
+                highlightthickness=0,
+                padx=16,
+                pady=12,
+                wrap="none",
+                takefocus=False,
+                cursor="arrow",
+            )
+            for kind, colour, style in (
+                ("command", self.ink, "bold"),
+                ("option", self.muted, "normal"),
+                ("path", self.accent, "normal"),
+                ("string", self.accent, "normal"),
+                ("number", self.muted, "normal"),
+                ("comment", self.muted, "italic"),
+                ("operator", self.ink, "bold"),
+            ):
                 code.tag_configure(kind, foreground=colour, font=(mono, 13, style))
             for token in command_tokens(commands):
-                code.insert('end', token['text'], token['kind'])
-            code.config(state='disabled')
-            code.pack(fill='x')
-            self.label(content, 'What to expect', 16).pack(anchor='w', pady=(12, 4))
-            self.wrap_label(self.label(content, step['expect'], 15, True)).pack(fill='x', pady=(0, 8))
-            if len(steps)>1:
-                self.label(content, 'Step %d of %d · use the same Terminal' % (self.support_step+1,len(steps)), 14, True).pack(anchor='w')
-            self.label(content, 'Reference only · nothing is executed by this panel', 14, True).pack(anchor='w', pady=(4, 0))
-            if len(steps)>1:
-                nav = self.row_buttons(content, [('Back to guidance', self.toggle_support_commands, False),
-                                                 ('Previous step', lambda:self.change_support_step(-1), False),
-                                                 ('Next step', lambda:self.change_support_step(1), False)], height=54)
-                for button in nav:button.config(font=(FONT, 17), pady=8)
-                nav[1].config(state='normal' if self.support_step else 'disabled')
-                nav[2].config(state='normal' if self.support_step<len(steps)-1 else 'disabled')
-        if commands and (not show_commands or len(steps)==1):
-            self.row_buttons(content, [('Back to guidance' if show_commands else 'View command steps',
-                                        self.toggle_support_commands, False)], height=60)
+                code.insert("end", token["text"], token["kind"])
+            code.config(state="disabled")
+            code.pack(fill="x")
+            self.label(content, "What to expect", 16).pack(anchor="w", pady=(12, 4))
+            self.wrap_label(self.label(content, step["expect"], 15, True)).pack(
+                fill="x", pady=(0, 8)
+            )
+            if len(steps) > 1:
+                self.label(
+                    content,
+                    "Step %d of %d · use the same Terminal"
+                    % (self.support_step + 1, len(steps)),
+                    14,
+                    True,
+                ).pack(anchor="w")
+            self.label(
+                content, "Reference only · nothing is executed by this panel", 14, True
+            ).pack(anchor="w", pady=(4, 0))
+            if len(steps) > 1:
+                nav = self.row_buttons(
+                    content,
+                    [
+                        ("Back to guidance", self.toggle_support_commands, False),
+                        ("Previous step", lambda: self.change_support_step(-1), False),
+                        ("Next step", lambda: self.change_support_step(1), False),
+                    ],
+                    height=54,
+                )
+                for button in nav:
+                    button.config(font=(FONT, 17), pady=8)
+                nav[1].config(state="normal" if self.support_step else "disabled")
+                nav[2].config(
+                    state="normal" if self.support_step < len(steps) - 1 else "disabled"
+                )
+        if commands and (not show_commands or len(steps) == 1):
+            self.row_buttons(
+                content,
+                [
+                    (
+                        "Back to guidance" if show_commands else "View command steps",
+                        self.toggle_support_commands,
+                        False,
+                    )
+                ],
+                height=60,
+            )
         self.update_health()
 
     def power_busy(self):
-        return bool(getattr(self, 'power', None) and self.power.busy)
+        return bool(getattr(self, "power", None) and self.power.busy)
 
     def power_snapshot(self):
-        power = getattr(self, 'power', None)
+        power = getattr(self, "power", None)
         if power is None:
-            return {'available':False, 'actions':{'reboot':False,'shutdown':False},
-                    'phase':'unavailable', 'message':'Power controls unavailable.'}
-        actions = {name: bool(power and name in power.commands) for name in ('reboot', 'shutdown')}
-        clear = (self.mode != 'original' and not self.running and self.light_state == 'ready'
-                 and self.worker is not None and not any((self.pending, self.queued_intent,
-                     self.intent_timer, self.slider_drag, self.release_target, self.closing)))
-        available = bool(power and power.phase == 'ready' and clear)
-        message = power.message if power else 'Power controls unavailable.'
-        if power and power.phase == 'ready' and not clear:
-            message = 'Pause instructions and wait for confirmed lighting before restarting or shutting down.'
-        return {'available': available, 'actions': actions, 'phase': power.phase if power else 'unavailable', 'message': message}
+            return {
+                "available": False,
+                "actions": {"reboot": False, "shutdown": False},
+                "phase": "unavailable",
+                "message": "Power controls unavailable.",
+            }
+        actions = {
+            name: bool(power and name in power.commands)
+            for name in ("reboot", "shutdown")
+        }
+        clear = (
+            self.mode != "original"
+            and not self.running
+            and self.light_state == "ready"
+            and self.worker is not None
+            and not any(
+                (
+                    self.pending,
+                    self.queued_intent,
+                    self.intent_timer,
+                    self.slider_drag,
+                    self.release_target,
+                    self.closing,
+                )
+            )
+        )
+        available = bool(power and power.phase == "ready" and clear)
+        message = power.message if power else "Power controls unavailable."
+        if power and power.phase == "ready" and not clear:
+            message = "Pause instructions and wait for confirmed lighting before restarting or shutting down."
+        return {
+            "available": available,
+            "actions": actions,
+            "phase": power.phase if power else "unavailable",
+            "message": message,
+        }
 
     def confirm_power(self, operation):
         state = self.power_snapshot()
-        if not state['available'] or not state['actions'].get(operation):
-            self.status_text.set(state['message']);return
-        if self.power_dialog is not None and self.power_dialog.winfo_exists():return
+        if not state["available"] or not state["actions"].get(operation):
+            self.status_text.set(state["message"])
+            return
+        if self.power_dialog is not None and self.power_dialog.winfo_exists():
+            return
         dialog = self.power_dialog = tk.Toplevel(self.root)
-        dialog.title('Restart panel' if operation == 'reboot' else 'Shut down panel')
-        dialog.geometry('860x440+210+180');dialog.overrideredirect(True)
-        dialog.configure(bg=self.bg, highlightthickness=1, highlightbackground=self.border)
-        dialog.transient(self.root);dialog.grab_set()
+        dialog.title("Restart panel" if operation == "reboot" else "Shut down panel")
+        dialog.geometry("860x440+210+180")
+        dialog.overrideredirect(True)
+        dialog.configure(
+            bg=self.bg, highlightthickness=1, highlightbackground=self.border
+        )
+        dialog.transient(self.root)
+        dialog.grab_set()
         content = tk.Frame(dialog, bg=self.bg)
-        content.pack(fill='both', expand=True, padx=32, pady=28)
-        self.label(content, 'Restart this Pi?' if operation == 'reboot' else 'Shut down this Pi?', 27).pack(anchor='w', pady=(0, 16))
-        note = self.label(content, 'This interrupts the touch panel and website. The room computer and its recorders are separate. Stop any recording or experiment first.', 20)
-        self.wrap_label(note).pack(fill='x')
+        content.pack(fill="both", expand=True, padx=32, pady=28)
+        self.label(
+            content,
+            "Restart this Pi?" if operation == "reboot" else "Shut down this Pi?",
+            27,
+        ).pack(anchor="w", pady=(0, 16))
+        note = self.label(
+            content,
+            "This interrupts the touch panel and website. The room computer and its recorders are separate. Stop any recording or experiment first.",
+            20,
+        )
+        self.wrap_label(note).pack(fill="x")
         acknowledged = tk.BooleanVar(value=False)
-        acknowledgement = tk.Checkbutton(content, text='I have stopped any recording or experiment', variable=acknowledged,
-            font=(FONT, 18), bg=self.bg, fg=self.ink, disabledforeground=self.muted, selectcolor=self.control,
-            activebackground=self.bg, activeforeground=self.ink, highlightthickness=0, anchor='w', pady=14)
-        acknowledgement.pack(fill='x', pady=(12, 0))
+        acknowledgement = tk.Checkbutton(
+            content,
+            text="I have stopped any recording or experiment",
+            variable=acknowledged,
+            font=(FONT, 18),
+            bg=self.bg,
+            fg=self.ink,
+            disabledforeground=self.muted,
+            selectcolor=self.control,
+            activebackground=self.bg,
+            activeforeground=self.ink,
+            highlightthickness=0,
+            anchor="w",
+            pady=14,
+        )
+        acknowledgement.pack(fill="x", pady=(12, 0))
         message = self.label(content, size=17, muted=True)
-        message.config(textvariable=self.power_text);self.wrap_label(message).pack(fill='x', pady=8)
+        message.config(textvariable=self.power_text)
+        self.wrap_label(message).pack(fill="x", pady=8)
+
         def cancel():
             if not self.power_busy():
-                dialog.grab_release();dialog.destroy();self.power_dialog=None
+                dialog.grab_release()
+                dialog.destroy()
+                self.power_dialog = None
+
         def confirm():
-            if not acknowledged.get():return
-            try:self.request_power(operation, confirmed=True)
+            if not acknowledged.get():
+                return
+            try:
+                self.request_power(operation, confirmed=True)
             except (ValueError, RuntimeError) as error:
-                self.power_text.set(str(error));return
-            acknowledgement.config(state='disabled')
-            buttons[0].config(state='disabled')
-            buttons[1].config(state='disabled', disabledforeground=self.selected_ink)
-        buttons = self.row_buttons(content, [('Close', cancel, False),
-            ('Restart panel' if operation == 'reboot' else 'Shut down panel', confirm, True)], height=60)
+                self.power_text.set(str(error))
+                return
+            acknowledgement.config(state="disabled")
+            buttons[0].config(state="disabled")
+            buttons[1].config(state="disabled", disabledforeground=self.selected_ink)
+
+        buttons = self.row_buttons(
+            content,
+            [
+                ("Close", cancel, False),
+                (
+                    "Restart panel" if operation == "reboot" else "Shut down panel",
+                    confirm,
+                    True,
+                ),
+            ],
+            height=60,
+        )
         self.power_dialog_close = buttons[0]
+
         def update_confirmation():
             checked = acknowledged.get()
-            buttons[1].config(state='normal' if checked else 'disabled',
+            buttons[1].config(
+                state="normal" if checked else "disabled",
                 bg=self.accent if checked else self.control,
                 fg=self.selected_ink if checked else self.ink,
-                highlightbackground=self.accent if checked else self.border)
+                highlightbackground=self.accent if checked else self.border,
+            )
+
         update_confirmation()
         acknowledgement.config(command=update_confirmation)
-        dialog.protocol('WM_DELETE_WINDOW', cancel)
+        dialog.protocol("WM_DELETE_WINDOW", cancel)
 
     def request_power(self, operation, confirmed=False):
         state = self.power_snapshot()
-        if confirmed is not True or operation not in ('reboot', 'shutdown'):
-            raise ValueError('Explicit power confirmation is required.')
-        if not state['available'] or not state['actions'][operation]:
-            raise RuntimeError(state['message'])
-        if self.idle_active:self.return_from_idle()
+        if confirmed is not True or operation not in ("reboot", "shutdown"):
+            raise ValueError("Explicit power confirmation is required.")
+        if not state["available"] or not state["actions"][operation]:
+            raise RuntimeError(state["message"])
+        if self.idle_active:
+            self.return_from_idle()
         self.power.prepare(operation)
         self.power_deadline = monotonic() + 45
         self.power_cleanup_confirmed = self.power_checkpoint_saved = False
         self.power_sequence = None
-        self.release_target = 'power'
-        self.emit('power_selected', operation=operation)
-        if not self.request('release'):
+        self.release_target = "power"
+        self.emit("power_selected", operation=operation)
+        if not self.request("release"):
             self.release_target = None
-            self.power.fail('Lighting cleanup could not start. Power action cancelled.')
+            self.power.fail("Lighting cleanup could not start. Power action cancelled.")
         self.poll_power()
 
     def poll_power(self):
-        power = getattr(self, 'power', None)
-        if power is None:return
-        if power.busy and power.phase != 'executing' and monotonic() >= self.power_deadline:
-            power.fail('Cleanup did not finish. Power action cancelled; check the panel.')
-        if power.phase == 'saving':
-            preferences = getattr(self, 'preferences', None)
+        power = getattr(self, "power", None)
+        if power is None:
+            return
+        if (
+            power.busy
+            and power.phase != "executing"
+            and monotonic() >= self.power_deadline
+        ):
+            power.fail(
+                "Cleanup did not finish. Power action cancelled; check the panel."
+            )
+        if power.phase == "saving":
+            preferences = getattr(self, "preferences", None)
             if self.journal.error or (preferences and preferences.error):
-                power.fail('Local state could not be saved. Power action cancelled.')
-            elif self.power_checkpoint_saved and (preferences is None or preferences.settled.is_set()):
+                power.fail("Local state could not be saved. Power action cancelled.")
+            elif self.power_checkpoint_saved and (
+                preferences is None or preferences.settled.is_set()
+            ):
                 power.execute()
-        set_changed(self.power_text, self.power_snapshot()['message'])
+        set_changed(self.power_text, self.power_snapshot()["message"])
         state = self.power_snapshot()
-        if power.busy or power.phase == 'failed' or (self.mode == 'health' and self.advanced_page == 'system'):
-            set_changed(self.status_text, state['message'])
-        for button, operation in getattr(self, 'power_buttons', []):
+        if (
+            power.busy
+            or power.phase == "failed"
+            or (self.mode == "health" and self.advanced_page == "system")
+        ):
+            set_changed(self.status_text, state["message"])
+        for button, operation in getattr(self, "power_buttons", []):
             if button.winfo_exists():
-                style = 'normal' if state['available'] and state['actions'][operation] else 'disabled'
-                if button.cget('state') != style:button.config(state=style)
-        close_button = getattr(self, 'power_dialog_close', None)
+                style = (
+                    "normal"
+                    if state["available"] and state["actions"][operation]
+                    else "disabled"
+                )
+                if button.cget("state") != style:
+                    button.config(state=style)
+        close_button = getattr(self, "power_dialog_close", None)
         if close_button is not None and close_button.winfo_exists():
-            style = 'disabled' if power.busy else 'normal'
-            if close_button.cget('state') != style:close_button.config(state=style)
+            style = "disabled" if power.busy else "normal"
+            if close_button.cget("state") != style:
+                close_button.config(state=style)
 
     def power_after_release(self, returncode):
-        if self.power.phase != 'restoring':return
+        if self.power.phase != "restoring":
+            return
         if not self.power_cleanup_confirmed or returncode != 0:
-            self.power.fail('Lighting cleanup is unconfirmed. Power action cancelled.');return
-        self.power.phase = 'saving'
-        self.power.message = 'Saving local state before ' + ('restart…' if self.power.operation == 'reboot' else 'shutdown…')
-        try:self.power_sequence = self.emit('power_requested', operation=self.power.operation)
-        except (IOError, OSError):self.power.fail('Power request could not be saved. Power action cancelled.')
+            self.power.fail("Lighting cleanup is unconfirmed. Power action cancelled.")
+            return
+        self.power.phase = "saving"
+        self.power.message = "Saving local state before " + (
+            "restart…" if self.power.operation == "reboot" else "shutdown…"
+        )
+        try:
+            self.power_sequence = self.emit(
+                "power_requested", operation=self.power.operation
+            )
+        except (IOError, OSError):
+            self.power.fail("Power request could not be saved. Power action cancelled.")
 
     def open_guide(self):
         self.guide_page = -1
-        self.show('guide')
+        self.show("guide")
 
     def choose_guide(self, index):
         self.guide_page = index
-        self.show('guide')
+        self.show("guide")
 
     def guide_view(self):
         if self.guide_page < 0:
-            self.label(self.body, 'Demo & guide', 27).pack(anchor='w', pady=(0, 6))
-            self.label(self.body, 'Choose a topic. Exploring this guide does not operate equipment.', 17, True).pack(anchor='w', pady=(0, 18))
+            self.label(self.body, "Demo & guide", 27).pack(anchor="w", pady=(0, 6))
+            self.label(
+                self.body,
+                "Choose a topic. Exploring this guide does not operate equipment.",
+                17,
+                True,
+            ).pack(anchor="w", pady=(0, 18))
             topics = tk.Frame(self.body, bg=self.bg)
-            topics.pack(fill='both', expand=True, pady=(0, 10))
-            captions = ['White light and saved scenes', 'Home, Legacy and blinds',
-                        'Instructions, markers and recording', 'Panel, services and weather']
+            topics.pack(fill="both", expand=True, pady=(0, 10))
+            captions = [
+                "White light and saved scenes",
+                "Home, Legacy and blinds",
+                "Instructions, markers and recording",
+                "Panel, services and weather",
+            ]
             for index, ((title, kind, text), caption) in enumerate(zip(DEMO, captions)):
                 row, column = divmod(index, 2)
-                topics.rowconfigure(row, weight=1, uniform='guide')
-                topics.columnconfigure(column, weight=1, uniform='guide')
-                card = tk.Frame(topics, bg=self.bg, highlightbackground=self.border, highlightthickness=1)
-                card.grid(row=row, column=column, sticky='nsew', padx=(0, 16) if column == 0 else 0,
-                          pady=(0, 16) if row == 0 else 0)
-                button = self.button(card, title + '\n' + caption, lambda index=index: self.choose_guide(index))
-                button.config(font=(FONT, 20), image=self.icon(kind, self.icon_colour), compound='top',
-                              wraplength=520, justify='center', bg=self.bg, padx=20, pady=18, highlightthickness=0)
-                button.pack(fill='both', expand=True)
+                topics.rowconfigure(row, weight=1, uniform="guide")
+                topics.columnconfigure(column, weight=1, uniform="guide")
+                card = tk.Frame(
+                    topics,
+                    bg=self.bg,
+                    highlightbackground=self.border,
+                    highlightthickness=1,
+                )
+                card.grid(
+                    row=row,
+                    column=column,
+                    sticky="nsew",
+                    padx=(0, 16) if column == 0 else 0,
+                    pady=(0, 16) if row == 0 else 0,
+                )
+                button = self.button(
+                    card,
+                    title + "\n" + caption,
+                    lambda index=index: self.choose_guide(index),
+                )
+                button.config(
+                    font=(FONT, 20),
+                    image=self.icon(kind, self.icon_colour),
+                    compound="top",
+                    wraplength=520,
+                    justify="center",
+                    bg=self.bg,
+                    padx=20,
+                    pady=18,
+                    highlightthickness=0,
+                )
+                button.pack(fill="both", expand=True)
             return
         title, kind, text = DEMO[self.guide_page]
         heading = tk.Frame(self.body, bg=self.bg)
-        heading.pack(fill='x', pady=(0, 12))
-        self.label(heading, 'Demo & guide', 27).pack(side='left')
-        self.label(heading, '%d of %d topics' % (self.guide_page+1, len(DEMO)), 17, True).pack(side='right')
-        card = tk.Frame(self.body, bg=self.surface, highlightbackground=self.border, highlightthickness=1)
-        card.pack(fill='both', expand=True)
+        heading.pack(fill="x", pady=(0, 12))
+        self.label(heading, "Demo & guide", 27).pack(side="left")
+        self.label(
+            heading, "%d of %d topics" % (self.guide_page + 1, len(DEMO)), 17, True
+        ).pack(side="right")
+        card = tk.Frame(
+            self.body,
+            bg=self.surface,
+            highlightbackground=self.border,
+            highlightthickness=1,
+        )
+        card.pack(fill="both", expand=True)
         content = tk.Frame(card, bg=self.surface)
-        content.pack(fill='both', expand=True, padx=24, pady=22)
+        content.pack(fill="both", expand=True, padx=24, pady=22)
         row = tk.Frame(content, bg=self.surface)
-        row.pack(fill='x', pady=(0, 20))
-        tk.Label(row, image=self.icon(kind, self.icon_colour), bg=self.surface).pack(side='left', padx=(0, 12))
-        self.label(row, title, 26).pack(side='left')
-        for paragraph in text.split('\n\n'):
-            self.wrap_label(self.label(content, paragraph, 21)).pack(fill='x', pady=(0, 18))
-        buttons = self.row_buttons(self.body, [('All topics', self.open_guide, False),
-                                               ('Previous', lambda: self.change_guide(-1), False),
-                                               ('Next', lambda: self.change_guide(1), False)])
-        for button, kind in zip(buttons, ('guide','chevron-left','chevron-right')):
-            button.config(image=self.icon(kind, self.ink, 24), compound='left')
-        buttons[1].config(state='normal' if self.guide_page else 'disabled')
-        buttons[2].config(state='normal' if self.guide_page < len(DEMO)-1 else 'disabled')
-        for button, kind in zip(buttons, ('guide', 'chevron-left', 'chevron-right')):
-            button.config(image=self.icon(kind, self.muted if button.cget('state') == 'disabled' else self.ink, 24))
+        row.pack(fill="x", pady=(0, 20))
+        tk.Label(row, image=self.icon(kind, self.icon_colour), bg=self.surface).pack(
+            side="left", padx=(0, 12)
+        )
+        self.label(row, title, 26).pack(side="left")
+        for paragraph in text.split("\n\n"):
+            self.wrap_label(self.label(content, paragraph, 21)).pack(
+                fill="x", pady=(0, 18)
+            )
+        buttons = self.row_buttons(
+            self.body,
+            [
+                ("All topics", self.open_guide, False),
+                ("Previous", lambda: self.change_guide(-1), False),
+                ("Next", lambda: self.change_guide(1), False),
+            ],
+        )
+        for button, kind in zip(buttons, ("guide", "chevron-left", "chevron-right")):
+            button.config(image=self.icon(kind, self.ink, 24), compound="left")
+        buttons[1].config(state="normal" if self.guide_page else "disabled")
+        buttons[2].config(
+            state="normal" if self.guide_page < len(DEMO) - 1 else "disabled"
+        )
+        for button, kind in zip(buttons, ("guide", "chevron-left", "chevron-right")):
+            button.config(
+                image=self.icon(
+                    kind,
+                    self.muted if button.cget("state") == "disabled" else self.ink,
+                    24,
+                )
+            )
 
     def change_guide(self, delta):
-        self.guide_page = max(0, min(len(DEMO)-1, self.guide_page+delta))
+        self.guide_page = max(0, min(len(DEMO) - 1, self.guide_page + delta))
         self.render()
 
     def choose_support(self, index):
@@ -1847,39 +2924,51 @@ class Panel(object):
             self.support_page = index
             self.support_step = 0
             self.support_commands_visible = False
-            self.rebuild_advanced_detail() if self.advanced_page=='system' else self.render()
+            (
+                self.rebuild_advanced_detail()
+                if self.advanced_page == "system"
+                else self.render()
+            )
 
     def toggle_support_commands(self):
         self.support_commands_visible = not self.support_commands_visible
-        self.rebuild_advanced_detail() if self.advanced_page=='system' else self.render()
+        (
+            self.rebuild_advanced_detail()
+            if self.advanced_page == "system"
+            else self.render()
+        )
 
     def change_support_step(self, delta):
-        steps = reference(SUPPORT[self.support_page][0])['steps']
-        self.support_step = max(0, min(len(steps)-1, self.support_step+delta))
+        steps = reference(SUPPORT[self.support_page][0])["steps"]
+        self.support_step = max(0, min(len(steps) - 1, self.support_step + delta))
         self.rebuild_advanced_detail()
 
     def refresh_resources(self):
         now = monotonic()
-        pending = getattr(self, 'health_pending', None)
+        pending = getattr(self, "health_pending", None)
         if pending is not None:
             self.health_cache, self.health_pending = pending, None
-        worker = getattr(self, 'health_worker', None)
+        worker = getattr(self, "health_worker", None)
         if now - self.health_at >= 5 and (worker is None or not worker.is_alive()):
             self.health_at = now
+
             def read_resources():
                 # No Tk calls on this thread; a slow SD or power query cannot hold a touch.
                 try:
                     self.health_pending = health()
                 except Exception as error:
-                    self.health_pending = {'error': str(error)}
-            self.health_worker = threading.Thread(target=read_resources, name='scr-panel-resources')
+                    self.health_pending = {"error": str(error)}
+
+            self.health_worker = threading.Thread(
+                target=read_resources, name="scr-panel-resources"
+            )
             self.health_worker.daemon = True
             self.health_worker.start()
         if not self.status_worker and now - self.room_status_at >= 60:
             self.start_status()
 
     def update_health(self):
-        if self.mode != 'health':
+        if self.mode != "health":
             return
         self.refresh_resources()
         h = self.health_cache
@@ -1888,30 +2977,52 @@ class Panel(object):
             return
         self.health_rendered = key
         if not h:
-            self.health_details.config(text='Checking panel resources…')
+            self.health_details.config(text="Checking panel resources…")
             self.services_label.config(text=self.room_status)
             return
-        if 'error' in h:
-            self.health_details.config(text='Resource reading unavailable: ' + h['error'])
+        if "error" in h:
+            self.health_details.config(
+                text="Resource reading unavailable: " + h["error"]
+            )
             return
-        self.health_details.config(text='Memory: %d / %d MiB free\nStorage: %.1f GiB free · CPU: %.1f C' %
-            (h['ram_available'], h['ram_total'], h['disk_available'], h['temperature']))
-        self.power_label.config(text='Power: ' + h['power'],
-                                fg=THEMES[self.theme]['warning'] if h['power'].startswith('Current') else self.muted)
+        self.health_details.config(
+            text="Memory: %d / %d MiB free\nStorage: %.1f GiB free · CPU: %.1f C"
+            % (
+                h["ram_available"],
+                h["ram_total"],
+                h["disk_available"],
+                h["temperature"],
+            )
+        )
+        self.power_label.config(
+            text="Power: " + h["power"],
+            fg=(
+                THEMES[self.theme]["warning"]
+                if h["power"].startswith("Current")
+                else self.muted
+            ),
+        )
         self.services_label.config(text=self.room_status)
 
     def start_status(self):
         self.room_status_at = monotonic()
-        master = getattr(self.args, 'expected_master', None)
-        if not master or not sys.platform.startswith('linux'):
-            self.room_status = 'Room service availability: no approved master configured.'
+        master = getattr(self.args, "expected_master", None)
+        if not master or not sys.platform.startswith("linux"):
+            self.room_status = (
+                "Room service availability: no approved master configured."
+            )
             return
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scr_touch_panel_lights.py')
-        self.status_worker = subprocess.Popen([sys.executable, '-B', path, '--status-only',
-                                               '--expected-master', master], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                              close_fds=True)
+        path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "scr_touch_panel_lights.py"
+        )
+        self.status_worker = subprocess.Popen(
+            [sys.executable, "-B", path, "--status-only", "--expected-master", master],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            close_fds=True,
+        )
         self.status_started = monotonic()
-        self.room_status = 'Checking advertised room services...'
+        self.room_status = "Checking advertised room services..."
 
     def poll_status(self):
         worker = self.status_worker
@@ -1925,106 +3036,249 @@ class Panel(object):
                 worker.terminate()
             return
         try:
-            result = json.loads(worker.stdout.read().decode('utf-8'))
-            services = result['services']
-            self.room_status = 'ROS master reachable / advertised services at ' + time.strftime('%H:%M:%S') + '\n'
-            self.room_status += '   |   '.join(name + ': ' + ('present' if present else 'missing')
-                                             for name, present in services)
+            result = json.loads(worker.stdout.read().decode("utf-8"))
+            services = result["services"]
+            self.room_status = (
+                "ROS master reachable / advertised services at "
+                + time.strftime("%H:%M:%S")
+                + "\n"
+            )
+            self.room_status += "   |   ".join(
+                name + ": " + ("present" if present else "missing")
+                for name, present in services
+            )
         except (ValueError, KeyError):
-            self.room_status = 'Room service availability could not be checked. No sensor data was queried.'
+            self.room_status = "Room service availability could not be checked. No sensor data was queried."
         worker.stdout.close()
         worker.stderr.close()
         self.status_worker = None
 
     def settings_contents(self, content):
         key = self.settings_category
-        if key == 'appearance':
-            self.label(content, 'Appearance', 25).pack(anchor='w', pady=(0, 6))
-            self.label(content, 'Choose how this panel looks.', 18, True).pack(anchor='w', pady=(0, 8))
-            self.row_buttons(content, [(name.title(), lambda name=name: self.choose_theme(name), self.theme_choice == name)
-                                       for name in ('light', 'dark', 'auto')])
-            self.label(content, 'Automatic schedule', 21).pack(anchor='w', pady=(10, 8))
-            schedule = 'Light from %02d:%02d · Dark from %02d:%02d' % (divmod(self.args.light_at, 60) + divmod(self.args.dark_at, 60))
-            self.label(content, schedule, 20).pack(anchor='w', pady=(0, 6))
-            self.row_buttons(content, [(text, lambda field=field, delta=delta: self.adjust_schedule(field, delta), False)
-                for text, field, delta in [('Light −1 h', 'light_at', -60), ('Light +1 h', 'light_at', 60),
-                                           ('Dark −1 h', 'dark_at', -60), ('Dark +1 h', 'dark_at', 60)]])
-            note = self.label(content, 'Auto waits for idle time. Experiment mode keeps its theme.', 17, True)
-            self.wrap_label(note).pack(fill='x', pady=(8, 0))
-            self.label(content, 'Touch explanations', 21).pack(anchor='w', pady=(14, 4))
-            self.row_buttons(content, [('Tips on', lambda: self.choose_tips(True), self.help_on),
-                                       ('Tips off', lambda: self.choose_tips(False), not self.help_on)])
-        elif key == 'clock':
-            self.label(content, 'Date & weather', 25).pack(anchor='w', pady=(0, 8))
-            self.label(content, time.strftime('%A, %d %B %Y'), 23).pack(anchor='w', pady=(0, 6))
-            self.label(content, getattr(self.args, 'timezone', 'System timezone'), 18, True).pack(anchor='w', pady=(0, 10))
-            self.row_buttons(content, [(name + '-hour', lambda name=name: self.choose_clock(name),
-                                       self.clock_24 == (name == '24')) for name in ('12', '24')])
-            self.label(content, 'Weather temperature', 21).pack(anchor='w', pady=(6, 4))
-            self.row_buttons(content, [(label, lambda unit=unit: self.choose_temperature(unit),
-                                       self.temperature_unit == unit)
-                                      for label, unit in [(u'Celsius (°C)', 'c'), (u'Fahrenheit (°F)', 'f')]])
-            self.label(content, 'Display units only. No room settings change.', 17, True).pack(anchor='w', pady=8)
+        if key == "appearance":
+            self.label(content, "Appearance", 25).pack(anchor="w", pady=(0, 6))
+            self.label(content, "Choose how this panel looks.", 18, True).pack(
+                anchor="w", pady=(0, 8)
+            )
+            self.row_buttons(
+                content,
+                [
+                    (
+                        name.title(),
+                        lambda name=name: self.choose_theme(name),
+                        self.theme_choice == name,
+                    )
+                    for name in ("light", "dark", "auto")
+                ],
+            )
+            self.label(content, "Automatic schedule", 21).pack(anchor="w", pady=(10, 8))
+            schedule = "Light from %02d:%02d · Dark from %02d:%02d" % (
+                divmod(self.args.light_at, 60) + divmod(self.args.dark_at, 60)
+            )
+            self.label(content, schedule, 20).pack(anchor="w", pady=(0, 6))
+            self.row_buttons(
+                content,
+                [
+                    (
+                        text,
+                        lambda field=field, delta=delta: self.adjust_schedule(
+                            field, delta
+                        ),
+                        False,
+                    )
+                    for text, field, delta in [
+                        ("Light −1 h", "light_at", -60),
+                        ("Light +1 h", "light_at", 60),
+                        ("Dark −1 h", "dark_at", -60),
+                        ("Dark +1 h", "dark_at", 60),
+                    ]
+                ],
+            )
+            note = self.label(
+                content,
+                "Auto waits for idle time. Experiment mode keeps its theme.",
+                17,
+                True,
+            )
+            self.wrap_label(note).pack(fill="x", pady=(8, 0))
+            self.label(content, "Touch explanations", 21).pack(anchor="w", pady=(14, 4))
+            self.row_buttons(
+                content,
+                [
+                    ("Tips on", lambda: self.choose_tips(True), self.help_on),
+                    ("Tips off", lambda: self.choose_tips(False), not self.help_on),
+                ],
+            )
+        elif key == "clock":
+            self.label(content, "Date & weather", 25).pack(anchor="w", pady=(0, 8))
+            self.label(content, time.strftime("%A, %d %B %Y"), 23).pack(
+                anchor="w", pady=(0, 6)
+            )
+            self.label(
+                content, getattr(self.args, "timezone", "System timezone"), 18, True
+            ).pack(anchor="w", pady=(0, 10))
+            self.row_buttons(
+                content,
+                [
+                    (
+                        name + "-hour",
+                        lambda name=name: self.choose_clock(name),
+                        self.clock_24 == (name == "24"),
+                    )
+                    for name in ("12", "24")
+                ],
+            )
+            self.label(content, "Weather temperature", 21).pack(anchor="w", pady=(6, 4))
+            self.row_buttons(
+                content,
+                [
+                    (
+                        label,
+                        lambda unit=unit: self.choose_temperature(unit),
+                        self.temperature_unit == unit,
+                    )
+                    for label, unit in [("Celsius (°C)", "c"), ("Fahrenheit (°F)", "f")]
+                ],
+            )
+            self.label(
+                content, "Display units only. No room settings change.", 17, True
+            ).pack(anchor="w", pady=8)
             source = self.label(content, size=16, muted=True)
             source.config(textvariable=self.weather_text, height=3)
-            self.wrap_label(source).pack(fill='x', pady=(12, 0))
-        elif key == 'help':
-            self.label(content, 'Help & guidance', 25).pack(anchor='w', pady=(0, 14))
-            note = self.label(content, 'Tips explain controls in the bottom message area.', 18)
-            self.wrap_label(note).pack(fill='x', pady=(0, 8))
-            self.row_buttons(content, [('Tips on', lambda: self.choose_tips(True), self.help_on),
-                                       ('Tips off', lambda: self.choose_tips(False), not self.help_on)])
-            note = self.label(content,
-                'White-light colour: lower K is warmer; higher K is cooler.\n'
-                'Light level: controller input, not measured brightness.\n'
-                'Fid / Sat / Dul: saved eight-channel mixtures from Legacy.\n'
-                'Selected values send automatically after your touch settles.\n'
-                'Recent settings shows the last confirmed light settings.', 18)
-            self.wrap_label(note).pack(fill='x', pady=(12, 8))
-        elif key == 'screen':
-            self.label(content, 'Screen & controls', 25).pack(anchor='w', pady=(0, 4))
-            self.label(content, 'Screen saver', 19).pack(anchor='w')
-            self.row_buttons(content, [(label, lambda seconds=seconds: self.choose_idle(seconds),
-                                       self.idle_timeout == seconds)
-                                      for label, seconds in [('Off', 0), ('1 min', 60), ('5 min', 300), ('15 min', 900)]], height=50)
-            self.label(content, 'First touch opens Home. Pauses during experiments and commands.', 14, True).pack(anchor='w', pady=(0, 6))
-            self.label(content, 'Display', 19).pack(anchor='w')
-            self.row_buttons(content, [('Blank screen', lambda: self.show('black'), False),
-                                       ('Preview screen saver', lambda: self.show('visitor'), False)], height=50)
-            self.label(content, 'Blank keeps the backlight on. Hold 2 seconds to return.', 14, True).pack(anchor='w', pady=(0, 6))
-            self.label(content, 'Blind controls', 19).pack(anchor='w')
-            self.row_buttons(content, [('Locked', lambda: self.choose_blinds_enabled(False), not self.blinds_enabled),
-                                       ('Unlocked', lambda: self.choose_blinds_enabled(True), self.blinds_enabled)], height=50)
-            self.label(content, self.blind_state()['reason'] + ' · changing the lock does not move blinds', 14, True).pack(anchor='w', pady=(0, 6))
-            self.label(content, 'Blinds on Home', 19).pack(anchor='w')
-            self.row_buttons(content, [('Show', lambda: self.choose_blinds_display('disabled'), self.blinds_display == 'disabled'),
-                                       ('Hide', lambda: self.choose_blinds_display('hidden'), self.blinds_display == 'hidden')], height=50)
+            self.wrap_label(source).pack(fill="x", pady=(12, 0))
+        elif key == "help":
+            self.label(content, "Help & guidance", 25).pack(anchor="w", pady=(0, 14))
+            note = self.label(
+                content, "Tips explain controls in the bottom message area.", 18
+            )
+            self.wrap_label(note).pack(fill="x", pady=(0, 8))
+            self.row_buttons(
+                content,
+                [
+                    ("Tips on", lambda: self.choose_tips(True), self.help_on),
+                    ("Tips off", lambda: self.choose_tips(False), not self.help_on),
+                ],
+            )
+            note = self.label(
+                content,
+                "White-light colour: lower K is warmer; higher K is cooler.\n"
+                "Light level: controller input, not measured brightness.\n"
+                "Fid / Sat / Dul: saved eight-channel mixtures from Legacy.\n"
+                "Selected values send automatically after your touch settles.\n"
+                "Recent settings shows the last confirmed light settings.",
+                18,
+            )
+            self.wrap_label(note).pack(fill="x", pady=(12, 8))
+        elif key == "screen":
+            self.label(content, "Screen & controls", 25).pack(anchor="w", pady=(0, 4))
+            self.label(content, "Screen saver", 19).pack(anchor="w")
+            self.row_buttons(
+                content,
+                [
+                    (
+                        label,
+                        lambda seconds=seconds: self.choose_idle(seconds),
+                        self.idle_timeout == seconds,
+                    )
+                    for label, seconds in [
+                        ("Off", 0),
+                        ("1 min", 60),
+                        ("5 min", 300),
+                        ("15 min", 900),
+                    ]
+                ],
+                height=50,
+            )
+            self.label(
+                content,
+                "First touch opens Home. Pauses during experiments and commands.",
+                14,
+                True,
+            ).pack(anchor="w", pady=(0, 6))
+            self.label(content, "Display", 19).pack(anchor="w")
+            self.row_buttons(
+                content,
+                [
+                    ("Blank screen", lambda: self.show("black"), False),
+                    ("Preview screen saver", lambda: self.show("visitor"), False),
+                ],
+                height=50,
+            )
+            self.label(
+                content,
+                "Blank keeps the backlight on. Hold 2 seconds to return.",
+                14,
+                True,
+            ).pack(anchor="w", pady=(0, 6))
+            self.label(content, "Blind controls", 19).pack(anchor="w")
+            self.row_buttons(
+                content,
+                [
+                    (
+                        "Locked",
+                        lambda: self.choose_blinds_enabled(False),
+                        not self.blinds_enabled,
+                    ),
+                    (
+                        "Unlocked",
+                        lambda: self.choose_blinds_enabled(True),
+                        self.blinds_enabled,
+                    ),
+                ],
+                height=50,
+            )
+            self.label(
+                content,
+                self.blind_state()["reason"]
+                + " · changing the lock does not move blinds",
+                14,
+                True,
+            ).pack(anchor="w", pady=(0, 6))
+            self.label(content, "Blinds on Home", 19).pack(anchor="w")
+            self.row_buttons(
+                content,
+                [
+                    (
+                        "Show",
+                        lambda: self.choose_blinds_display("disabled"),
+                        self.blinds_display == "disabled",
+                    ),
+                    (
+                        "Hide",
+                        lambda: self.choose_blinds_display("hidden"),
+                        self.blinds_display == "hidden",
+                    ),
+                ],
+                height=50,
+            )
         else:
             self.about_contents(content)
 
     def choose_blinds_display(self, choice):
-        if choice not in ('disabled', 'hidden') or choice == self.blinds_display:
+        if choice not in ("disabled", "hidden") or choice == self.blinds_display:
             return
         self.blinds_display = choice
         self.save_preferences()
         self.render()
-        self.emit('blinds_display_selected', choice=choice)
+        self.emit("blinds_display_selected", choice=choice)
 
     def choose_blinds_enabled(self, enabled):
-        if type(enabled) is not bool:raise ValueError('Expected a blind movement setting')
-        if enabled == self.blinds_enabled:return
+        if type(enabled) is not bool:
+            raise ValueError("Expected a blind movement setting")
+        if enabled == self.blinds_enabled:
+            return
         self.blinds_enabled = enabled
         self.save_preferences()
         self.render()
-        self.emit('blinds_enabled_selected', enabled=enabled)
+        self.emit("blinds_enabled_selected", enabled=enabled)
 
     def choose_clock(self, format):
-        if self.clock_24 == (format == '24'):
+        if self.clock_24 == (format == "24"):
             return
-        self.clock_24 = format == '24'
+        self.clock_24 = format == "24"
         self.save_preferences()
         self.render()
-        self.emit('clock_format_selected', format=format)
+        self.emit("clock_format_selected", format=format)
 
     def choose_temperature(self, unit):
         if unit == self.temperature_unit:
@@ -2032,7 +3286,7 @@ class Panel(object):
         self.temperature_unit = unit
         self.save_preferences()
         self.render()
-        self.emit('temperature_unit_selected', unit=unit)
+        self.emit("temperature_unit_selected", unit=unit)
 
     def choose_idle(self, seconds):
         if seconds == self.idle_timeout:
@@ -2041,11 +3295,11 @@ class Panel(object):
         self.activity()
         self.save_preferences()
         self.render()
-        self.emit('idle_timeout_selected', seconds=seconds)
+        self.emit("idle_timeout_selected", seconds=seconds)
 
     def open_lighting_help(self):
         self.support_page = 0
-        self.open_advanced('system')
+        self.open_advanced("system")
 
     def choose_tips(self, enabled):
         if enabled == self.help_on:
@@ -2053,17 +3307,31 @@ class Panel(object):
         self.help_on = enabled
         self.save_preferences()
         self.render()
-        self.emit('help_selected', enabled=self.help_on)
+        self.emit("help_selected", enabled=self.help_on)
 
     def about_contents(self, parent):
-        self.label(parent, 'Smart Conference Room', 27).pack(anchor='w', pady=(0, 8))
-        self.label(parent, 'Touch panel · ' + VERSION, 20, True).pack(anchor='w', pady=(0, 28))
-        if BUILD_COMMIT:self.label(parent, 'Build ' + BUILD_COMMIT, 15, True).pack(anchor='w', pady=(0, 16))
-        self.label(parent, 'Built by Diyanko Bhowmik', 21).pack(anchor='w', pady=(0, 10))
-        note = self.label(parent, 'Original contributors are credited in the repository history.', 17, True)
-        self.wrap_label(note).pack(fill='x', pady=(0, 22))
-        self.label(parent, 'Source: github.com/LESA-RPI/scr.touch_panel', 18, True).pack(anchor='w', pady=(0, 20))
-        self.label(parent, 'Icons: Lucide · lucide.dev', 17, True).pack(anchor='w')
+        self.label(parent, "Smart Conference Room", 27).pack(anchor="w", pady=(0, 8))
+        self.label(parent, "Touch panel · " + VERSION, 20, True).pack(
+            anchor="w", pady=(0, 28)
+        )
+        if BUILD_COMMIT:
+            self.label(parent, "Build " + BUILD_COMMIT, 15, True).pack(
+                anchor="w", pady=(0, 16)
+            )
+        self.label(parent, "Built by Diyanko Bhowmik", 21).pack(
+            anchor="w", pady=(0, 10)
+        )
+        note = self.label(
+            parent,
+            "Original contributors are credited in the repository history.",
+            17,
+            True,
+        )
+        self.wrap_label(note).pack(fill="x", pady=(0, 22))
+        self.label(
+            parent, "Source: github.com/LESA-RPI/scr.touch_panel", 18, True
+        ).pack(anchor="w", pady=(0, 20))
+        self.label(parent, "Icons: Lucide · lucide.dev", 17, True).pack(anchor="w")
 
     def choose_theme(self, choice):
         if choice == self.theme_choice:
@@ -2071,92 +3339,144 @@ class Panel(object):
         self.theme_choice, self.theme = choice, None
         self.save_preferences()
         self.set_theme()
-        self.emit('theme_selected', choice=choice, resolved=self.theme)
+        self.emit("theme_selected", choice=choice, resolved=self.theme)
 
     def adjust_schedule(self, key, delta):
         value = (getattr(self.args, key) + delta) % 1440
-        if value != (self.args.dark_at if key == 'light_at' else self.args.light_at):
+        if value != (self.args.dark_at if key == "light_at" else self.args.light_at):
             setattr(self.args, key, value)
             self.save_preferences()
-            self.emit('theme_schedule_changed', light_at=self.args.light_at, dark_at=self.args.dark_at)
+            self.emit(
+                "theme_schedule_changed",
+                light_at=self.args.light_at,
+                dark_at=self.args.dark_at,
+            )
             self.set_theme()
             self.render()
 
     def preference_summary(self):
-        error = (self.preferences.error if self.preferences else None) or self.preference_error
+        error = (
+            self.preferences.error if self.preferences else None
+        ) or self.preference_error
         if error:
-            return 'Appearance settings could not be saved or loaded; current choices still work.'
-        return ('Appearance choices save automatically on this device.' if self.preferences else
-                'Preview preferences last for this session. No room settings are saved.')
+            return "Appearance settings could not be saved or loaded; current choices still work."
+        return (
+            "Appearance choices save automatically on this device."
+            if self.preferences
+            else "Preview preferences last for this session. No room settings are saved."
+        )
 
     def save_preferences(self):
         if self.preferences:
             self.preference_error = None
-            self.preferences.save({'theme': self.theme_choice, 'clock_format': '24' if self.clock_24 else '12',
-                                   'temperature_unit': self.temperature_unit,
-                                   'idle_timeout': self.idle_timeout,
-                                   'blinds_display': self.blinds_display,
-                                   'blinds_enabled': self.blinds_enabled,
-                                   'tips': 'on' if self.help_on else 'off',
-                                   'light_at': self.args.light_at, 'dark_at': self.args.dark_at})
+            self.preferences.save(
+                {
+                    "theme": self.theme_choice,
+                    "clock_format": "24" if self.clock_24 else "12",
+                    "temperature_unit": self.temperature_unit,
+                    "idle_timeout": self.idle_timeout,
+                    "blinds_display": self.blinds_display,
+                    "blinds_enabled": self.blinds_enabled,
+                    "tips": "on" if self.help_on else "off",
+                    "light_at": self.args.light_at,
+                    "dark_at": self.args.dark_at,
+                }
+            )
 
     def start_worker(self):
-        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'scr_touch_panel_lights.py')
-        receipt = self.args.journal + '.lights-' + uuid.uuid4().hex[:8] + '.jsonl'
-        self.worker = subprocess.Popen([getattr(self.args, 'adapter_python', '/usr/bin/python2.7'), '-u', '-B', path,
-                                        '--receipt', receipt, '--parent-pid', str(os.getpid()),
-                                        '--expected-master', self.args.expected_master],
-                                       stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=sys.stderr, close_fds=True)
-        self.light_state = 'connecting'
-        self.confirmed_light = 'Not checked'
+        path = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "scr_touch_panel_lights.py"
+        )
+        receipt = self.args.journal + ".lights-" + uuid.uuid4().hex[:8] + ".jsonl"
+        self.worker = subprocess.Popen(
+            [
+                getattr(self.args, "adapter_python", "/usr/bin/python2.7"),
+                "-u",
+                "-B",
+                path,
+                "--receipt",
+                receipt,
+                "--parent-pid",
+                str(os.getpid()),
+                "--expected-master",
+                self.args.expected_master,
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=sys.stderr,
+            close_fds=True,
+        )
+        self.light_state = "connecting"
+        self.confirmed_light = "Not checked"
         self.confirmed_at = None
         self.confirmed_power = None
         self.confirmed_scene = None
-        self.lighting_feedback('Checking the current light settings…')
-        self.worker_buffer = ''
+        self.lighting_feedback("Checking the current light settings…")
+        self.worker_buffer = ""
         self.worker_ready = False
 
     def request(self, action, arguments=None):
-        if (self.pending or not self.worker or self.worker.poll() is not None or
-                not getattr(self, 'worker_ready', False)):
+        if (
+            self.pending
+            or not self.worker
+            or self.worker.poll() is not None
+            or not getattr(self, "worker_ready", False)
+        ):
             return False
         self.request_seq += 1
-        item = {'version': 1, 'request_id': self.run_id + ':' + str(self.request_seq),
-                'action': action, 'arguments': arguments or {}, 'sent_monotonic_s': monotonic()}
-        self.emit('light_requested', request=item)
+        item = {
+            "version": 1,
+            "request_id": self.run_id + ":" + str(self.request_seq),
+            "action": action,
+            "arguments": arguments or {},
+            "sent_monotonic_s": monotonic(),
+        }
+        self.emit("light_requested", request=item)
         try:
-            self.worker.stdin.write((json.dumps(item) + '\n').encode('utf-8'))
+            self.worker.stdin.write((json.dumps(item) + "\n").encode("utf-8"))
             self.worker.stdin.flush()
         except (IOError, OSError) as error:
-            self.light_state = 'failed'
+            self.light_state = "failed"
             self.cancel_intent()
-            self.status_text.set('Light adapter disconnected: ' + str(error))
+            self.status_text.set("Light adapter disconnected: " + str(error))
             return False
         self.pending = item
         return True
 
     def poll_journal(self):
-        journal = getattr(self, 'journal', None)
+        journal = getattr(self, "journal", None)
         if journal is None:
             return
         for sequence in journal.poll():
-            if sequence == getattr(self, 'power_sequence', None):self.power_checkpoint_saved = True
+            if sequence == getattr(self, "power_sequence", None):
+                self.power_checkpoint_saved = True
             if self.pending_annotation and sequence == self.pending_annotation[0]:
                 unused, label, timestamp = self.pending_annotation
-                text = 'Saved on panel' if self.args.journal else 'Written to panel output only'
-                self.annotation_text.set('%s: %s at %s. Not added to a recording.' % (text, label, timestamp))
+                text = (
+                    "Saved on panel"
+                    if self.args.journal
+                    else "Written to panel output only"
+                )
+                self.annotation_text.set(
+                    "%s: %s at %s. Not added to a recording." % (text, label, timestamp)
+                )
                 self.pending_annotation = None
-        error = journal.error or (journal.output_error if not self.args.journal else None)
+        error = journal.error or (
+            journal.output_error if not self.args.journal else None
+        )
         if error:
             if self.pending_annotation:
-                self.annotation_text.set('Annotation not saved: ' + error)
+                self.annotation_text.set("Annotation not saved: " + error)
                 self.pending_annotation = None
-            self.status_text.set('Panel journal unavailable: ' + error)
+            self.status_text.set("Panel journal unavailable: " + error)
 
     def poll_worker(self):
         if self.closed:
             return
-        if getattr(self, 'mode', None) == 'health' and getattr(self, 'health_pending', None) is not None:
+        if (
+            getattr(self, "mode", None) == "health"
+            and getattr(self, "health_pending", None) is not None
+        ):
             self.update_health()
         self.poll_journal()
         self.poll_power()
@@ -2164,9 +3484,24 @@ class Panel(object):
         self.poll_weather()
         worker = self.worker
         if worker:
-            if worker.poll() is None and not worker.stdin.closed and monotonic() - self.last_heartbeat >= 2:
+            if (
+                worker.poll() is None
+                and not worker.stdin.closed
+                and monotonic() - self.last_heartbeat >= 2
+            ):
                 try:
-                    worker.stdin.write((json.dumps({'version': 1, 'action': 'heartbeat', 'sent_monotonic_s': monotonic()}) + '\n').encode('utf-8'))
+                    worker.stdin.write(
+                        (
+                            json.dumps(
+                                {
+                                    "version": 1,
+                                    "action": "heartbeat",
+                                    "sent_monotonic_s": monotonic(),
+                                }
+                            )
+                            + "\n"
+                        ).encode("utf-8")
+                    )
                     worker.stdin.flush()
                     self.last_heartbeat = monotonic()
                 except (IOError, OSError):
@@ -2175,96 +3510,133 @@ class Panel(object):
                 chunk = os.read(worker.stdout.fileno(), 8192)
                 if not chunk:
                     break
-                self.worker_buffer += chunk.decode('utf-8')
+                self.worker_buffer += chunk.decode("utf-8")
                 if len(self.worker_buffer) > 8192:
                     self.cancel_intent()
-                    self.light_state = 'failed'
-                    self.status_text.set('Adapter reply too large; lighting disabled. Ask staff.')
+                    self.light_state = "failed"
+                    self.status_text.set(
+                        "Adapter reply too large; lighting disabled. Ask staff."
+                    )
                     worker.stdin.close()
-                    self.worker_buffer = ''
+                    self.worker_buffer = ""
                     break
-            while '\n' in self.worker_buffer:
-                line, self.worker_buffer = self.worker_buffer.split('\n', 1)
+            while "\n" in self.worker_buffer:
+                line, self.worker_buffer = self.worker_buffer.split("\n", 1)
                 try:
                     response = json.loads(line)
                 except ValueError:
                     continue
-                if (response.get('version') == 1 and response.get('state') == 'initialized' and
-                        not self.worker_ready and self.light_state == 'connecting'):
+                if (
+                    response.get("version") == 1
+                    and response.get("state") == "initialized"
+                    and not self.worker_ready
+                    and self.light_state == "connecting"
+                ):
                     self.worker_ready = True
-                    self.request('release' if self.release_target or self.closing else 'acquire')
+                    self.request(
+                        "release" if self.release_target or self.closing else "acquire"
+                    )
                     continue
-                if not self.pending or response.get('request_id') != self.pending['request_id']:
+                if (
+                    not self.pending
+                    or response.get("request_id") != self.pending["request_id"]
+                ):
                     continue
-                if response.get('version') != 1 or response.get('state') not in ('ready', 'completed', 'released', 'failed'):
+                if response.get("version") != 1 or response.get("state") not in (
+                    "ready",
+                    "completed",
+                    "released",
+                    "failed",
+                ):
                     self.pending = None
                     self.cancel_intent()
-                    self.light_state = 'failed'
-                    self.status_text.set('Invalid adapter reply; lights disabled. Ask staff.')
-                    self.lighting_feedback('Invalid reply. Controls disabled; ask staff.')
+                    self.light_state = "failed"
+                    self.status_text.set(
+                        "Invalid adapter reply; lights disabled. Ask staff."
+                    )
+                    self.lighting_feedback(
+                        "Invalid reply. Controls disabled; ask staff."
+                    )
                     worker.stdin.close()
                     continue
                 completed_request, self.pending = self.pending, None
-                action = completed_request['action']
-                self.emit('light_result', result=response)
-                state = response['state']
-                self.light_state = {'completed': 'ready', 'released': 'disconnected'}.get(state, state)
-                detail = response.get('detail', 'Lighting ready; starting preset: ' + response.get('baseline', '?'))
-                if state == 'failed':
+                action = completed_request["action"]
+                self.emit("light_result", result=response)
+                state = response["state"]
+                self.light_state = {
+                    "completed": "ready",
+                    "released": "disconnected",
+                }.get(state, state)
+                detail = response.get(
+                    "detail",
+                    "Lighting ready; starting preset: " + response.get("baseline", "?"),
+                )
+                if state == "failed":
                     # Full exception text remains in the emitted result/receipt.
                     # Keep the touch feedback bounded, even for verbose ROS errors.
-                    detail = 'Result unconfirmed. Controls disabled; ask staff.'
-                if state == 'completed':
-                    self.confirmed_light = light_selection(action, completed_request['arguments'])
+                    detail = "Result unconfirmed. Controls disabled; ask staff."
+                if state == "completed":
+                    self.confirmed_light = light_selection(
+                        action, completed_request["arguments"]
+                    )
                     self.confirmed_at = monotonic()
                     self.confirmed_power = confirmed_power(response)
                     self.confirmed_scene = confirmed_scene(response)
-                    detail = 'Light settings confirmed.'
-                elif state == 'ready':
-                    detail = 'Lighting ready.'
-                    self.confirmed_light = response.get('baseline', '?') + ' scene'
+                    detail = "Light settings confirmed."
+                elif state == "ready":
+                    detail = "Lighting ready."
+                    self.confirmed_light = response.get("baseline", "?") + " scene"
                     self.confirmed_at = monotonic()
                     self.confirmed_power = confirmed_power(response)
                     self.confirmed_scene = confirmed_scene(response)
-                elif state == 'released':
-                    self.confirmed_light = 'Session ended'
+                elif state == "released":
+                    self.confirmed_light = "Session ended"
                     self.confirmed_at = None
                     self.confirmed_power = None
                     self.confirmed_scene = None
                 self.lighting_feedback(detail)
-                self.status_text.set('' if state in ('ready', 'completed') else detail)
-                if action == 'release':
-                    if getattr(self, 'power', None) and self.power.phase == 'restoring':
-                        if state == 'released' and response.get('restored') is True:
+                self.status_text.set("" if state in ("ready", "completed") else detail)
+                if action == "release":
+                    if getattr(self, "power", None) and self.power.phase == "restoring":
+                        if state == "released" and response.get("restored") is True:
                             self.power_cleanup_confirmed = True
-                        else:self.power.fail('Lighting cleanup is unconfirmed. Power action cancelled.')
-                    if state == 'failed':
+                        else:
+                            self.power.fail(
+                                "Lighting cleanup is unconfirmed. Power action cancelled."
+                            )
+                    if state == "failed":
                         self.release_target = None
-                        self.status_text.set('Restore unconfirmed. Stay here; inspect the receipt before further control.')
-                elif self.release_target and state != 'failed':
-                    self.request('release')
-                elif state == 'failed':
+                        self.status_text.set(
+                            "Restore unconfirmed. Stay here; inspect the receipt before further control."
+                        )
+                elif self.release_target and state != "failed":
+                    self.request("release")
+                elif state == "failed":
                     self.release_target = None
                     self.cancel_intent()
-                    self.status_text.set(detail + ' / Use Legacy or ask staff.')
+                    self.status_text.set(detail + " / Use Legacy or ask staff.")
                 elif self.queued_intent and self.intent_timer is None:
                     self.dispatch_intent()
                 self.update_light_buttons()
             if worker.poll() is not None:
-                if self.pending or self.light_state != 'disconnected':
+                if self.pending or self.light_state != "disconnected":
                     self.cancel_intent()
                     self.pending = None
-                    self.light_state = 'failed'
-                    self.status_text.set('Light adapter stopped. Result unconfirmed; further commands disabled.')
-                    self.lighting_feedback('Disconnected. Last result below is historical; ask staff.')
+                    self.light_state = "failed"
+                    self.status_text.set(
+                        "Light adapter stopped. Result unconfirmed; further commands disabled."
+                    )
+                    self.lighting_feedback(
+                        "Disconnected. Last result below is historical; ask staff."
+                    )
                 self.worker = None
                 target, self.release_target = self.release_target, None
                 if self.closing:
                     self.finish_close()
                     return
-                if target == 'original':
-                    self.show('original')
-                elif target == 'power':
+                if target == "original":
+                    self.show("original")
+                elif target == "power":
                     self.power_after_release(worker.returncode)
                 self.update_light_buttons()
         self.root.after(100, self.poll_worker)
@@ -2275,15 +3647,18 @@ class Panel(object):
         self.hold = self.root.after(2000, self.return_from_blank)
 
     def return_from_blank(self):
-        page = getattr(self, 'blank_advanced_return', None)
+        page = getattr(self, "blank_advanced_return", None)
         if page:
             self.open_advanced(page)
         else:
             self.show(self.blank_return)
 
     def move_hold(self, event):
-        if self.hold_origin and ((event.x_root - self.hold_origin[0]) ** 2 +
-                                 (event.y_root - self.hold_origin[1]) ** 2 > 40 ** 2):
+        if self.hold_origin and (
+            (event.x_root - self.hold_origin[0]) ** 2
+            + (event.y_root - self.hold_origin[1]) ** 2
+            > 40**2
+        ):
             self.cancel_hold()
 
     def cancel_hold(self):
@@ -2294,32 +3669,55 @@ class Panel(object):
     def tick(self):
         if self.closed:
             return
-        remaining = self.trial_deadline - monotonic() if self.trial_deadline is not None else None
+        remaining = (
+            self.trial_deadline - monotonic()
+            if self.trial_deadline is not None
+            else None
+        )
         if remaining is not None and remaining <= 0 and not self.closing:
-            self.close('timeout')
+            self.close("timeout")
         if self.closed:
             return
         self.set_theme()
-        clock = time.strftime('%a %d %b') + '  ' + time.strftime('%H:%M' if self.clock_24 else '%I:%M %p')
-        if self.clock.cget('text') != clock:
+        clock = (
+            time.strftime("%a %d %b")
+            + "  "
+            + time.strftime("%H:%M" if self.clock_24 else "%I:%M %p")
+        )
+        if self.clock.cget("text") != clock:
             self.clock.config(text=clock)
-        set_changed(self.visitor_time, time.strftime('%H:%M') if self.clock_24 else time.strftime('%I:%M %p').lstrip('0'))
-        set_changed(self.visitor_date, time.strftime('%A, %d %B %Y'))
+        set_changed(
+            self.visitor_time,
+            (
+                time.strftime("%H:%M")
+                if self.clock_24
+                else time.strftime("%I:%M %p").lstrip("0")
+            ),
+        )
+        set_changed(self.visitor_date, time.strftime("%A, %d %B %Y"))
         set_changed(self.preference_text, self.preference_summary())
         self.update_connection_badges()
         self.refresh_confirmation_age()
         self.update_idle()
         if self.weather_reading:
             old = self.weather_is_earlier()
-            caption = weather_data.details(self.weather_reading, self.temperature_unit, earlier=old)
+            caption = weather_data.details(
+                self.weather_reading, self.temperature_unit, earlier=old
+            )
         else:
-            caption = 'Weather not configured' if self.args.weather_latitude is None else 'Weather unavailable'
+            caption = (
+                "Weather not configured"
+                if self.args.weather_latitude is None
+                else "Weather unavailable"
+            )
         set_changed(self.home_weather_text, caption)
-        if self.mode == 'visitor' or self.mode == 'room' and self.section == 'basic':
+        if self.mode == "visitor" or self.mode == "room" and self.section == "basic":
             self.start_weather()
             self.update_weather()
             if self.weather_good is not None and monotonic() - self.weather_good > 1800:
-                self.weather_text.set('Weather older than 30 minutes:\n' + self.weather_last_text)
+                self.weather_text.set(
+                    "Weather older than 30 minutes:\n" + self.weather_last_text
+                )
         self.update_session()
         self.update_health()
         self.root.after(1000, self.tick)
@@ -2327,25 +3725,30 @@ class Panel(object):
     def close(self, reason):
         if self.closed or self.closing:
             return
-        if self.keep_switcher and reason in ('exit', 'timeout', 'escape', 'window_close'):
-            self.show('original')
+        if self.keep_switcher and reason in (
+            "exit",
+            "timeout",
+            "escape",
+            "window_close",
+        ):
+            self.show("original")
             return
-        if self.power_busy() and self.power.phase != 'executing':
-            self.power.fail('Power action cancelled while the panel is closing.')
+        if self.power_busy() and self.power.phase != "executing":
+            self.power.fail("Power action cancelled while the panel is closing.")
         self.closing = reason
-        if getattr(self, 'control_bridge', None):
+        if getattr(self, "control_bridge", None):
             self.control_bridge.close()
             self.control_bridge = None
-        if getattr(self, 'weather_worker', None) and self.weather_worker.poll() is None:
+        if getattr(self, "weather_worker", None) and self.weather_worker.poll() is None:
             self.weather_worker.kill()
         if self.status_worker and self.status_worker.poll() is None:
             self.status_worker.terminate()
         self.cancel_intent()
-        if self.worker and self.light_state in ('ready', 'applying', 'connecting'):
-            self.release_target = 'close'
-            self.status_text.set('Ending trial. Restoring starting light settings...')
+        if self.worker and self.light_state in ("ready", "applying", "connecting"):
+            self.release_target = "close"
+            self.status_text.set("Ending trial. Restoring starting light settings...")
             if not self.pending:
-                self.request('release')
+                self.request("release")
         elif self.worker:
             self.worker.stdin.close()
         else:
@@ -2353,12 +3756,12 @@ class Panel(object):
 
     def finish_close(self):
         if not self.closed:
-            if getattr(self, 'preferences', None):
+            if getattr(self, "preferences", None):
                 self.preferences.close()
                 if not self.preferences.done.is_set():
                     self.root.after(50, self.finish_close)
                     return
-            if getattr(self, 'weather_worker', None):
+            if getattr(self, "weather_worker", None):
                 if self.weather_worker.poll() is None:
                     self.weather_worker.kill()
                     self.root.after(50, self.finish_close)
@@ -2368,80 +3771,200 @@ class Panel(object):
                     self.weather_worker.stderr.close()
                 self.weather_worker = None
             if not self.journal.closing:
-                self.emit('panel_closed', reason=self.closing or 'mainloop_exit', light_state=self.light_state)
+                self.emit(
+                    "panel_closed",
+                    reason=self.closing or "mainloop_exit",
+                    light_state=self.light_state,
+                )
                 self.journal.close()
             if not self.journal.done.is_set():
                 self.root.after(50, self.finish_close)
                 return
             self.poll_journal()
             if self.journal.error:
-                sys.stderr.write('Panel journal shutdown failed: ' + self.journal.error + '\n')
+                sys.stderr.write(
+                    "Panel journal shutdown failed: " + self.journal.error + "\n"
+                )
                 sys.stderr.flush()
-            if getattr(self, 'preferences', None) and self.preferences.error:
-                sys.stderr.write('Appearance settings shutdown failed: ' + self.preferences.error + '\n')
+            if getattr(self, "preferences", None) and self.preferences.error:
+                sys.stderr.write(
+                    "Appearance settings shutdown failed: "
+                    + self.preferences.error
+                    + "\n"
+                )
                 sys.stderr.flush()
             self.closed = True
             if self.worker:
                 self.worker.stdin.close()
-            if hasattr(self.root, 'tk'):
-                for timer in self.root.tk.call('after', 'info'):
+            if hasattr(self.root, "tk"):
+                for timer in self.root.tk.call("after", "info"):
                     self.root.after_cancel(timer)
             self.root.destroy()
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--duration', type=float, default=600, help='Trial lifetime: 1..1800 s; 0 requires --keep-switcher')
-    parser.add_argument('--keep-switcher', action='store_true', help='Keep touch navigation above Original after leaving the new interface')
-    parser.add_argument('--start-mode', choices=['room', 'original'], default='room', help='Initial view with --keep-switcher')
-    parser.add_argument('--control-socket', help='Private local socket for the optional trusted-network browser gateway')
-    parser.add_argument('--profile', help='Data-only JSON: title, sensors, stages, annotations')
-    parser.add_argument('--journal', help='New private JSONL UI journal; never an existing recording context file')
-    parser.add_argument('--preferences', help='Private appearance JSON file; saved choices override appearance CLI defaults')
-    parser.add_argument('--weather-latitude', type=float, help='Optional model weather location, -90..90 degrees')
-    parser.add_argument('--weather-longitude', type=float, help='Optional model weather location, -180..180 degrees')
-    parser.add_argument('--weather-name', default='Local area', help='Short display name for the configured weather location')
-    parser.add_argument('--logo', default=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                                      'assets', 'lesa-logo.jpeg'), help='Original local logo; no asset is modified')
-    parser.add_argument('--theme', choices=['auto', 'light', 'dark'], default='auto')
-    parser.add_argument('--light-at', type=clock_minutes, default=420, help='Local HH:MM, default 07:00')
-    parser.add_argument('--dark-at', type=clock_minutes, default=1140, help='Local HH:MM, default 19:00')
-    parser.add_argument('--timezone', default='America/New_York', help='Process-local timezone for schedule and clock')
-    parser.add_argument('--clock-format', choices=['12', '24'], default='24', help='Clock style; also adjustable in Settings')
-    parser.add_argument('--temperature-unit', choices=['c', 'f'], default='f', help='Weather display unit; also adjustable in Settings')
-    parser.add_argument('--idle-timeout', type=int, choices=[0, 60, 300, 900], default=300,
-                        help='Idle clock/weather after seconds; 0 disables. Default 300; adjustable in Screen settings')
-    parser.add_argument('--font', default='Cantarell', help='An installed font family; default Cantarell')
-    parser.add_argument('--tips', choices=['on', 'off'], default='on', help='Short touch explanations; also switchable in the header')
-    parser.add_argument('--dark-brand', choices=['wordmark', 'original'], default='original',
-                        help='Compatibility option; the original logo is retained in both themes')
-    parser.add_argument('--adapter-python', default='/usr/bin/python2.7', help='Installed ROS interpreter, independent of the UI')
-    parser.add_argument('--expected-master', default=os.environ.get('SCR_PANEL_MASTER'),
-                        help='Approved ROS_MASTER_URI, or private SCR_PANEL_MASTER environment setting')
-    parser.add_argument('--live-lights', action='store_true', help='Existing ROS environment; requires --journal and fresh owner check')
-    parser.add_argument('--windowed', action='store_true', help='Local 1280x800 review without screen-size enforcement')
+    parser.add_argument(
+        "--duration",
+        type=float,
+        default=600,
+        help="Trial lifetime: 1..1800 s; 0 requires --keep-switcher",
+    )
+    parser.add_argument(
+        "--keep-switcher",
+        action="store_true",
+        help="Keep touch navigation above Original after leaving the new interface",
+    )
+    parser.add_argument(
+        "--start-mode",
+        choices=["room", "original"],
+        default="room",
+        help="Initial view with --keep-switcher",
+    )
+    parser.add_argument(
+        "--control-socket",
+        help="Private local socket for the optional trusted-network browser gateway",
+    )
+    parser.add_argument(
+        "--profile", help="Data-only JSON: title, sensors, stages, annotations"
+    )
+    parser.add_argument(
+        "--journal",
+        help="New private JSONL UI journal; never an existing recording context file",
+    )
+    parser.add_argument(
+        "--preferences",
+        help="Private appearance JSON file; saved choices override appearance CLI defaults",
+    )
+    parser.add_argument(
+        "--weather-latitude",
+        type=float,
+        help="Optional model weather location, -90..90 degrees",
+    )
+    parser.add_argument(
+        "--weather-longitude",
+        type=float,
+        help="Optional model weather location, -180..180 degrees",
+    )
+    parser.add_argument(
+        "--weather-name",
+        default="Local area",
+        help="Short display name for the configured weather location",
+    )
+    parser.add_argument(
+        "--logo",
+        default=os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "assets",
+            "lesa-logo.jpeg",
+        ),
+        help="Original local logo; no asset is modified",
+    )
+    parser.add_argument("--theme", choices=["auto", "light", "dark"], default="auto")
+    parser.add_argument(
+        "--light-at", type=clock_minutes, default=420, help="Local HH:MM, default 07:00"
+    )
+    parser.add_argument(
+        "--dark-at", type=clock_minutes, default=1140, help="Local HH:MM, default 19:00"
+    )
+    parser.add_argument(
+        "--timezone",
+        default="America/New_York",
+        help="Process-local timezone for schedule and clock",
+    )
+    parser.add_argument(
+        "--clock-format",
+        choices=["12", "24"],
+        default="24",
+        help="Clock style; also adjustable in Settings",
+    )
+    parser.add_argument(
+        "--temperature-unit",
+        choices=["c", "f"],
+        default="f",
+        help="Weather display unit; also adjustable in Settings",
+    )
+    parser.add_argument(
+        "--idle-timeout",
+        type=int,
+        choices=[0, 60, 300, 900],
+        default=300,
+        help="Idle clock/weather after seconds; 0 disables. Default 300; adjustable in Screen settings",
+    )
+    parser.add_argument(
+        "--font",
+        default="Cantarell",
+        help="An installed font family; default Cantarell",
+    )
+    parser.add_argument(
+        "--tips",
+        choices=["on", "off"],
+        default="on",
+        help="Short touch explanations; also switchable in the header",
+    )
+    parser.add_argument(
+        "--dark-brand",
+        choices=["wordmark", "original"],
+        default="original",
+        help="Compatibility option; the original logo is retained in both themes",
+    )
+    parser.add_argument(
+        "--adapter-python",
+        default="/usr/bin/python2.7",
+        help="Installed ROS interpreter, independent of the UI",
+    )
+    parser.add_argument(
+        "--expected-master",
+        default=os.environ.get("SCR_PANEL_MASTER"),
+        help="Approved ROS_MASTER_URI, or private SCR_PANEL_MASTER environment setting",
+    )
+    parser.add_argument(
+        "--live-lights",
+        action="store_true",
+        help="Existing ROS environment; requires --journal and fresh owner check",
+    )
+    parser.add_argument(
+        "--windowed",
+        action="store_true",
+        help="Local 1280x800 review without screen-size enforcement",
+    )
     args = parser.parse_args(argv)
-    if ((args.weather_latitude is None) != (args.weather_longitude is None) or
-            args.weather_latitude is not None and
-            not (-90 <= args.weather_latitude <= 90 and -180 <= args.weather_longitude <= 180)):
-        parser.error('Weather needs both valid latitude and longitude')
+    if (
+        (args.weather_latitude is None) != (args.weather_longitude is None)
+        or args.weather_latitude is not None
+        and not (
+            -90 <= args.weather_latitude <= 90 and -180 <= args.weather_longitude <= 180
+        )
+    ):
+        parser.error("Weather needs both valid latitude and longitude")
     global FONT
     FONT = args.font
-    if (math.isnan(args.duration) or math.isinf(args.duration) or
-            not (1 <= args.duration <= 1800 or args.keep_switcher and args.duration == 0)):
-        parser.error('Duration must be finite in 1..1800 seconds, or 0 with --keep-switcher')
+    if (
+        math.isnan(args.duration)
+        or math.isinf(args.duration)
+        or not (1 <= args.duration <= 1800 or args.keep_switcher and args.duration == 0)
+    ):
+        parser.error(
+            "Duration must be finite in 1..1800 seconds, or 0 with --keep-switcher"
+        )
     if args.light_at == args.dark_at:
-        parser.error('Light and dark start times must differ')
-    if args.live_lights and (not args.journal or not sys.platform.startswith('linux')):
-        parser.error('Live lights require Linux, a new journal and the existing ROS environment')
+        parser.error("Light and dark start times must differ")
+    if args.live_lights and (not args.journal or not sys.platform.startswith("linux")):
+        parser.error(
+            "Live lights require Linux, a new journal and the existing ROS environment"
+        )
     if args.live_lights and not args.expected_master:
-        parser.error('Live lights require --expected-master or SCR_PANEL_MASTER')
-    os.environ['TZ'] = args.timezone
-    if hasattr(time, 'tzset'):
+        parser.error("Live lights require --expected-master or SCR_PANEL_MASTER")
+    os.environ["TZ"] = args.timezone
+    if hasattr(time, "tzset"):
         time.tzset()
     panel = Panel(args)
-    signal.signal(signal.SIGTERM, lambda signum, frame: panel.close('signal_%d' % signum))
-    signal.signal(signal.SIGINT, lambda signum, frame: panel.close('signal_%d' % signum))
+    signal.signal(
+        signal.SIGTERM, lambda signum, frame: panel.close("signal_%d" % signum)
+    )
+    signal.signal(
+        signal.SIGINT, lambda signum, frame: panel.close("signal_%d" % signum)
+    )
     try:
         panel.root.mainloop()
     finally:
@@ -2455,5 +3978,5 @@ def main(argv=None):
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     sys.exit(main())
