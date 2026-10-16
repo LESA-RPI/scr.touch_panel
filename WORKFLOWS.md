@@ -163,10 +163,14 @@ ROS_IP=panel-address
 ROS_HOSTNAME=panel-hostname
 DISPLAY=:0
 SCR_START_DELAY=8
+SCR_PANEL_PYTHON=/usr/bin/python3
 ```
 
 Use existing, verified deployment values. Keep this file mode 0600 and outside
-Git. The launcher sources the installed ROS setup, sets the same original
+Git. Beta requires Python 3.11+, Tk and Pillow; the launcher checks these before
+sourcing ROS or starting Legacy. `SCR_PANEL_PYTHON` defaults to `/usr/bin/python3`.
+Legacy and the light adapter use independent interpreter settings. The launcher
+sources the installed ROS setup, sets the same original
 environment, and checks process working directories before starting `main.py`.
 Its file lock prevents two switchers. Journals and logs stay under
 `~/.cache/scr-panel`; retain them for investigation and manage their disk use.

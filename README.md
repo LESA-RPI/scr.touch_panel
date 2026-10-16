@@ -135,9 +135,11 @@ the optional trusted-network gateway is enabled.
 
 The fresh Pi 3 deployment uses Raspberry Pi OS Legacy 32-bit Bookworm with
 distribution Python 3.11, Tk 8.6 and Pillow 9.4. Desktop preview dependencies are
-separate; do not install them over system packages. The older Ubuntu installation
-used Python 2.7. The launcher retains that default for compatibility; the fresh
-setup explicitly selects Python 3 for both applications and the ROS helper.
+separate; do not install them over system packages. Beta defaults to
+`/usr/bin/python3` and checks for Python 3.11+, Tk and Pillow before startup.
+`SCR_PANEL_PYTHON` selects another supported interpreter. Legacy and the ROS
+adapter retain their separate interpreter settings: the older Ubuntu installation
+used Python 2.7, while the fresh setup explicitly selects Python 3 for each.
 
 Legacy starts from [main.py](main.py); Beta starts from
 [app/scr_touch_panel.py](app/scr_touch_panel.py). The installed
