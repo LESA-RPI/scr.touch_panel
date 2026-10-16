@@ -102,7 +102,7 @@ The panel remains the only lighting command owner. `--control-socket` enables a
 private mode-0600 Unix socket; a same-user browser service may relay requests.
 Socket threads only read immutable snapshots or enqueue bounded requests. The Tk
 thread validates current ownership/state and calls the existing panel methods.
-No new hardware adapter, blind command, shell executor or recording adapter exists.
+No new hardware adapter, shell executor or recording adapter exists.
 
 A command has exactly `id`, `revision`, `action`, `arguments`. IDs are unique,
 16–80 alphanumeric/hyphen characters. The revision identifies the panel session,
@@ -113,11 +113,24 @@ clients query receipts and never automatically repeat commands.
 
 The shared actions cover on/off, CCT/level, eight channels, admitted presets,
 instruction start/pause/previous/next/known annotations, panel appearance/clock/
-weather/idle preferences, disabled-blinds visibility, Home, Legacy, clock view and
+weather/idle preferences, blind permission/visibility, Home, Legacy, clock view and
 blank display. All inputs are bounded enums or integers. Lighting requires ready
 readback, no pending/queued/held touch and no running instructions. Legacy and
 uncertain states block lighting. Panel and browser use these same study guards.
 Acceptance is not lighting confirmation, annotation persistence or recording.
+
+`blinds_enabled` accepts a boolean `value`; `blind` accepts only a `name` of
+`lift`, `open` or `close`. The owner rechecks the saved permission, controller
+connection and busy/Legacy/experiment guards at dispatch. Visibility does not
+grant permission. No blind adapter is installed, so commands are rejected even
+when the preference is enabled. A future adapter must own its resource and
+enqueue through `submit(name)` without blocking Tk; this is not a qualified
+hardware implementation. Window-group addressing is not implemented.
+
+Lighting navigation contains White light, Scenes, Programmes and Channels.
+`app/room_controls.py` owns their shared labels and descriptions. Gradient, Sun
+and Circ are represented with disconnected controls, not exposed as executable
+actions. No HTTP script launcher or independent programme runner is added.
 
 The opt-in HTTP gateway exposes `/api/controller` and `/api/command`. Commands
 require the exact configured Host, matching Origin, a per-service nonce and bounded

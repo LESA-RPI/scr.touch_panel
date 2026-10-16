@@ -67,3 +67,50 @@ def test_theme_text_contrast_and_strictly_neutral_dark_roles():
                       ('good','control'),('warning','control'),('warning','bg')]:
             assert ratio(theme[fg],theme[bg])>=4.5,(fg,bg,theme)
     assert all(len(set(rgb(value)))==1 for value in THEMES['dark'].values())
+
+
+def test_blind_permission_is_strict_and_independent_of_visibility_and_connection():
+    import preferences
+    from scr_touch_panel import Panel
+    assert preferences.validated({}) == {}  # old files retain the disabled default
+    assert preferences.validated({'blinds_enabled':False}) == {'blinds_enabled':False}
+    for invalid in (1, 0, 'true', None):
+        with pytest.raises(ValueError):preferences.validated({'blinds_enabled':invalid})
+        with pytest.raises(ValueError):command(envelope('blinds_enabled', {'value':invalid}))
+    state = Panel.__new__(Panel)
+    state.pending=state.queued_intent=state.release_target=state.closing=None
+    state.running=False;state.mode='room';state.blinds_display='hidden'
+    state.blinds_enabled=False;state.blind_controller=None
+    messages=[];calls=[];state.status_text=SimpleNamespace(set=messages.append)
+    for name in ('lift','open','close'):
+        assert command(envelope('blind', {'name':name}))
+        assert not state.blind_command(name)
+    assert state.blind_state()['detail']=='Disabled in settings'
+    state.blinds_enabled=True
+    assert not state.blind_command('open')
+    assert state.blind_state()['detail']=='Controller not connected'
+    state.blind_controller=SimpleNamespace(connected=True,submit=calls.append)
+    for field, value in [('pending',{}),('queued_intent',True),('release_target','original'),('closing',True),('running',True),('mode','original')]:
+        previous=getattr(state,field);setattr(state,field,value or True)
+        assert not state.blind_command('lift')
+        setattr(state,field,previous)
+    assert calls==[]
+    for name in ('lift','open','close'):assert state.blind_command(name)
+    assert calls==['lift','open','close']
+    with pytest.raises(ValueError):state.blind_command('shell')
+    state.blinds_enabled=False
+    assert not state.blind_command('open') and len(calls)==3
+
+
+def test_remote_blind_action_uses_owner_readiness_and_never_bypasses_setting(monkeypatch):
+    import panel_remote
+    calls=[]
+    owner=SimpleNamespace(blind_command=lambda name:calls.append(name) or True,
+                          emit=lambda *a,**kw:None,activity=lambda *a:None,pending=None)
+    for available in (False,True):
+        monkeypatch.setattr(panel_remote,'snapshot',lambda panel:{'busy':False,'blinds':{'available':available,'detail':'Disabled in settings'}})
+        if not available:
+            with pytest.raises(RuntimeError):execute(owner,envelope('blind',{'name':'lift'}))
+            assert not calls
+        else:assert execute(owner,envelope('blind',{'name':'lift'}))['ok']
+    assert calls==['lift']

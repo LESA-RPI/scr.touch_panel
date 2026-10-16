@@ -3,12 +3,12 @@
 DEMO = (
     ('Lighting', 'on',
      'Use Lights on and Lights off on Home for everyday lighting.\n\n'
-     'Room tools → White light adjusts warmth and level. Scenes & channels offers the room’s saved lighting mixtures.\n\n'
+     'Room tools → Lighting brings White light, Scenes, Programmes and Channels together. Opening a tab does not change the lights.\n\n'
      'A highlighted button shows the last confirmed setting. If a result is uncertain, stop and ask the room host.'),
     ('Room controls', 'home',
      'Home always returns to everyday lighting controls. Opening a page does not change the lights.\n\n'
      'Legacy opens the original interface after restoring Beta’s starting lighting scene. Use Home in the Legacy bar to return.\n\n'
-     'Blinds are currently disabled. Room tools → Screen can hide their Home section.'),
+     'Lift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller.'),
     ('Sensors and experiments', 'experiment',
      'Experiment mode guides a repeatable sequence of instructions and saves panel annotations.\n\n'
      'It does not start a recorder. Arrange recording separately and coordinate the study with the room host.\n\n'

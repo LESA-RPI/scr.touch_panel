@@ -6,7 +6,7 @@ KINDS = {'room': 'sliders-horizontal', 'advanced': 'sliders-horizontal',
          'experiment': 'flask-conical', 'health': 'activity', 'system': 'activity',
          'visitor': 'clock', 'clock': 'clock', 'date': 'calendar-days', 'link-ok': 'circle-check',
          'link-off': 'circle-slash', 'on': 'lightbulb', 'white': 'lightbulb',
-         'off': 'lightbulb-off', 'scene': 'layers', 'scenes': 'layers',
+         'off': 'lightbulb-off', 'lighting': 'lightbulb', 'scene': 'layers', 'scenes': 'layers',
          'home': 'house', 'guide': 'book-open', 'about': 'info',
          'appearance': 'sun-moon', 'screen': 'monitor', 'original': 'external-link',
          'return': 'arrow-left', 'dropdown': 'chevron-right'}

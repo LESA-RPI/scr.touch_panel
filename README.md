@@ -15,12 +15,22 @@ identity before maintenance.
 | Screen | Purpose |
 |---|---|
 | Home | Stacked Lights on/off beside clock/weather; disabled blinds can be shown or hidden |
-| Room tools | One sidebar: white light, scenes/channels, Experiment mode, system/help and device preferences |
+| Room tools | Lighting, Experiment mode, system/help and device preferences in one sidebar |
 | Demo & guide | Four directly selectable topics, with Previous/Next and All topics; no equipment or recording starts |
 
-Home is the default screen. Room tools → Screen can show or hide disabled blinds;
-this display preference cannot enable movement. Its blind buttons have no command callbacks while
-blind operation awaits qualification. Room tools keeps the existing tools available
+Home is the default screen. Room tools → Lighting groups **White light, Scenes,
+Programmes and Channels**. Fid, Sat and Dul retain their original mixtures.
+Gradient is the original spatial pattern; Sun is a travelling light cycle and
+Circ cycles the room together. Their fixture/programme adapters are not connected
+in Beta yet, so their Apply/Start controls remain unavailable. Legacy remains
+available for the original implementations. Empty Dynamic CCT, Dynamic Intensity
+and Auto placeholders and the old Enable Sliders gate are omitted.
+
+Home includes Lift blinds, Open slats and Close & lower. Room tools → Screen &
+controls saves a separate **Blind movement** setting, disabled by default, and
+can show or hide the Home controls. Enabling the setting does not move blinds
+or connect a controller. No blind adapter is installed in Beta; actions remain
+unavailable until one is connected and qualified. Room tools keeps the tools available
 away from everyday on/off controls. Home returns directly from these pages.
 The header shows Beta and provides a direct Legacy shortcut with its existing
 restoration handover. In Legacy, the matching top bar identifies Legacy view;

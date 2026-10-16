@@ -13,7 +13,7 @@ import time
 
 
 def command(value):
-    """Strict shared command vocabulary; no paths, shell text or blind actions."""
+    """Strict shared command vocabulary; no paths or shell text. Owner guards readiness."""
     if not isinstance(value, dict) or set(value) != {'id','revision','action','arguments'}:
         raise ValueError('Invalid command envelope')
     if not isinstance(value['id'], str) or not re.fullmatch(r'[a-zA-Z0-9-]{16,80}', value['id']):
@@ -27,7 +27,7 @@ def command(value):
               'start':(), 'pause':(), 'previous':(), 'next':(), 'mark':('label',),
               'cct':('cct','intensity'), 'preset':('name',), 'channels':('values',),
               'theme':('value',), 'clock':('value',), 'temperature':('value',),
-              'idle':('value',), 'blinds_display':('value',), 'tips':('value',),
+              'idle':('value',), 'blinds_display':('value',), 'blinds_enabled':('value',), 'blind':('name',), 'tips':('value',),
               'schedule':('which','delta')}
     if not isinstance(action, str) or action not in shapes or set(args) != set(shapes[action]):
         raise ValueError('Unsupported command or arguments')
@@ -39,9 +39,10 @@ def command(value):
         valid = isinstance(args['values'], list) and len(args['values']) == 8 and all(type(v) is int and 0 <= v <= 100 for v in args['values'])
     choices = {'preset':('Fid','Sat','Dul','Off'), 'theme':('light','dark','auto'),
                'clock':('12','24'), 'temperature':('c','f'), 'idle':(0,60,300,900),
-               'blinds_display':('hidden','disabled'), 'tips':(True,False)}
+               'blinds_display':('hidden','disabled'), 'blinds_enabled':(True,False),
+               'blind':('lift','open','close'), 'tips':(True,False)}
     if action in choices:
-        key = 'name' if action == 'preset' else 'value'
+        key = 'name' if action in ('preset','blind') else 'value'
         valid = type(args[key]) is type(choices[action][0]) and args[key] in choices[action]
     if action == 'mark': valid = isinstance(args['label'], str) and 1 <= len(args['label']) <= 100
     if action == 'schedule': valid = args['which'] in ('light_at','dark_at') and type(args['delta']) is int and args['delta'] in (-30,30)

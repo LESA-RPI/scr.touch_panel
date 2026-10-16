@@ -596,7 +596,8 @@ def test_advanced_navigation_and_blank_return_preserve_tool_but_idle_opens_home(
     shown = []
     state.show = lambda mode, **kw: shown.append((mode, kw))
     state.open_advanced()
-    assert shown[-1] == ('room', {'advanced_page': 'scenes'})
+    assert shown[-1] == ('room', {'advanced_page': 'lighting'})
+    assert state.lighting_tab == 'channels'
     state.open_advanced('clock')
     assert shown[-1] == ('settings', {'advanced_page': 'clock'})
     state.blank_advanced_return, state.blank_return = 'screen', 'settings'

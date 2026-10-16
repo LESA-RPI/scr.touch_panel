@@ -12,6 +12,9 @@ def validated(value):
                'tips': ('on', 'off'), 'temperature_unit': ('c', 'f'),
                'blinds_display': ('disabled', 'hidden')}
     result = {}
+    if 'blinds_enabled' in value:
+        if type(value['blinds_enabled']) is not bool:raise ValueError('Invalid blinds_enabled')
+        result['blinds_enabled']=value['blinds_enabled']
     for key, choices in allowed.items():
         if key in value:
             if value[key] not in choices:

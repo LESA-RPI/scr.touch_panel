@@ -19,14 +19,16 @@ def snapshot(panel):
                       'confirmed_age_s':None if panel.confirmed_at is None else max(0,time.monotonic()-panel.confirmed_at)},
             'preferences':{'theme':panel.theme_choice,'resolved_theme':panel.theme,'clock':'24' if panel.clock_24 else '12',
                            'temperature':panel.temperature_unit,'idle':panel.idle_timeout,'tips':panel.help_on,
-                           'blinds_display':panel.blinds_display,'light_at':panel.args.light_at,'dark_at':panel.args.dark_at},
+                           'blinds_display':panel.blinds_display,'blinds_enabled':panel.blinds_enabled,
+                           'light_at':panel.args.light_at,'dark_at':panel.args.dark_at},
             'palette':{key:getattr(panel,key) for key in ('bg','surface','ink','muted','control','border','accent','selected_ink','icon_colour','accent_pressed','pressed','good','warning')},
             'experiment':{'profile':panel.profile,'running':panel.running,'stage':panel.stage,'elapsed_s':int(elapsed),
                           'annotation':panel.annotation_text.get(),'recording':False},
             'guide':[{'title':title,'icon':kind,'text':text} for title,kind,text in DEMO],
             'help':[{'title':title,'text':text,'commands':commands,'command_tokens':command_tokens(commands)} for title,kind,text,commands in SUPPORT],
             'weather':panel.weather_reading,'weather_age_s':None if not panel.weather_good else max(0,time.monotonic()-panel.weather_good),
-            'health':panel.health_cache,'room_status':panel.room_status,'blinds_enabled':False}
+            'health':panel.health_cache,'room_status':panel.room_status,'blinds_enabled':panel.blinds_enabled,
+            'blinds':panel.blind_state()}
 
 
 def execute(panel, request):
@@ -47,6 +49,9 @@ def execute(panel, request):
         else:
             for var,value in zip(panel.channel_values,args['values']):var.set(value)
             panel.apply('channels',immediate=True,**args)
+    elif action=='blind':
+        if not state['blinds']['available']:raise RuntimeError('Blinds · '+state['blinds']['detail'])
+        if not panel.blind_command(args['name']):raise RuntimeError('Blind command was not accepted')
     elif action in ('start','pause','previous','next','mark'):
         if not state['can_session']:raise RuntimeError('Return from Legacy before using instructions.')
         if action=='mark' and args['label'] not in panel.profile['annotations']:
@@ -64,7 +69,8 @@ def execute(panel, request):
     elif action=='schedule':panel.adjust_schedule(args['which'],args['delta'])
     else:
         methods={'theme':panel.choose_theme,'clock':panel.choose_clock,'temperature':panel.choose_temperature,
-                 'idle':panel.choose_idle,'blinds_display':panel.choose_blinds_display,'tips':panel.choose_tips}
+                 'idle':panel.choose_idle,'blinds_display':panel.choose_blinds_display,
+                 'blinds_enabled':panel.choose_blinds_enabled,'tips':panel.choose_tips}
         methods[action](args['value'])
     panel.emit('browser_command',command_id=request['id'],action=action,
                helper_request_id=panel.pending.get('request_id') if panel.pending else None)

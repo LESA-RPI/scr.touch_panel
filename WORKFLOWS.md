@@ -72,6 +72,9 @@ are atomic and use one background worker with one pending snapshot. Invalid
 files fall back to defaults and show a warning; they cannot start recordings
 or restore light settings. Remove this private file to reset appearance.
 A direct preview saves preferences only when `--preferences PATH` is supplied.
+`blinds_enabled` is a strict boolean, defaults to false and is saved separately
+from Home visibility. Changing this setting never sends a blind command.
+No blind adapter is installed: enabled controls still report Controller not connected.
 Room tools → Date & weather selects Celsius or Fahrenheit. Old preference files
 default to Fahrenheit. Direct previews can use `--temperature-unit c` or `f`.
 Switching units converts cached data; it does not fetch again or change room controls.
