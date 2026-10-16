@@ -38,12 +38,14 @@ function home(root){
   const row=el('div',undefined,'room-layout'),left=el('section'),right=el('section');
   const groups=el('div',undefined,'essential-grid');groups.id='essentials';
   for(const [title,caption,isBlind] of [['Lights','Whole room',false],['Blinds','Whole room',true]]){
-    const group=el('div',undefined,'essential-group');group.id=isBlind?'blind-group':'light-group';
-    group.append(el('h2',title),el('p',caption,'muted'));
+    const group=el(isBlind?'details':'div',undefined,'essential-group');group.id=isBlind?'blind-group':'light-group';
+    let actions=group;
+    if(isBlind){group.open=!matchMedia('(max-width:650px)').matches;const summary=el('summary');summary.append(el('h2',title));const note=el('span','Disabled','muted');note.id='blind-status';summary.append(note);group.append(summary);actions=el('div',undefined,'blind-actions');group.append(actions);}
+    else group.append(el('h2',title),el('p',caption,'muted'));
     for(const [name,label] of isBlind?content.blind_actions||[['lift','Lift blinds'],['open','Open slats'],['close','Close & lower']]:[['on','Lights on'],['off','Lights off']]){
       const action=isBlind?'blind':name,b=button(label,()=>command(action,isBlind?{name}:{}),{icon:isBlind?null:action==='on'?'white':'off',action});
-      group.append(b);
-    }const note=el('small',isBlind?'Disabled in settings':'Standard room lighting');if(isBlind)note.id='blind-status';group.append(note);groups.append(group);
+      actions.append(b);
+    }if(!isBlind)group.append(el('small','Standard room lighting'));groups.append(group);
   }left.append(groups);feedback(left);
   right.append(el('p','Troy, NY','eyebrow'));const clock=el('p',undefined,'clock');clock.id='clock';const date=el('p',undefined,'date');date.id='date';right.append(clock,date);
   right.append(el('p','OUTDOOR WEATHER','eyebrow'));
@@ -63,7 +65,8 @@ function tools(root,page){
   if(!pages.some(p=>p[1]===page))page='lighting';
   const shell=el('div',undefined,'tools-layout'),nav=el('nav',undefined,'sidebar'),detail=el('section');nav.setAttribute('aria-label','Room tools');nav.append(el('h2','Room tools'));
   for(const [label,key] of pages){const a=link(label,'tools-'+key,key);if(key===page)a.setAttribute('aria-current','page');nav.append(a);}
-  shell.append(nav,detail);root.append(shell);detail.append(el('h2',pages.find(p=>p[1]===page)[0]));
+  const mobile=el('label',undefined,'tools-mobile');mobile.append(el('span','Room tools'));const picker=el('select');picker.id='tool-picker';for(const [label,key] of pages){const option=el('option',label);option.value=key;picker.append(option);}picker.value=page;picker.onchange=()=>{location.hash='tools-'+picker.value;};mobile.append(picker);
+  shell.append(nav,mobile,detail);root.append(shell);detail.append(el('h2',pages.find(p=>p[1]===page)[0]));
   if(page==='lighting')lighting(detail,tab);
   else if(page==='experiment'){
     detail.append(el('p','Recorder not connected · instructions and panel annotations only','muted'));
@@ -85,8 +88,9 @@ function tools(root,page){
     detail.append(el('h3','Screen saver'));choices(detail,[['Off','idle',0],['1 min','idle',60],['5 min','idle',300],['15 min','idle',900]]);
     detail.append(el('p','A first touch on the screen saver opens Home without activating a control.','muted'));detail.append(el('h3','Touch panel display'));
     const row=el('div',undefined,'row');row.append(button('Clock & weather on panel',()=>command('clock_view'),{action:'clock_view'}),button('Blank touch panel',()=>command('blank'),{action:'blank'}),button('Wake to Home',()=>command('home'),{action:'home'}));detail.append(row);detail.append(el('p','Blank shows black pixels; the backlight stays on. Hold one spot on the panel for two seconds to return.','muted'));
-    detail.append(el('h3','Blind movement'));choices(detail,[['Disabled','blinds_enabled',false],['Enabled','blinds_enabled',true]]);
-    detail.append(el('p','Changing this setting does not move the blinds. A controller is required.','muted'));
+    detail.append(el('h3','Blind controls'));choices(detail,[['Locked','blinds_enabled',false],['Unlocked','blinds_enabled',true]]);
+    const reason=el('p',undefined,'muted');reason.id='blind-reason';detail.append(reason);
+    detail.append(el('p','Changing the lock does not move the blinds.','subtle'));
     detail.append(el('h3','Blinds on Home'));choices(detail,[['Show','blinds_display','disabled'],['Hide','blinds_display','hidden']]);
   }else if(page==='system')system(detail);
   else{detail.append(el('h3','Smart Conference Room'),el('p','Touch panel and browser · Beta mode','muted'),el('p','Built by Diyanko Bhowmik'),el('p','Original contributors are credited in the repository history.','muted'));const a=el('a','github.com/LESA-RPI/scr.touch_panel');a.href='https://github.com/LESA-RPI/scr.touch_panel';detail.append(a,el('p','Icons: Lucide · lucide.dev','subtle'));}
@@ -101,31 +105,38 @@ function lighting(detail,tab){
     detail.append(el('p','Original scene names and mixtures from Legacy.','muted'));
     const grid=el('div',undefined,'scene-grid');
     for(const scene of content.scenes||[]){
-      const card=el('section',undefined,'card'),b=scene.id==='Gradient'?button('Fixture control not connected',()=>{}):button('Apply scene',()=>command('preset',{name:scene.id}),{action:'preset'});
-      if(scene.id==='Gradient')b.disabled=true;else b.dataset.preset=scene.id;
-      card.append(el('h3',scene.label),el('p',scene.detail,'muted'),b);grid.append(card);
+      const card=el('section',undefined,'card'),b=scene.id==='Gradient'?button('Apply scene',()=>window.SCR_PREVIEW?.applyGradient()):button('Apply scene',()=>command('preset',{name:scene.id}),{action:'preset'});
+      if(scene.id==='Gradient'){b.id='gradient-apply';b.disabled=true;}else b.dataset.preset=scene.id;
+      card.append(el('h3',scene.label),el('p',scene.detail,'muted'));if(scene.id==='Gradient')card.append(el('small','Fixture control not connected','muted'));card.append(b);grid.append(card);
     }detail.append(grid);feedback(detail);
   }else if(tab==='programmes'){
     detail.append(el('p','Choose a finite light cycle from Legacy.','muted'));
     const row=el('div',undefined,'row'),items=content.programmes||[];
     for(const item of items){const b=button(item.label+' · '+item.subtitle,()=>{selectedProgramme=item.id;view='';layout();});b.setAttribute('aria-pressed',String(item.id===selectedProgramme));b.classList.toggle('selected',item.id===selectedProgramme);row.append(b);}detail.append(row);
     const item=items.find(p=>p.id===selectedProgramme);if(item){const card=el('section',undefined,'card');card.append(el('h3',item.subtitle),el('p',item.detail),el('p','These are light demonstrations, independent of the clock and weather.','muted'));detail.append(card);}
-    detail.append(el('p','Programme runner not connected · no programme is running','subtle'));
-    const actions=el('div',undefined,'row');for(const label of ['Start programme','Stop programme']){const b=button(label,()=>{});b.disabled=true;actions.append(b);}detail.append(actions);
+    const status=el('p','Programme control not connected','subtle');status.id='programme-status';detail.append(status);
+    const progress=el('progress');progress.id='programme-progress';progress.max=100;progress.value=0;progress.setAttribute('aria-label','Programme progress');progress.hidden=true;detail.append(progress);
+    const actions=el('div',undefined,'row');for(const [id,label,action] of [['programme-start','Start programme',()=>window.SCR_PREVIEW?.startProgramme(selectedProgramme)],['programme-stop','Stop programme',()=>window.SCR_PREVIEW?.stopProgramme()]]){const b=button(label,action);b.id=id;b.disabled=true;actions.append(b);}detail.append(actions);
+    detail.append(el('p',window.SCR_PREVIEW?'Offline preview uses an accelerated simulation.':'Programme controls become available when a compatible controller is connected.','subtle'));
   }else if(tab==='channels'){
     detail.append(el('p','Adjust the eight room-wide channel percentages.','muted'));
     const grid=el('div',undefined,'channel-grid');for(const [i,label] of ['Blue 1','Blue 2','Blue 3','Lime','Amber','Orange','Red 1','Red 2'].entries())range(grid,label,'channel-'+i,0,100,1,'%');detail.append(grid);feedback(detail);
   }else{
     detail.append(el('p','Selected values apply after your touch settles.','muted'));
-    range(detail,'Colour temperature','cct',1600,10000,100,'K');range(detail,'Light level','intensity',0,1900,25,'controller units');feedback(detail);
+    const grid=el('div',undefined,'white-grid');range(grid,'Colour temperature','cct',1600,10000,100,'K');range(grid,'Light level','intensity',0,1900,25,'controller units');detail.append(grid);feedback(detail);
   }
 }
 function range(parent,title,key,low,high,step,unit){
-  const box=el('section',undefined,'range-card'),heading=el('h3',title);const row=el('div',undefined,'range-value'),output=el('output');output.id='value-'+key;const units=el('small',unit),steps=el('div',undefined,'steps');
+  const box=el('section',undefined,'range-card'),heading=el('h3',title);const row=el('div',undefined,'range-value'),output=el('input');output.type='number';output.required=true;output.id='value-'+key;output.className='numeric-value';output.min=low;output.max=high;output.step=step;output.inputMode='numeric';output.setAttribute('aria-label',title+' value');const units=el('small',unit),steps=el('div',undefined,'steps');
   const input=el('input');input.type='range';input.id=key;input.min=low;input.max=high;input.step=step;input.dataset.range=key;input.setAttribute('aria-label',title);
-  function selected(){dragging=true;rangeRevision??=state?.revision;output.textContent=input.value;}
+  function selected(){dragging=true;rangeRevision??=state?.revision;output.value=input.value;}
   input.oninput=selected;input.onchange=()=>{selected();commitRange(key);};
-  for(const [label,delta] of (key.startsWith('channel')?[]:[['−',-step],['+',step]]))steps.append(button(label,()=>{input.value=Math.max(low,Math.min(high,Number(input.value)+delta));selected();commitRange(key);},{action:key.startsWith('channel')?'channels':'cct'}));
+  output.onfocus=()=>{dragging=true;rangeRevision??=state?.revision;};
+  let cancelEdit=false;
+  output.onchange=()=>{if(cancelEdit)return;if(!output.checkValidity()){output.reportValidity();return;}input.value=output.value;selected();commitRange(key);};
+  output.onblur=()=>{if(!posting){dragging=false;rangeRevision=null;sync();}};
+  output.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();output.blur();}else if(event.key==='Escape'){cancelEdit=true;output.value=input.value;dragging=false;rangeRevision=null;output.blur();cancelEdit=false;sync();}};
+  for(const [label,delta] of (key.startsWith('channel')?[]:[['−',-step],['+',step]])){const b=button(label,()=>{input.value=Math.max(low,Math.min(high,Number(input.value)+delta));selected();commitRange(key);},{action:key.startsWith('channel')?'channels':'cct'});b.setAttribute('aria-label',(delta<0?'Decrease ':'Increase ')+title.toLowerCase());steps.append(b);}
   row.append(output,units,steps);const limits=el('div',undefined,'limits');limits.append(el('span','Min '+low.toLocaleString()+' '+unit),el('span','Max '+high.toLocaleString()+' '+unit));box.append(heading,row,input,limits);parent.append(box);
 }
 function commitRange(key){if(key.startsWith('channel'))command('channels',{values:Array.from({length:8},(_,i)=>Number($('channel-'+i).value))},rangeRevision);else command('cct',{cct:Number($('cct').value),intensity:Number($('intensity').value)},rangeRevision);}
@@ -172,9 +183,13 @@ function sync(){
   const p=state?.preferences||{},s=state?.lights||{},available=state?.available===true;
   if(state?.palette)window.SCRDesign.apply(state.palette,p.resolved_theme);
   update('connection',!available?'Panel unavailable':state.mode==='original'?'Legacy':state.busy?'Sending':state.can_control?'Ready':s.state==='failed'?'Uncertain':'Controls unavailable');
-  if($('blind-group')){$('blind-group').hidden=p.blinds_display==='hidden';$('essentials').classList.toggle('single',p.blinds_display==='hidden');$('blind-group').classList.toggle('disabled-group',!state?.blinds?.available);update('blind-status',state?.blinds?.detail||'Controller not connected');}
+  if($('blind-group')){$('blind-group').hidden=p.blinds_display==='hidden';$('essentials').classList.toggle('single',p.blinds_display==='hidden');$('blind-group').classList.toggle('disabled-group',!state?.blinds?.available);update('blind-status',state?.blinds?.available?'Ready':'Disabled');}
+  update('blind-reason',state?.blinds?.reason||(!p.blinds_enabled?'Controls locked in settings':'Controller not connected'));
   for(const b of document.querySelectorAll('[data-action]')){const a=b.dataset.action,lighting=['on','off','cct','preset','channels'].includes(a),session=['start','pause','previous','next','mark'].includes(a);b.disabled=posting||Boolean(unknown)||!available||state.busy||(a==='blind'?!state?.blinds?.available:lighting?!state.can_control:session?!state.can_session:false);}
-  for(const input of document.querySelectorAll('[data-range]')){input.disabled=posting||Boolean(unknown)||!available||!state.can_control;if(!dragging){const k=input.dataset.range,value=k.startsWith('channel')?s.channels?.[Number(k.split('-')[1])]:s[k];if(value!==undefined){input.value=value;update('value-'+k,value);}}}
+  for(const input of document.querySelectorAll('[data-range]')){const number=$('value-'+input.dataset.range);input.disabled=number.disabled=posting||Boolean(unknown)||!available||!state.can_control;if(!dragging){const k=input.dataset.range,value=k.startsWith('channel')?s.channels?.[Number(k.split('-')[1])]:s[k];if(value!==undefined){input.value=value;number.value=value;}}}
+  const preview=window.SCR_PREVIEW?.read(),previewReady=!!preview?.connected&&available&&state.can_control&&!posting&&!unknown&&!state.busy;
+  if($('gradient-apply')){$('gradient-apply').disabled=!previewReady;const note=$('gradient-apply').parentElement.querySelector('small');note.textContent=preview?.connected?'Offline simulation':'Fixture control not connected';}
+  if($('programme-start')){const programme=preview?.programme,running=programme?.phase==='running';$('programme-start').disabled=!previewReady||running;$('programme-stop').disabled=!previewReady||!running;update('programme-status',preview?.connected?(programme?programme.name+' · '+programme.phase+' · accelerated simulation':'Ready to preview · one cycle'):'Programme control not connected');$('programme-progress').hidden=!programme;$('programme-progress').value=programme?.progress||0;}
   for(const b of document.querySelectorAll('[data-choice]'))b.classList.toggle('selected',String(p[b.dataset.choice])===b.dataset.value);
   for(const b of document.querySelectorAll('[data-action=on],[data-action=off]'))b.classList.toggle('selected',available&&!posting&&!unknown&&s.power===b.dataset.action&&state.can_control);
   for(const b of document.querySelectorAll('[data-preset]'))b.classList.toggle('selected',available&&!posting&&!unknown&&s.scene===b.dataset.preset&&state.can_control);
@@ -204,4 +219,5 @@ let fetching=false;
 async function refresh(){if(fetching||document.hidden)return;fetching=true;try{const response=await fetch('/api/controller',{cache:'no-store',signal:AbortSignal.timeout(3500)});if(!response.ok)throw Error();state=await response.json();if(unknown&&state.receipts?.some(r=>r.id===unknown)){unknown=null;message('The panel received the command. Check its current confirmation below.');}if(state.guide)content={...content,guide:state.guide,help:state.help};if(!view||(!$('help-topic')&&view==='tools-system')||(view.startsWith('guide')&&!$('app').children.length)){view='';layout();}sync();}catch(_){if(state)state.available=false;sync();}finally{fetching=false;}}
 document.addEventListener('click',event=>{const a=event.target.closest('a[href="#home"]');if(a&&state?.available&&state.mode!=='room'){event.preventDefault();command('home').then(ok=>{if(ok)location.hash='home';});}});
 window.addEventListener('hashchange',layout);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
+window.addEventListener('scr-preview-change',()=>{const name=window.SCR_PREVIEW?.read().programme?.name;if(name)selectedProgramme=name;view='';layout();});
 (async()=>{try{content=await(await fetch('/room-content.json')).json();}catch(_){}layout();await refresh();setInterval(refresh,1000);setInterval(weather,1000);})();

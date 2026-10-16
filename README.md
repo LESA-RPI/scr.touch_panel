@@ -18,7 +18,7 @@ Commands use the existing panel queue, require a fresh revision and are never
 automatically retried. Confirmed readback alone selects Lights on/off. Pending,
 uncertain or disconnected states clear that selection. Running instructions block
 lighting from both interfaces. All three original blind actions are visible;
-movement is a separate saved setting, disabled by default, and requires a connected
+movement has a saved Locked/Unlocked setting, locked by default, and requires a connected
 controller. None is installed in Beta. Gradient, Sun and Circ remain visible with
 disconnected Apply/Start controls until their adapters are integrated. Empty Legacy
 placeholders and the redundant Enable Sliders gate are omitted. Experiment mode does not
@@ -27,6 +27,12 @@ never executable buttons. Each documented step explains the computer, purpose
 and expected result, with its own Copy button and a Copy all option for the topic.
 Dark backgrounds stay neutral gray; controls, weather and status use restrained
 teal, warm and green/amber accents shared with the panel.
+Desktop layouts place white-light controls side by side. Landscape tablets keep
+large controls; phones put lights first with expandable blinds and a compact
+Room tools section selector. Numeric light
+values can be typed or adjusted with sliders. Enter or leaving a valid field
+applies the selection; Escape cancels. Empty or out-of-range values never dispatch.
+Polling preserves an edit, and the panel still validates its original revision.
 The website bundles the same Cantarell family used by the panel, so its layout
 does not depend on a visitor's installed fonts. Unmodified font files retain
 their [SIL Open Font License](browser/fonts/LICENSE).
