@@ -1061,15 +1061,15 @@ function sync() {
           ? 'Website offline'
           : !available
             ? 'Panel unavailable'
-        : state.mode === 'original'
-          ? 'Legacy'
-          : state.busy
-            ? 'Sending'
-            : state.can_control
-              ? 'Ready'
-              : s.state === 'failed'
-                ? 'Uncertain'
-                : 'Controls unavailable',
+            : state.mode === 'original'
+              ? 'Legacy'
+              : state.busy
+                ? 'Sending'
+                : state.can_control
+                  ? 'Ready'
+                  : s.state === 'failed'
+                    ? 'Uncertain'
+                    : 'Controls unavailable',
   );
   // Colour the header status: ready, waiting (connecting/sending/Legacy) or problem.
   $('connection').dataset.state =
