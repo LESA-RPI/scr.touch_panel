@@ -88,8 +88,8 @@ function tools(root,page){
     const source=el('p',undefined,'subtle');source.id='weather-source';detail.append(source);
   }else if(page==='screen'){
     detail.append(el('h3','Screen saver'));choices(detail,[['Off','idle',0],['1 min','idle',60],['5 min','idle',300],['15 min','idle',900]]);
-    detail.append(el('p','A first touch on the screen saver opens Home without activating a control.','muted'));detail.append(el('h3','Touch panel display'));
-    const row=el('div',undefined,'row');row.append(button('Clock & weather on panel',()=>command('clock_view'),{action:'clock_view'}),button('Blank touch panel',()=>command('blank'),{action:'blank'}),button('Wake to Home',()=>command('home'),{action:'home'}));detail.append(row);detail.append(el('p','Blank shows black pixels; the backlight stays on. Hold one spot on the panel for two seconds to return.','muted'));
+    detail.append(el('p','A first touch on the screen saver opens Home without activating a control. The preview uses the same screen as the idle timer.','muted'));detail.append(el('h3','Touch panel display'));
+    const row=el('div',undefined,'row');row.append(button('Preview screen saver',()=>command('clock_view'),{action:'clock_view'}),button('Blank touch panel',()=>command('blank'),{action:'blank'}),button('Wake to Home',()=>command('home'),{action:'home'}));detail.append(row);detail.append(el('p','Blank shows black pixels; the backlight stays on. Hold one spot on the panel for two seconds to return.','muted'));
     detail.append(el('h3','Blind controls'));choices(detail,[['Locked','blinds_enabled',false],['Unlocked','blinds_enabled',true]]);
     const reason=el('p',undefined,'muted');reason.id='blind-reason';detail.append(reason);
     detail.append(el('p','Changing the lock does not move the blinds.','subtle'));

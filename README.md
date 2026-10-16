@@ -29,6 +29,9 @@ Dark backgrounds stay neutral gray; controls, weather and status use restrained
 teal, warm and green/amber accents shared with the panel.
 Weather readings use aligned labels and values, with dashes for missing readings.
 Earlier forecasts are dated and hide current-day details until fresh data returns.
+Screen & controls can preview the touch panel's screen saver. The idle timer and
+preview open the same screen; its first touch returns to Home without activating
+a control. Date & weather contains clock-format and temperature preferences.
 Desktop layouts place white-light controls side by side. Landscape tablets keep
 large controls; phones put lights first with expandable blinds and a compact
 Room tools section selector. Numeric light
