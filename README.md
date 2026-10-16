@@ -32,6 +32,12 @@ Earlier forecasts are dated and hide current-day details until fresh data return
 Screen & controls can preview the touch panel's screen saver. The idle timer and
 preview open the same screen; its first touch returns to Home without activating
 a control. Date & weather contains clock-format and temperature preferences.
+System & help can restart or shut down the touch panel when its power controls
+are available. Each request requires a confirmation and an acknowledgement that
+recordings and experiments have stopped. The panel validates ownership, restores
+lighting and saves its state before the operating-system action. These controls
+do not stop other room computers or recorders. A restart or shutdown disconnects
+this website; unknown requests are never retried automatically.
 Desktop layouts place white-light controls side by side. Landscape tablets keep
 large controls; phones put lights first with expandable blinds and a compact
 Room tools section selector. Numeric light

@@ -2,6 +2,7 @@
 // Shared state and commands come from the existing panel owner. No device driver lives here.
 const $=id=>document.getElementById(id);
 let state=null,content={guide:[],help:[]},posting=false,unknown=null,view='',dragging=false,rangeRevision=null,chosenHelp=0;
+let powerChoice=null,powerRequest=null;
 const paths={home:'M3 10 12 3l9 7v11h-6v-7H9v7H3Z',white:'M9 18h6m-5 3h4M8 13a6 6 0 1 1 8 0l-1 3H9Z',scenes:'m12 3 10 5-10 5L2 8Zm-10 9 10 5 10-5M2 16l10 5 10-5',experiment:'M9 3h6m-5 0v7L4 20h16l-6-10V3',appearance:'M12 3v2m0 14v2M3 12h2m14 0h2M6 6l1 1m10 10 1 1M6 18l1-1M17 7l1-1M16 12a4 4 0 1 1-4-4',clock:'M8 2v4m8-4v4M3 9h18M3 4h18v18H3Z',screen:'M3 4h18v13H3Zm9 13v4m-5 0h10',system:'M2 12h5l3-8 4 16 3-8h5',about:'M12 11v6m0-10v1M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0',guide:'M12 5v16M3 3l9 2 9-2v16l-9 2-9-2Z',legacy:'M14 3h7v7m0-7L10 14M9 5H3v16h16v-6',off:'M9 18h6m-5 3h4M8 13a6 6 0 0 1-2-5m3-4a6 6 0 0 1 7 9l-1 3H9M3 3l18 18'};
 function el(tag,text,cls){const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n;}
 function icon(name){const n=document.createElementNS('http://www.w3.org/2000/svg','svg');n.setAttribute('viewBox','0 0 24 24');n.setAttribute('aria-hidden','true');for(const shape of content.icons?.[name]||[{tag:'path',attributes:{d:paths[name]||paths.about}}]){const child=document.createElementNS(n.namespaceURI,shape.tag);for(const [key,value] of Object.entries(shape.attributes))child.setAttribute(key,value);n.append(child);}return n;}
@@ -11,21 +12,23 @@ function link(text,hash,kind){const a=el('a',text);a.href='#'+hash;if(kind)a.pre
 function command(action,args={},revision=state?.revision){
   if(posting||unknown||!state?.available)return Promise.resolve(false);
   const id=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');
+  if(action==='power')powerRequest={operation:args.operation,session:state.session,id,accepted:false};
   posting=true;sync();
   return fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json','X-SCR-Token':state.csrf},
     body:JSON.stringify({id,revision,action,arguments:args}),signal:AbortSignal.timeout(5000)}).then(async response=>{
     const reply=await response.json().catch(()=>null);
-    if(!reply&&[400,403,405].includes(response.status)){message('Command was rejected. Refresh the page before trying a new action.');return false;}
-    if(!reply){unknown=id;message('Command receipt unknown. Check the panel; do not repeat the action.');return false;}
-    if(!response.ok||!reply.ok){message(reply.detail||'Command was not accepted.');return false;}
+    if(!reply&&[400,403,405].includes(response.status)){if(action==='power')powerRequest=null;message('Command was rejected. Refresh the page before trying a new action.');return false;}
+    if(!reply){unknown=id;message(action==='power'?'Power request status is unknown. Check the touch panel before trying again.':'Command receipt unknown. Check the panel; do not repeat the action.');return false;}
+    if(!response.ok||!reply.ok){if(action==='power')powerRequest=null;message(reply.detail||'Command was not accepted.');return false;}
+    if(action==='power'){powerRequest.accepted=true;powerChoice=null;if($('power-confirmation'))$('power-confirmation').hidden=true;message(powerRequest.operation==='reboot'?'Restart requested. The panel is preparing to restart.':'Shutdown requested. The panel is preparing to shut down.');return true;}
     message(action==='on'||action==='off'||['cct','channels','preset'].includes(action)?'Sent. Waiting for controller confirmation.':'Accepted by the panel.');return true;
-  }).catch(()=>{unknown=id;message('Command receipt unknown. Check the panel; do not repeat the action.');return false;})
+  }).catch(()=>{unknown=id;message(action==='power'?'Power request status is unknown. Check the touch panel before trying again.':'Command receipt unknown. Check the panel; do not repeat the action.');return false;})
     .finally(async()=>{posting=false;dragging=false;rangeRevision=null;await refresh();sync();});
 }
 function message(text){$('message').textContent=text;$('message').hidden=!text;}
 function route(){return (location.hash.slice(1)|| (location.pathname==='/guide'?'guide':location.pathname==='/tools'?'tools-lighting':'home'));}
 function layout(){
-  const next=route();if(next===view)return;view=next;dragging=false;rangeRevision=null;
+  const next=route();if(next===view)return;view=next;dragging=false;rangeRevision=null;powerChoice=null;
   const root=$('app');root.replaceChildren();
   for(const a of document.querySelectorAll('.header a'))a.setAttribute('aria-current',a.hash.slice(1)===view||(a.hash==='#tools-lighting'&&view.startsWith('tools-'))?'page':'false');
   if(view.startsWith('tools-'))tools(root,view.slice(6));
@@ -95,7 +98,7 @@ function tools(root,page){
     detail.append(el('p','Changing the lock does not move the blinds.','subtle'));
     detail.append(el('h3','Blinds on Home'));choices(detail,[['Show','blinds_display','disabled'],['Hide','blinds_display','hidden']]);
   }else if(page==='system')system(detail);
-  else{detail.append(el('h3','Smart Conference Room'),el('p','Touch panel and browser · Beta mode','muted'),el('p','Built by Diyanko Bhowmik'),el('p','Original contributors are credited in the repository history.','muted'));const a=el('a','github.com/LESA-RPI/scr.touch_panel');a.href='https://github.com/LESA-RPI/scr.touch_panel';detail.append(a,el('p','Icons: Lucide · lucide.dev','subtle'));}
+  else{const version=el('p',undefined,'muted'),build=el('p',undefined,'subtle');version.id='app-version';build.id='app-build';build.hidden=true;detail.append(el('h3','Smart Conference Room'),el('p','Touch panel and browser · Beta mode','muted'),version,build,el('p','Built by Diyanko Bhowmik'),el('p','Original contributors are credited in the repository history.','muted'));const a=el('a','github.com/LESA-RPI/scr.touch_panel');a.href='https://github.com/LESA-RPI/scr.touch_panel';detail.append(a,el('p','Icons: Lucide · lucide.dev','subtle'));}
 }
 let selectedProgramme='Sun';
 function lighting(detail,tab){
@@ -150,9 +153,27 @@ function guide(root,index){
 }
 function system(parent){
   const cards=el('div',undefined,'health-grid');for(const [id,title] of [['panel-health','Panel health'],['room-health','Room connection']]){const card=el('section',undefined,'card'),text=el(id==='panel-health'?'div':'p',undefined,'muted');text.id=id;if(id==='panel-health')for(const key of ['panel-memory','panel-storage','panel-power']){const line=el('p');line.id=key;text.append(line);}card.append(el('h3',title),text);cards.append(card);}parent.append(cards);
+  powerControls(parent);
   const row=el('label',undefined,'help-select');row.append(el('span','Help topic'));const select=el('select');select.setAttribute('aria-label','Help topic');select.id='help-topic';row.append(select);parent.append(row);
   const topics=state?.help||content.help;for(const [i,t] of topics.entries()){const option=el('option',t.title);option.value=i;select.append(option);}select.value=chosenHelp;select.onchange=()=>{chosenHelp=Number(select.value);renderHelp();};const detail=el('div');detail.id='help-detail';parent.append(detail);renderHelp();
   const a=el('a','More diagnostics');a.href=window.SCR_DEMO?'#tools-system':'/diagnostics';parent.append(a);
+}
+function powerControls(parent){
+  const card=el('section',undefined,'card power-controls');card.id='panel-power-controls';card.append(el('h3','Panel power'),el('p','These actions affect this touch panel and its website. They do not stop the room computer or connected recorders. Stop recordings and experiments first.','muted'));
+  const status=el('p','Power controls unavailable.','power-status');status.id='power-status';status.setAttribute('role','status');card.append(status);
+  const actions=el('div',undefined,'row');for(const [operation,label] of [['reboot','Restart panel'],['shutdown','Shut down panel']]){const b=button(label,()=>{if(!powerAllowed(operation))return;powerChoice={operation,revision:state.revision};$('power-confirm-title').textContent=operation==='reboot'?'Restart this panel?':'Shut down this panel?';$('power-confirm-text').textContent=operation==='reboot'?'Controls and this website will be unavailable while the panel restarts.':'Controls and this website will be unavailable until the panel is powered on again.';$('power-ack').checked=false;$('power-confirm').textContent=operation==='reboot'?'Confirm restart':'Confirm shutdown';$('power-confirmation').hidden=false;syncPower();$('power-ack').focus();});b.id='power-'+operation;b.disabled=true;actions.append(b);}card.append(actions);
+  const confirm=el('section',undefined,'power-confirmation');confirm.id='power-confirmation';confirm.hidden=true;confirm.setAttribute('aria-labelledby','power-confirm-title');const title=el('h3');title.id='power-confirm-title';const text=el('p');text.id='power-confirm-text';const ack=el('label',undefined,'power-ack'),input=el('input');input.type='checkbox';input.id='power-ack';input.onchange=syncPower;ack.append(input,el('span','I have stopped any recording or experiment'));
+  const row=el('div',undefined,'row'),cancel=button('Cancel',()=>{const operation=powerChoice?.operation;powerChoice=null;confirm.hidden=true;$('power-'+operation)?.focus();}),submit=button('Confirm',()=>{if(!powerChoice||!input.checked||!powerAllowed(powerChoice.operation))return;const choice=powerChoice;command('power',{operation:choice.operation,confirmed:true},choice.revision);});submit.id='power-confirm';submit.className='power-submit';submit.disabled=true;row.append(cancel,submit);confirm.append(title,text,ack,row);card.append(confirm);parent.append(card);
+}
+function powerAllowed(operation){return !!state?.available&&!!state?.power?.available&&state.power.actions?.[operation]===true&&!posting&&!unknown&&!state.busy&&!state.experiment?.running&&state.mode!=='original'&&state.lights?.state!=='failed'&&!powerRequest?.accepted;}
+function syncPower(){
+  if(!$('panel-power-controls'))return;
+  for(const operation of ['reboot','shutdown'])$('power-'+operation).disabled=!powerAllowed(operation);
+  if($('power-confirm'))$('power-confirm').disabled=!powerChoice||!$('power-ack').checked||!powerAllowed(powerChoice.operation);
+  let text=state?.power?.message||'Power controls unavailable. Ask the room host to check this panel.';
+  if(powerRequest?.accepted&&state?.available&&state.power?.phase==='ready'&&state.session===powerRequest.session)text=powerRequest.operation==='reboot'?'Restart requested. Waiting for this panel to finish.':'Shutdown requested. Waiting for this panel to finish.';
+  if(powerRequest?.accepted&&!state?.available)text=powerRequest.operation==='reboot'?'The panel is restarting. This website will reconnect when it is ready.':'The panel is shutting down. This website will disconnect until the panel is powered on again.';
+  update('power-status',text);
 }
 function renderHelp(){if(!$('help-detail'))return;const topic=(state?.help||content.help)[chosenHelp];$('help-detail').replaceChildren();if(!topic)return;
   const card=el('section',undefined,'card');for(const p of topic.text.split('\n\n'))card.append(el('p',p));$('help-detail').append(card);
@@ -183,8 +204,10 @@ function legacy(root){root.append(el('h2','Legacy view'),el('p','Legacy is the o
 function update(id,text){if($(id)&&$(id).textContent!==String(text))$(id).textContent=text;}
 function sync(){
   const p=state?.preferences||{},s=state?.lights||{},available=state?.available===true;
+  update('app-version','Version '+(state?.app_version||content.app_version||'Beta'));
+  if($('app-build')){const build=state?.build_commit;$('app-build').hidden=!/^[0-9a-f]{7,40}$/.test(build||'');update('app-build',build?'Build '+build.slice(0,7):'');}
   if(state?.palette)window.SCRDesign.apply(state.palette,p.resolved_theme);
-  update('connection',!available?'Panel unavailable':state.mode==='original'?'Legacy':state.busy?'Sending':state.can_control?'Ready':s.state==='failed'?'Uncertain':'Controls unavailable');
+  update('connection',!available&&powerRequest?.accepted?(powerRequest.operation==='reboot'?'Restarting panel':'Shutting down panel'):!available?'Panel unavailable':state.mode==='original'?'Legacy':state.busy?'Sending':state.can_control?'Ready':s.state==='failed'?'Uncertain':'Controls unavailable');
   if($('blind-group')){$('blind-group').hidden=p.blinds_display==='hidden';$('essentials').classList.toggle('single',p.blinds_display==='hidden');$('blind-group').classList.toggle('disabled-group',!state?.blinds?.available);update('blind-status',state?.blinds?.available?'Ready':'Disabled');}
   update('blind-reason',state?.blinds?.reason||(!p.blinds_enabled?'Controls locked in settings':'Controller not connected'));
   for(const b of document.querySelectorAll('[data-action]')){const a=b.dataset.action,lighting=['on','off','cct','preset','channels'].includes(a),session=['start','pause','previous','next','mark'].includes(a);b.disabled=posting||Boolean(unknown)||!available||state.busy||(a==='blind'?!state?.blinds?.available:lighting?!state.can_control:session?!state.can_session:false);}
@@ -201,7 +224,7 @@ function sync(){
   }
   update('schedule','Light from '+minutes(p.light_at??420)+' · Dark from '+minutes(p.dark_at??1140));
   const h=state?.health;if(h){update('panel-memory',h.error?'Resource reading unavailable':`Memory: ${h.ram_available??'—'} / ${h.ram_total??'—'} MiB free`);update('panel-storage',h.error?'':`Storage: ${h.disk_available??'—'} GiB free · CPU: ${h.temperature??'—'} °C`);update('panel-power',h.power?'Power: '+h.power:'Power reading unavailable');$('panel-power')?.classList.toggle('system-warning',h.power?.startsWith('Current')===true);}update('room-health',state?.room_status||'No current room observation.');
-  weather();
+  syncPower();weather();
 }
 function minutes(value){return Math.floor(value/60).toString().padStart(2,'0')+':'+(value%60).toString().padStart(2,'0');}
 function weather(){
@@ -219,7 +242,32 @@ function weather(){
   if($('daylight')){$('daylight').hidden=old;if(!old){const minute=s=>Number(s.slice(11,13))*60+Number(s.slice(14,16)),rise=minute(value.sunrise),set=minute(value.sunset),time=Number(parts.hour)*60+Number(parts.minute);$('daylight-fill').style.width=(Math.max(0,Math.min(1,(time-rise)/(set-rise)))*100)+'%';const remaining=(time<rise?rise:set)-time;update('daylight-label',time>=set?'After sunset · night':`Sun ${time<rise?'rises':'sets'} in ${Math.floor(remaining/60)} h ${remaining%60} min`);update('sunrise','Sunrise '+value.sunrise.slice(11,16));update('sunset','Sunset '+value.sunset.slice(11,16));}}
 }
 let fetching=false;
-async function refresh(){if(fetching||document.hidden)return;fetching=true;try{const response=await fetch('/api/controller',{cache:'no-store',signal:AbortSignal.timeout(3500)});if(!response.ok)throw Error();state=await response.json();if(unknown&&state.receipts?.some(r=>r.id===unknown)){unknown=null;message('The panel received the command. Check its current confirmation below.');}if(state.guide)content={...content,guide:state.guide,help:state.help};if(!view||(!$('help-topic')&&view==='tools-system')||(view.startsWith('guide')&&!$('app').children.length)){view='';layout();}sync();}catch(_){if(state)state.available=false;sync();}finally{fetching=false;}}
+async function refresh(){
+  if(fetching||document.hidden)return;
+  fetching=true;
+  try{
+    const response=await fetch('/api/controller',{cache:'no-store',signal:AbortSignal.timeout(3500)});
+    if(!response.ok)throw Error();
+    state=await response.json();
+    const receipt=unknown&&state.receipts?.find(r=>r.id===unknown);
+    if(receipt){
+      if(powerRequest?.id===unknown){
+        if(receipt.ok){powerRequest.accepted=true;powerChoice=null;if($('power-confirmation'))$('power-confirmation').hidden=true;message('The panel received the power request. Check its progress below.');}
+        else{powerRequest=null;message(receipt.detail||'Power request was not accepted.');}
+      }else message('The panel received the command. Check its current confirmation below.');
+      unknown=null;
+    }
+    if(powerRequest&&state.power?.phase==='failed'){powerRequest=null;message(state.power.message||'Power operation stopped. The panel remains available.');}
+    if(powerRequest?.accepted&&state.available===true&&state.session!==powerRequest.session&&state.power?.phase==='ready'){const operation=powerRequest.operation;powerRequest=null;message(operation==='reboot'?'Panel restarted. This website is connected again.':'The panel is back online. This website is connected again.');}
+    if(state.guide)content={...content,guide:state.guide,help:state.help};
+    if(!view||(!$('help-topic')&&view==='tools-system')||(view.startsWith('guide')&&!$('app').children.length)){view='';layout();}
+    sync();
+  }catch(_){
+    if(state)state.available=false;
+    if(powerRequest?.accepted)message(powerRequest.operation==='reboot'?'The panel is restarting. This website will reconnect when it is ready.':'The panel is shutting down. This website will disconnect until the panel is powered on again.');
+    sync();
+  }finally{fetching=false;}
+}
 document.addEventListener('click',event=>{const a=event.target.closest('a[href="#home"]');if(a&&state?.available&&state.mode!=='room'){event.preventDefault();command('home').then(ok=>{if(ok)location.hash='home';});}});
 window.addEventListener('hashchange',layout);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
 window.addEventListener('scr-preview-change',()=>{const name=window.SCR_PREVIEW?.read().programme?.name;if(name)selectedProgramme=name;view='';layout();});

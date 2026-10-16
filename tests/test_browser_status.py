@@ -189,3 +189,20 @@ def test_gateway_requires_exact_origin_nonce_and_bounded_json_without_polling_de
     for method in ('PUT','DELETE','PATCH','OPTIONS'):
         assert request(server,method,'/api/command',headers,payload)[0]==405
     assert len(gateway.calls)==1
+
+
+@pytest.mark.parametrize('operation', ['reboot', 'shutdown'])
+def test_gateway_relays_confirmed_panel_power_to_its_existing_owner(server, operation):
+    class Owner:
+        def __init__(self):self.calls=[]
+        def exchange(self, value):
+            self.calls.append(value)
+            return {'ok':True,'code':202,'id':value['id']}
+    owner=Owner();server.controller=owner;server.control_nonce='power-test-nonce'
+    value={'id':'confirmed-panel-power-0001','revision':'current-owner-revision',
+           'action':'power','arguments':{'operation':operation,'confirmed':True}}
+    headers={'Origin':'http://'+server.expected_host,'X-SCR-Token':'power-test-nonce',
+             'Content-Type':'application/json'}
+    code,body,_=request(server,'POST','/api/command',headers,json.dumps(value))
+    assert code==202 and json.loads(body)['id']==value['id']
+    assert owner.calls==[value]
