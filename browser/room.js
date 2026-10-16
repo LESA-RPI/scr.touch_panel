@@ -116,7 +116,9 @@ function system(parent){
 function renderHelp(){if(!$('help-detail'))return;const topic=(state?.help||content.help)[chosenHelp];$('help-detail').replaceChildren();if(!topic)return;
   const card=el('section',undefined,'card');for(const p of topic.text.split('\n\n'))card.append(el('p',p));$('help-detail').append(card);
   if(topic.commands){$('help-detail').append(el('p','Room host reference · copy only. These commands are never run by this website.','subtle'));
-    const block=el('div',undefined,'command'),head=el('div',undefined,'command-head'),pre=el('pre'),code=el('code',topic.commands);pre.append(code);head.append(el('span',topic.title+' · commands'),button('Copy commands',async event=>{
+    const block=el('div',undefined,'command'),head=el('div',undefined,'command-head'),pre=el('pre'),code=el('code');
+    for(const token of topic.command_tokens||[{text:topic.commands,kind:'text'}])code.append(el('span',token.text,'syntax-'+token.kind));
+    pre.append(code);head.append(el('span',topic.title+' · commands'),button('Copy commands',async event=>{
       const b=event.currentTarget;try{await copy(topic.commands);b.textContent='Copied';}catch(_){b.textContent='Select text to copy';}setTimeout(()=>{b.textContent='Copy commands';},1800);
     }));block.append(head,pre);$('help-detail').append(block);
   }

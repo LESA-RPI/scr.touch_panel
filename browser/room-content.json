@@ -662,27 +662,256 @@
     {
       "title": "Lighting",
       "text": "Ready means the lighting adapter is available. Sending means a request is awaiting readback.\n\nIf Uncertain appears, stop changing lights and ask the room host. A failed response can leave the result unknown.\n\nIf Offline appears, check the panel network cable and the room computer. Legacy also needs the room services.",
-      "commands": ""
+      "commands": "",
+      "command_tokens": []
     },
     {
       "title": "Power",
       "text": "An undervoltage warning means the Pi supply voltage is too low. This can slow the panel and affect storage reliability.\n\nCheck the supply, cable and connector. A separately powered LCD does not rule out a Pi power problem.\n\nDo not hide the warning or keep power-cycling to clear it. Shut down normally before changing power.",
-      "commands": "vcgencmd get_throttled"
+      "commands": "vcgencmd get_throttled",
+      "command_tokens": [
+        {
+          "text": "vcgencmd",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "get_throttled",
+          "kind": "text"
+        }
+      ]
     },
     {
       "title": "Ubuntu checks",
       "text": "Use a Terminal on the Ubuntu room computer. These commands inspect state; they do not start devices.\n\nROS owns room controls. Status owns the TV display and its clients. Session presence alone does not prove health.",
-      "commands": "hostname\nuptime\nfree -m\ndf -h /\ntmux list-sessions\nsource /opt/ros/indigo/setup.bash\nsource ~/catkin_ws/devel/setup.bash\ntimeout 10 rosservice list"
+      "commands": "hostname\nuptime\nfree -m\ndf -h /\ntmux list-sessions\nsource /opt/ros/indigo/setup.bash\nsource ~/catkin_ws/devel/setup.bash\ntimeout 10 rosservice list",
+      "command_tokens": [
+        {
+          "text": "hostname",
+          "kind": "command"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "uptime",
+          "kind": "command"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "free",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "-m",
+          "kind": "option"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "df",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "-h",
+          "kind": "option"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "/",
+          "kind": "path"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "tmux",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "list-sessions",
+          "kind": "text"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "source",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "/opt/ros/indigo/setup.bash",
+          "kind": "path"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "source",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "~/catkin_ws/devel/setup.bash",
+          "kind": "path"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "timeout",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "10",
+          "kind": "number"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "rosservice",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "list",
+          "kind": "text"
+        }
+      ]
     },
     {
       "title": "Start services",
       "text": "Room host only: stop experiments and check tmux sessions first. startROS.py replaces the ROS session; startStatus.py replaces Status. Do not use them as a quick connection fix.\n\nInstalled paths below are instructions only, not automatic recovery.",
-      "commands": "cd ~/catkin_ws/src/scr_control\npython startROS.py\n\ncd ~/scr.status_display\npython startStatus.py"
+      "commands": "cd ~/catkin_ws/src/scr_control\npython startROS.py\n\ncd ~/scr.status_display\npython startStatus.py",
+      "command_tokens": [
+        {
+          "text": "cd",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "~/catkin_ws/src/scr_control",
+          "kind": "path"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "python",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "startROS.py",
+          "kind": "path"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "cd",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "~/scr.status_display",
+          "kind": "path"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "python",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "startStatus.py",
+          "kind": "path"
+        }
+      ]
     },
     {
       "title": "Restart computer",
       "text": "Room host only: stop recordings and coordinate with other room users. Restarting interrupts shared controls and feeds.\n\nUse the Ubuntu Restart action or its Terminal command below. After the desktop and network return, check ROS and Status; service autostart is not verified.",
-      "commands": "sudo reboot"
+      "commands": "sudo reboot",
+      "command_tokens": [
+        {
+          "text": "sudo",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "reboot",
+          "kind": "command"
+        }
+      ]
     }
   ]
 }
