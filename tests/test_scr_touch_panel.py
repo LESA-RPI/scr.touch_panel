@@ -79,6 +79,21 @@ def test_lost_response_and_external_changes_block_retries_and_restore():
     assert len(room.writes) == 1
 
 
+def test_external_change_before_first_write_never_reports_successful_release():
+    room = Room()
+    lights = adapter.Lights(room.call)
+    lights.acquire()
+    room.state = dict.fromkeys(room.state, adapter.setter_words(adapter.PRESETS['Dul']))
+    with pytest.raises(ValueError, match='ownership lost'):
+        lights.apply('channels', {'values': list(adapter.PRESETS['Sat'])})
+    for unused in range(2):
+        with pytest.raises(ValueError, match='unknown'):
+            lights.release()
+        with pytest.raises(ValueError, match='unavailable'):
+            lights.apply('channels', {'values': list(adapter.PRESETS['Sat'])})
+    assert not room.writes and lights.failed and lights.baseline is not None
+
+
 def test_restore_read_timeout_latches_failure_and_expired_lease_prevents_write():
     room = Room()
     lights = adapter.Lights(room.call)

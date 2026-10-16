@@ -114,6 +114,8 @@ class Lights(object):
             raise
 
     def release(self):
+        if self.failed:
+            raise ValueError('Outcome unknown; no automatic restore or retry. Inspect the retained receipt')
         if self.baseline is None or not self.changed:
             self.baseline = self.current = None
             return {'state': 'released', 'restored': True, 'detail': 'No light settings changed'}

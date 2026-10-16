@@ -5,6 +5,7 @@ import argparse
 import datetime
 import json
 import math
+import logging
 try:
     from urllib.request import urlopen
     from urllib.parse import urlencode
@@ -151,4 +152,5 @@ if __name__ == '__main__':
     try:
         print(json.dumps(fetch(args.latitude, args.longitude, args.timezone)))
     except Exception:
+        logging.exception('Weather refresh failed')
         print(json.dumps({'error': 'Weather unavailable; the room controls still work.'}))

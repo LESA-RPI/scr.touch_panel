@@ -1301,8 +1301,7 @@ class Panel(object):
         command = [sys.executable, '-B', os.path.join(os.path.dirname(__file__), 'weather.py'),
                    str(self.args.weather_latitude), str(self.args.weather_longitude), self.args.timezone]
         try:
-            self.weather_worker = subprocess.Popen(command, close_fds=True, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-                                                   if hasattr(subprocess, 'DEVNULL') else subprocess.PIPE)
+            self.weather_worker = subprocess.Popen(command, close_fds=True, stdout=subprocess.PIPE)
         except OSError:
             self.weather_text.set('Weather unavailable. Room controls still work.')
 
