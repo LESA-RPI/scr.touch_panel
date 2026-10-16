@@ -4,6 +4,7 @@ set -eu
 config=${1:-"$HOME/.config/scr-panel/deployment.env"}
 test -r "$config" || { echo "Missing private deployment configuration: $config" >&2; exit 1; }
 . "$config"
+umask 077
 : "${SCR_CLASSIC_DIR:?Set the installed original checkout}"
 : "${SCR_ROS_SETUP:?Set the installed ROS workspace setup}"
 : "${SCR_PANEL_MASTER:?Set the approved remote ROS master}"
@@ -12,10 +13,10 @@ panel_python=${SCR_PANEL_PYTHON:-/usr/bin/python3}
 adapter_python=${SCR_ADAPTER_PYTHON:-$classic_python}
 start_mode=${SCR_START_MODE:-room}
 case "$start_mode" in room|original) ;; *) echo 'SCR_START_MODE must be room or original' >&2; exit 1 ;; esac
-# Validate Beta before starting Legacy or sourcing the room environment. The ROS
+# Validate the touch panel before starting Legacy or sourcing the room environment. The ROS
 # adapter keeps its independently configured interpreter.
-"$panel_python" -c 'import sys; sys.version_info >= (3, 11) or sys.exit("Beta requires Python 3.11 or later"); import tkinter; from PIL import Image' || {
-    echo 'Beta needs Python 3.11+, Tk and Pillow. Check SCR_PANEL_PYTHON.' >&2
+"$panel_python" -c 'import sys; sys.version_info >= (3, 11) or sys.exit("The touch panel requires Python 3.11 or later"); import tkinter; from PIL import Image' || {
+    echo 'The touch panel needs Python 3.11+, Tk and Pillow. Check SCR_PANEL_PYTHON.' >&2
     exit 1
 }
 SCR_CLASSIC_DIR=$(cd "$SCR_CLASSIC_DIR" && pwd -P)
@@ -24,6 +25,7 @@ export DISPLAY=${DISPLAY:-:0}
 export PYTHONDONTWRITEBYTECODE=1
 cache="$HOME/.cache/scr-panel"
 mkdir -p "$cache/ros"
+chmod 700 "$cache" "$cache/ros"
 exec 9>"$cache/launcher.lock"
 flock -n 9 || exit 0
 # Installed ROS setup scripts can reference unset variables.
