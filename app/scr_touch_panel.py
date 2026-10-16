@@ -1420,9 +1420,8 @@ class Panel(object):
     def system_contents(self):
         self.label(self.body, 'System & help', 27).pack(anchor='w', pady=(0, 8))
         self.label(self.body, 'Read-only checks. Available services may not be producing sensor data.', 15, True).pack(anchor='w', pady=(0, 10))
-        overview = tk.Frame(self.body, bg=self.bg, height=160)
+        overview = tk.Frame(self.body, bg=self.bg)
         overview.pack(fill='x', pady=(0, 12))
-        overview.grid_propagate(False)
         overview.columnconfigure(0, weight=1, uniform='system')
         overview.columnconfigure(1, minsize=12)
         overview.columnconfigure(2, weight=1, uniform='system')
@@ -1617,7 +1616,8 @@ class Panel(object):
         if getattr(self, 'advanced_page', None) == 'system':
             self.health_details.config(text='Memory: %d / %d MiB free\nStorage: %.1f GiB free · CPU: %.1f C' %
                 (h['ram_available'], h['ram_total'], h['disk_available'], h['temperature']))
-            self.power_label.config(text='Power: ' + h['power'])
+            self.power_label.config(text='Power: ' + h['power'],
+                                    fg=THEMES[self.theme]['warning'] if h['power'].startswith('Current') else self.muted)
             self.services_label.config(text=self.room_status)
             return
         self.health_rows['ram'][0].config(text='%d / %d MiB available' % (h['ram_available'], h['ram_total']))
