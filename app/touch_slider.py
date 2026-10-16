@@ -20,6 +20,8 @@ class TouchSlider(tk.Canvas):
         self.border, self.ink = border, ink
         self.command = self.on_start = self.on_end = lambda *args: None
         self.pressed = False
+        self.items = None
+        self.drawn = None
         self.trace = variable.trace_add('write', lambda *args: self.draw())
         self.bind('<Configure>', lambda event: self.draw())
         self.bind('<ButtonPress-1>', self.press)
@@ -43,11 +45,22 @@ class TouchSlider(tk.Canvas):
     config = configure
 
     def draw(self):
-        self.delete('all')
         width, height = self.winfo_width(), self.winfo_height()
         if min(width, height) < 2:
             return
         disabled = self.cget('state') == 'disabled'
+        focused = self.focus_get() == self
+        state = (width, height, self.variable.get(), disabled, focused, self.pressed,
+                 self.track, self.accent, self.border, self.ink, self.cget('bg'))
+        if state == self.drawn:
+            return
+        self.drawn = state
+        if self.items is None:
+            self.items = (self.create_line(0, 0, 0, 0, width=6, capstyle='round'),
+                          self.create_line(0, 0, 0, 0, width=6, capstyle='round'),
+                          self.create_rectangle(0, 0, 0, 0),
+                          self.create_line(0, 0, 0, 0), self.create_line(0, 0, 0, 0))
+        track, fill, thumb, *grips = self.items
         fraction = (self.variable.get() - self.start) / float(self.end - self.start)
         fraction = max(0, min(1, fraction))
         low, high = 26, max(27, (height if self.vertical else width) - 26)
@@ -55,19 +68,21 @@ class TouchSlider(tk.Canvas):
         cross = (width if self.vertical else height) / 2
         def coords(a, b):
             return (cross, a, cross, b) if self.vertical else (a, cross, b, cross)
-        self.create_line(*coords(low, high), fill=self.track, width=6, capstyle='round')
-        if not disabled and position > low:
-            self.create_line(*coords(low, position), fill=self.accent, width=6, capstyle='round')
+        self.coords(track, *coords(low, high))
+        self.itemconfigure(track, fill=self.track)
+        self.coords(fill, *coords(low, position))
+        self.itemconfigure(fill, fill=self.accent,
+                           state='normal' if not disabled and position > low else 'hidden')
         x, y = (cross, position) if self.vertical else (position, cross)
-        focused = self.focus_get() == self
         edge = self.border if disabled else self.accent if self.pressed or focused else self.ink
         # A 44px grip remains inside the 48px touch area, including at either endpoint.
-        self.create_rectangle(x-22, y-18, x+22, y+18,
-                              fill=self.track if not self.pressed or disabled else self.accent,
-                              outline=edge, width=2 if self.pressed or focused else 1)
+        self.coords(thumb, x-22, y-18, x+22, y+18)
+        self.itemconfigure(thumb, fill=self.track if not self.pressed or disabled else self.accent,
+                           outline=edge, width=2 if self.pressed or focused else 1)
         grip = self.cget('bg') if self.pressed and not disabled else self.border if disabled else self.ink
-        for offset in (-3, 3):
-            self.create_line(x+offset, y-6, x+offset, y+6, fill=grip, width=1)
+        for item, offset in zip(grips, (-3, 3)):
+            self.coords(item, x+offset, y-6, x+offset, y+6)
+            self.itemconfigure(item, fill=grip)
 
     def set_pointer(self, event):
         length = self.winfo_height() if self.vertical else self.winfo_width()
