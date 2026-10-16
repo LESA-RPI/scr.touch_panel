@@ -23,11 +23,11 @@ function command(action,args={},revision=state?.revision){
     .finally(async()=>{posting=false;dragging=false;rangeRevision=null;await refresh();sync();});
 }
 function message(text){$('message').textContent=text;$('message').hidden=!text;}
-function route(){return (location.hash.slice(1)|| (location.pathname==='/guide'?'guide':location.pathname==='/tools'?'tools-white':'home'));}
+function route(){return (location.hash.slice(1)|| (location.pathname==='/guide'?'guide':location.pathname==='/tools'?'tools-lighting':'home'));}
 function layout(){
   const next=route();if(next===view)return;view=next;dragging=false;rangeRevision=null;
   const root=$('app');root.replaceChildren();
-  for(const a of document.querySelectorAll('.header a'))a.setAttribute('aria-current',a.hash.slice(1)===view?'page':'false');
+  for(const a of document.querySelectorAll('.header a'))a.setAttribute('aria-current',a.hash.slice(1)===view||(a.hash==='#tools-lighting'&&view.startsWith('tools-'))?'page':'false');
   if(view.startsWith('tools-'))tools(root,view.slice(6));
   else if(view.startsWith('guide'))guide(root,view==='guide'?-1:Number(view.split('-')[1]));
   else if(view==='legacy')legacy(root);else home(root);
@@ -37,13 +37,13 @@ function feedback(parent){const box=el('div',undefined,'feedback');const current
 function home(root){
   const row=el('div',undefined,'room-layout'),left=el('section'),right=el('section');
   const groups=el('div',undefined,'essential-grid');groups.id='essentials';
-  for(const [title,caption,disabled] of [['Lights','Whole room',false],['Blinds','Unavailable',true]]){
-    const group=el('div',undefined,'essential-group'+(disabled?' disabled-group':''));group.id=disabled?'blind-group':'light-group';
+  for(const [title,caption,isBlind] of [['Lights','Whole room',false],['Blinds','Whole room',true]]){
+    const group=el('div',undefined,'essential-group');group.id=isBlind?'blind-group':'light-group';
     group.append(el('h2',title),el('p',caption,'muted'));
-    for(const label of disabled?['Open slats','Close & lower']:['Lights on','Lights off']){
-      const action=label==='Lights on'?'on':'off';const b=button(label,()=>command(action),{icon:disabled?null:action==='on'?'white':'off',action:disabled?null:action});
-      if(disabled)b.disabled=true;group.append(b);
-    }group.append(el('small',disabled?'Disabled':'Standard room lighting'));groups.append(group);
+    for(const [name,label] of isBlind?content.blind_actions||[['lift','Lift blinds'],['open','Open slats'],['close','Close & lower']]:[['on','Lights on'],['off','Lights off']]){
+      const action=isBlind?'blind':name,b=button(label,()=>command(action,isBlind?{name}:{}),{icon:isBlind?null:action==='on'?'white':'off',action});
+      group.append(b);
+    }const note=el('small',isBlind?'Disabled in settings':'Standard room lighting');if(isBlind)note.id='blind-status';group.append(note);groups.append(group);
   }left.append(groups);feedback(left);
   right.append(el('p','Troy, NY','eyebrow'));const clock=el('p',undefined,'clock');clock.id='clock';const date=el('p',undefined,'date');date.id='date';right.append(clock,date);
   right.append(el('p','OUTDOOR WEATHER','eyebrow'));
@@ -52,23 +52,20 @@ function home(root){
   const day=el('div',undefined,'daylight');day.id='daylight';const label=el('p');label.id='daylight-label';const track=el('div',undefined,'track'),fill=el('div');fill.id='daylight-fill';track.append(fill);const times=el('div',undefined,'daylight-times');
   const rise=el('span'),set=el('span');rise.id='sunrise';set.id='sunset';times.append(rise,set);day.append(label,track,times);right.append(day);
   const details=el('details'),summary=el('summary','Weather details'),source=el('p',undefined,'subtle');source.id='weather-source';details.append(summary,source);right.append(details);
-  row.append(left,right);root.append(row);const nav=el('nav',undefined,'footer-tools');nav.append(link('Room tools','tools-white','tools'),link('Demo & guide','guide','guide'));root.append(nav);
+  row.append(left,right);root.append(row);const nav=el('nav',undefined,'footer-tools');nav.append(link('Room tools','tools-lighting','tools'),link('Demo & guide','guide','guide'));root.append(nav);
 }
-const pages=[['White light','white'],['Scenes & channels','scenes'],['Experiment mode','experiment'],['Appearance','appearance'],['Date & weather','clock'],['Screen','screen'],['System & help','system'],['About','about']];
+const pages=[['Lighting','lighting'],['Experiment mode','experiment'],['Appearance','appearance'],['Date & weather','clock'],['Screen & controls','screen'],['System & help','system'],['About','about']];
 function choices(parent,items){const row=el('div',undefined,'row');for(const [label,action,value] of items)row.append(button(label,()=>command(action,{value}),{action,choice:[action,value]}));parent.append(row);}
 function tools(root,page){
-  if(!pages.some(p=>p[1]===page))page='white';
+  let tab=page.startsWith('lighting-')?page.slice(9):page==='scenes'?'channels':'white';
+  if(!['white','scenes','programmes','channels'].includes(tab))tab='white';
+  if(page.startsWith('lighting-')||['white','scenes'].includes(page))page='lighting';
+  if(!pages.some(p=>p[1]===page))page='lighting';
   const shell=el('div',undefined,'tools-layout'),nav=el('nav',undefined,'sidebar'),detail=el('section');nav.setAttribute('aria-label','Room tools');nav.append(el('h2','Room tools'));
   for(const [label,key] of pages){const a=link(label,'tools-'+key,key);if(key===page)a.setAttribute('aria-current','page');nav.append(a);}
   shell.append(nav,detail);root.append(shell);detail.append(el('h2',pages.find(p=>p[1]===page)[0]));
-  if(page==='white'){
-    detail.append(el('p','Selected values apply after your touch settles.','muted'));
-    range(detail,'Colour temperature','cct',1600,10000,100,'K');range(detail,'Light level','intensity',0,1900,25,'controller units');feedback(detail);
-  }else if(page==='scenes'){
-    detail.append(el('p','Room scenes keep their Legacy names.','muted'));const row=el('div',undefined,'row');
-    for(const name of ['Fid','Sat','Dul']){const b=button(name,()=>command('preset',{name}),{action:'preset'});b.dataset.preset=name;row.append(b);}detail.append(row);
-    const grid=el('div',undefined,'channel-grid');for(const [i,label] of ['Blue 1','Blue 2','Blue 3','Lime','Amber','Orange','Red 1','Red 2'].entries())range(grid,label,'channel-'+i,0,100,1,'%');detail.append(grid);feedback(detail);
-  }else if(page==='experiment'){
+  if(page==='lighting')lighting(detail,tab);
+  else if(page==='experiment'){
     detail.append(el('p','Recorder not connected · instructions and panel annotations only','muted'));
     const card=el('div',undefined,'card'),title=el('h3'),stage=el('p',undefined,'session-stage'),timer=el('p',undefined,'timer'),status=el('p',undefined,'muted');title.id='profile-title';stage.id='instruction';timer.id='elapsed';status.id='session-state';card.append(title,stage,timer,status);detail.append(card);
     const row=el('div',undefined,'row');row.append(button('Start instructions',()=>command('start'),{action:'start',primary:true}),button('Pause',()=>command('pause'),{action:'pause'}));detail.append(row);
@@ -88,9 +85,40 @@ function tools(root,page){
     detail.append(el('h3','Screen saver'));choices(detail,[['Off','idle',0],['1 min','idle',60],['5 min','idle',300],['15 min','idle',900]]);
     detail.append(el('p','A first touch on the screen saver opens Home without activating a control.','muted'));detail.append(el('h3','Touch panel display'));
     const row=el('div',undefined,'row');row.append(button('Clock & weather on panel',()=>command('clock_view'),{action:'clock_view'}),button('Blank touch panel',()=>command('blank'),{action:'blank'}),button('Wake to Home',()=>command('home'),{action:'home'}));detail.append(row);detail.append(el('p','Blank shows black pixels; the backlight stays on. Hold one spot on the panel for two seconds to return.','muted'));
-    detail.append(el('h3','Blinds on Home'));choices(detail,[['Show disabled','blinds_display','disabled'],['Hide','blinds_display','hidden']]);
+    detail.append(el('h3','Blind movement'));choices(detail,[['Disabled','blinds_enabled',false],['Enabled','blinds_enabled',true]]);
+    detail.append(el('p','Changing this setting does not move the blinds. A controller is required.','muted'));
+    detail.append(el('h3','Blinds on Home'));choices(detail,[['Show','blinds_display','disabled'],['Hide','blinds_display','hidden']]);
   }else if(page==='system')system(detail);
   else{detail.append(el('h3','Smart Conference Room'),el('p','Touch panel and browser · Beta mode','muted'),el('p','Built by Diyanko Bhowmik'),el('p','Original contributors are credited in the repository history.','muted'));const a=el('a','github.com/LESA-RPI/scr.touch_panel');a.href='https://github.com/LESA-RPI/scr.touch_panel';detail.append(a,el('p','Icons: Lucide · lucide.dev','subtle'));}
+}
+let selectedProgramme='Sun';
+function lighting(detail,tab){
+  const tabs=el('nav',undefined,'lighting-tabs');tabs.setAttribute('aria-label','Lighting');
+  for(const [label,key] of content.lighting_tabs||[['White light','white'],['Scenes','scenes'],['Programmes','programmes'],['Channels','channels']]){
+    const a=link(label,'tools-lighting-'+key);if(key===tab)a.setAttribute('aria-current','page');tabs.append(a);
+  }detail.append(tabs);
+  if(tab==='scenes'){
+    detail.append(el('p','Original scene names and mixtures from Legacy.','muted'));
+    const grid=el('div',undefined,'scene-grid');
+    for(const scene of content.scenes||[]){
+      const card=el('section',undefined,'card'),b=scene.id==='Gradient'?button('Fixture control not connected',()=>{}):button('Apply scene',()=>command('preset',{name:scene.id}),{action:'preset'});
+      if(scene.id==='Gradient')b.disabled=true;else b.dataset.preset=scene.id;
+      card.append(el('h3',scene.label),el('p',scene.detail,'muted'),b);grid.append(card);
+    }detail.append(grid);feedback(detail);
+  }else if(tab==='programmes'){
+    detail.append(el('p','Choose a finite light cycle from Legacy.','muted'));
+    const row=el('div',undefined,'row'),items=content.programmes||[];
+    for(const item of items){const b=button(item.label+' · '+item.subtitle,()=>{selectedProgramme=item.id;view='';layout();});b.setAttribute('aria-pressed',String(item.id===selectedProgramme));b.classList.toggle('selected',item.id===selectedProgramme);row.append(b);}detail.append(row);
+    const item=items.find(p=>p.id===selectedProgramme);if(item){const card=el('section',undefined,'card');card.append(el('h3',item.subtitle),el('p',item.detail),el('p','These are light demonstrations, independent of the clock and weather.','muted'));detail.append(card);}
+    detail.append(el('p','Programme runner not connected · no programme is running','subtle'));
+    const actions=el('div',undefined,'row');for(const label of ['Start programme','Stop programme']){const b=button(label,()=>{});b.disabled=true;actions.append(b);}detail.append(actions);
+  }else if(tab==='channels'){
+    detail.append(el('p','Adjust the eight room-wide channel percentages.','muted'));
+    const grid=el('div',undefined,'channel-grid');for(const [i,label] of ['Blue 1','Blue 2','Blue 3','Lime','Amber','Orange','Red 1','Red 2'].entries())range(grid,label,'channel-'+i,0,100,1,'%');detail.append(grid);feedback(detail);
+  }else{
+    detail.append(el('p','Selected values apply after your touch settles.','muted'));
+    range(detail,'Colour temperature','cct',1600,10000,100,'K');range(detail,'Light level','intensity',0,1900,25,'controller units');feedback(detail);
+  }
 }
 function range(parent,title,key,low,high,step,unit){
   const box=el('section',undefined,'range-card'),heading=el('h3',title);const row=el('div',undefined,'range-value'),output=el('output');output.id='value-'+key;const units=el('small',unit),steps=el('div',undefined,'steps');
@@ -133,8 +161,8 @@ function sync(){
   const p=state?.preferences||{},s=state?.lights||{},available=state?.available===true;
   if(state?.palette)window.SCRDesign.apply(state.palette,p.resolved_theme);
   update('connection',!available?'Panel unavailable':state.mode==='original'?'Legacy':state.busy?'Sending':state.can_control?'Ready':s.state==='failed'?'Uncertain':'Controls unavailable');
-  if($('blind-group')){$('blind-group').hidden=p.blinds_display==='hidden';$('essentials').classList.toggle('single',p.blinds_display==='hidden');}
-  for(const b of document.querySelectorAll('[data-action]')){const a=b.dataset.action,lighting=['on','off','cct','preset','channels'].includes(a),session=['start','pause','previous','next','mark'].includes(a);b.disabled=posting||Boolean(unknown)||!available||(lighting?!state.can_control:session?!state.can_session:state.busy);}
+  if($('blind-group')){$('blind-group').hidden=p.blinds_display==='hidden';$('essentials').classList.toggle('single',p.blinds_display==='hidden');$('blind-group').classList.toggle('disabled-group',!state?.blinds?.available);update('blind-status',state?.blinds?.detail||'Controller not connected');}
+  for(const b of document.querySelectorAll('[data-action]')){const a=b.dataset.action,lighting=['on','off','cct','preset','channels'].includes(a),session=['start','pause','previous','next','mark'].includes(a);b.disabled=posting||Boolean(unknown)||!available||state.busy||(a==='blind'?!state?.blinds?.available:lighting?!state.can_control:session?!state.can_session:false);}
   for(const input of document.querySelectorAll('[data-range]')){input.disabled=posting||Boolean(unknown)||!available||!state.can_control;if(!dragging){const k=input.dataset.range,value=k.startsWith('channel')?s.channels?.[Number(k.split('-')[1])]:s[k];if(value!==undefined){input.value=value;update('value-'+k,value);}}}
   for(const b of document.querySelectorAll('[data-choice]'))b.classList.toggle('selected',String(p[b.dataset.choice])===b.dataset.value);
   for(const b of document.querySelectorAll('[data-action=on],[data-action=off]'))b.classList.toggle('selected',available&&!posting&&!unknown&&s.power===b.dataset.action&&state.can_control);

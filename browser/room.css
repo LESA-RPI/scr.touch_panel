@@ -13,3 +13,12 @@ pre code{font-family:ui-monospace,'DejaVu Sans Mono',Consolas,monospace}
 .syntax-path,.syntax-string{color:var(--accent)}
 .syntax-comment{color:var(--muted);font-style:italic}
 button.selected:disabled,button.primary:disabled{color:var(--selected-ink)}
+.lighting-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:12px 0 16px}
+.lighting-tabs a{display:flex;align-items:center;justify-content:center;min-height:54px;padding:10px 8px;text-decoration:none;background:var(--control);border:1px solid var(--border)}
+.lighting-tabs a[aria-current=page]{background:var(--accent);color:var(--selected-ink);border-color:var(--accent)}
+.scene-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}
+.scene-grid .card{display:flex;flex-direction:column;gap:8px;padding:16px}
+.scene-grid button{margin-top:auto;width:100%}
+#blind-group button{min-height:65px;font-size:20px}
+.essential-group button{font-size:22px}
+@media(max-width:1000px){.lighting-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}.scene-grid{grid-template-columns:1fr}}

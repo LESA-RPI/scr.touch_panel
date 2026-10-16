@@ -71,6 +71,26 @@
         }
       }
     ],
+    "lighting": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M9 18h6"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M10 22h4"
+        }
+      }
+    ],
     "white": [
       {
         "tag": "path",
@@ -640,16 +660,84 @@
       "warning": "#f2f2f2"
     }
   },
+  "lighting_tabs": [
+    [
+      "White light",
+      "white"
+    ],
+    [
+      "Scenes",
+      "scenes"
+    ],
+    [
+      "Programmes",
+      "programmes"
+    ],
+    [
+      "Channels",
+      "channels"
+    ]
+  ],
+  "scenes": [
+    {
+      "id": "Fid",
+      "label": "Fid",
+      "detail": "Original eight-channel room mixture."
+    },
+    {
+      "id": "Sat",
+      "label": "Sat",
+      "detail": "Original eight-channel room mixture."
+    },
+    {
+      "id": "Dul",
+      "label": "Dul",
+      "detail": "Original eight-channel room mixture."
+    },
+    {
+      "id": "Gradient",
+      "label": "Gradient",
+      "detail": "A static colour pattern across individual fixtures."
+    }
+  ],
+  "programmes": [
+    {
+      "id": "Sun",
+      "label": "Sun",
+      "subtitle": "Travelling light",
+      "detail": "Colour temperature and light level move through fixture groups in sequence."
+    },
+    {
+      "id": "Circ",
+      "label": "Circ",
+      "subtitle": "Whole-room cycle",
+      "detail": "All fixtures follow the same colour-temperature and light-level cycle together."
+    }
+  ],
+  "blind_actions": [
+    [
+      "lift",
+      "Lift blinds"
+    ],
+    [
+      "open",
+      "Open slats"
+    ],
+    [
+      "close",
+      "Close & lower"
+    ]
+  ],
   "guide": [
     {
       "title": "Lighting",
       "icon": "on",
-      "text": "Use Lights on and Lights off on Home for everyday lighting.\n\nRoom tools → White light adjusts warmth and level. Scenes & channels offers the room’s saved lighting mixtures.\n\nA highlighted button shows the last confirmed setting. If a result is uncertain, stop and ask the room host."
+      "text": "Use Lights on and Lights off on Home for everyday lighting.\n\nRoom tools → Lighting brings White light, Scenes, Programmes and Channels together. Opening a tab does not change the lights.\n\nA highlighted button shows the last confirmed setting. If a result is uncertain, stop and ask the room host."
     },
     {
       "title": "Room controls",
       "icon": "home",
-      "text": "Home always returns to everyday lighting controls. Opening a page does not change the lights.\n\nLegacy opens the original interface after restoring Beta’s starting lighting scene. Use Home in the Legacy bar to return.\n\nBlinds are currently disabled. Room tools → Screen can hide their Home section."
+      "text": "Home always returns to everyday lighting controls. Opening a page does not change the lights.\n\nLegacy opens the original interface after restoring Beta’s starting lighting scene. Use Home in the Legacy bar to return.\n\nLift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller."
     },
     {
       "title": "Sensors and experiments",

@@ -1,7 +1,8 @@
 # SCR room browser interface
 
-A browser companion to the touch panel, with the same Home controls, white light,
-scenes/channels, instruction workflow, preferences, guide and help. The panel owns
+A browser companion to the touch panel, with the same Home controls, one Lighting
+workspace (White light, Scenes, Programmes and Channels), instruction workflow,
+preferences, guide and help. The panel owns
 all commands. Diagnostics remain observation-only. Legacy opens the original
 application on the cabinet; its original actuator controls stay there.
 
@@ -16,7 +17,11 @@ available. No browser hardware driver is imported.
 Commands use the existing panel queue, require a fresh revision and are never
 automatically retried. Confirmed readback alone selects Lights on/off. Pending,
 uncertain or disconnected states clear that selection. Running instructions block
-lighting from both interfaces. Blinds remain disabled; Experiment mode does not
+lighting from both interfaces. All three original blind actions are visible;
+movement is a separate saved setting, disabled by default, and requires a connected
+controller. None is installed in Beta. Gradient, Sun and Circ remain visible with
+disconnected Apply/Start controls until their adapters are integrated. Empty Legacy
+placeholders and the redundant Enable Sliders gate are omitted. Experiment mode does not
 start a recorder. Service-start/restart references are monospace text with Copy,
 never executable buttons.
 The website bundles the same Cantarell family used by the panel, so its layout
