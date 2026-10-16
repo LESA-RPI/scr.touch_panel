@@ -26,17 +26,23 @@ restoration handover. Advanced opens each tool directly beside the sidebar and
 remembers the last tool. Experiment mode runs instructions and panel annotations;
 its recorder is not connected.
 
+Home and the idle view show outdoor temperature, conditions, feels-like temperature,
+today's high/low and rain chance when available, plus daylight. Source/model
+details remain under Advanced → Date & weather. Earlier data is clearly dated.
+
 Light changes send automatically. Large values show your selection; the feedback
 area shows the last confirmed controller settings and their age. **Ready** means
 the lighting adapter is available. It does not confirm every room sensor is healthy
 or measure physical brightness. The selected Home button reflects the last
-confirmed On/Off readback; neither is selected while a request is pending or uncertain.
+confirmed On/Off readback through a blue highlight; neither is selected while a
+request is pending or uncertain.
 Scenes & channels highlights the preset matching the confirmed drive words.
 A custom mix clears the preset highlight. Routine Ready confirmations stay in
 the feedback area; the footer is reserved for explanations, progress and problems.
 
 The clock/weather view appears after five idle minutes by default. Its first wake
-touch returns to the prior page without activating controls. **Advanced → Screen**
+touch always opens Home without activating controls. The idle view prominently
+says how to reach Home and light controls. **Advanced → Screen**
 offers Off, 1, 5 or 15 minutes. Idle does not interrupt Experiment mode, Legacy, held
 touches, pending commands or uncertain lighting. Preferences save appearance and
 idle choices, not light settings or recording state.

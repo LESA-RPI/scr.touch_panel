@@ -207,7 +207,7 @@ class Panel(object):
         self.started, self.run_id, self.sequence = monotonic(), uuid.uuid4().hex, 0
         self.boot_id, self.last_touch = boot_identity(), self.started
         self.idle_timeout = getattr(args, 'idle_timeout', 300)
-        self.idle_active, self.press_active, self.idle_return = False, False, None
+        self.idle_active, self.press_active = False, False
         self.clock_24 = getattr(args, 'clock_format', '24') == '24'
         self.temperature_unit = getattr(args, 'temperature_unit', 'f')
         self.help_on = getattr(args, 'tips', 'on') == 'on'
@@ -350,7 +350,7 @@ class Panel(object):
                 button.config(bg=ACCENT if selected else self.control,
                               fg='white' if selected else self.ink,
                               activebackground=ACCENT if selected else self.control,
-                              text=(u'✓ ' if selected else '') + label,
+                              text=label,
                               image=self.icon(power, 'white' if selected else self.icon_colour))
         for button, name in getattr(self, 'scene_buttons', []):
             if button.winfo_exists():
@@ -359,7 +359,7 @@ class Panel(object):
                               fg='white' if selected else self.ink,
                               activebackground=ACCENT if selected else self.control,
                               activeforeground='white' if selected else self.ink,
-                              text=(u'✓ ' if selected else '') + name)
+                              text=name)
 
     def activity(self, pressed=None):
         self.last_touch = monotonic()
@@ -378,11 +378,9 @@ class Panel(object):
                 self.return_from_idle()
             return
         if self.idle_eligible() and monotonic() - self.last_touch >= self.idle_timeout:
-            self.idle_return = (self.mode, self.section)
-            self.idle_advanced_return = getattr(self, 'advanced_page', None)
             self.idle_active = True
             self.show('visitor')
-            self.status_text.set('Idle clock and weather. Touch anywhere to return.')
+            self.status_text.set('Touch anywhere for Home and light controls.')
             self.root.focus_set()
 
     def install_wake_bindings(self):
@@ -407,18 +405,9 @@ class Panel(object):
     def return_from_idle(self):
         if not self.idle_active:
             return
-        mode, section = self.idle_return
-        self.idle_active, self.idle_return = False, None
+        self.idle_active = False
         self.activity(False)
-        page = getattr(self, 'idle_advanced_return', None)
-        if page:
-            self.open_advanced(page)
-            return
-        self.show(mode)
-        if mode == 'room' and section == 'channels':
-            self.channel_view()
-        elif mode == 'room' and section == 'lighting':
-            self.open_lighting()
+        self.show('room')
 
     def button(self, parent, text, action, accent=False):
         button = tk.Button(parent, text=text, command=action, font=(FONT, 19),
@@ -542,8 +531,8 @@ class Panel(object):
             brand.pack(side='left', padx=(0, 18))
         identity = tk.Frame(self.banner, bg=self.bg)
         identity.pack(side='left', pady=(18, 0))
-        self.label(identity, 'Smart Conference Room', 22).pack(side='left')
-        beta = self.label(identity, 'Beta', 14)
+        self.label(identity, 'Smart Conference Room', 26).pack(side='left')
+        beta = self.label(identity, 'Beta', 16)
         beta.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
         beta.pack(side='left', padx=(12, 0))
         self.clock = self.label(self.banner, size=17, muted=True)
@@ -877,7 +866,7 @@ class Panel(object):
         self.update_light_buttons()
 
     def visitor_view(self):
-        self.label(self.body, 'Welcome to LESA', 28).pack(anchor='w', pady=(0, 16))
+        self.label(self.body, 'Touch anywhere for Home and light controls' if self.idle_active else 'Clock & weather', 28).pack(anchor='w', pady=(0, 16))
         row = tk.Frame(self.body, bg=self.bg)
         row.pack(fill='both', expand=True)
         for index in (0, 1):
@@ -898,9 +887,8 @@ class Panel(object):
         date = self.label(left, size=23)
         date.config(textvariable=self.visitor_date)
         date.pack(anchor='w', pady=(0, 18))
-        self.label(left, 'Room changes the lighting.\nLegacy opens the original controls.', 17, True).pack(anchor='w', pady=(0, 12))
-        self.row_buttons(left, [('Room controls', lambda: self.show('room'), True),
-                                ('Demo guide', lambda: self.show('guide'), False)])
+        self.label(left, 'Home has Lights on and Lights off.\nOpening Home does not change the lights.', 17, True).pack(anchor='w', pady=(0, 12))
+        self.row_buttons(left, [('Home · light controls', lambda: self.show('room'), True)], height=76)
         self.weather_contents(right)
 
     def weather_contents(self, right, compact=False):
@@ -917,14 +905,14 @@ class Panel(object):
         condition = self.label(right, size=23)
         condition.config(textvariable=self.weather_condition)
         self.wrap_label(condition).pack(fill='x')
+        status = self.label(right, size=16, muted=True)
+        status.config(textvariable=self.home_weather_text, height=2)
+        self.wrap_label(status).pack(fill='x', pady=(6, 0))
         self.daylight_label = self.label(right, size=21)
         self.daylight_label.pack(anchor='w', pady=(8, 2) if compact else (18, 2))
         self.daylight_canvas = tk.Canvas(right, height=84, bg=self.surface, highlightthickness=0)
         self.daylight_canvas.pack(fill='x')
         self.daylight_canvas.bind('<Configure>', lambda event: self.update_weather(force=True))
-        status = self.label(right, size=15, muted=True)
-        status.config(textvariable=self.home_weather_text if compact else self.weather_text, height=2)
-        self.wrap_label(status).pack(fill='x', pady=(6, 0))
         self.update_weather(force=True)
         self.start_weather()
 
@@ -1778,7 +1766,7 @@ class Panel(object):
             old = (self.weather_good is None or monotonic() - self.weather_good > 1800
                    or self.weather_reading['model_time'][:10] != datetime.date.today().isoformat()
                    or self.weather_text.get().startswith('Last available'))
-            caption = 'Earlier weather · Open-Meteo' if old else 'Weather: Open-Meteo'
+            caption = weather_data.details(self.weather_reading, self.temperature_unit, earlier=old)
         else:
             caption = 'Weather not configured' if self.args.weather_latitude is None else 'Weather unavailable'
         self.home_weather_text.set(caption)

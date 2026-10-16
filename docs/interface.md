@@ -85,3 +85,12 @@ service graph through one XML-RPC call, then exits without a ROS node or fixture
 queries. The UI bounds that subprocess, refreshes only while System is visible
 and labels the result as advertised service availability. It does not query TOF,
 blinds, HVAC or acquisition data, and does not assess IRMA recorder health.
+
+## Optional weather details
+
+The bounded weather helper may add `feels_like_f`, `high_f`, `low_f` and
+`rain_chance`. Valid temperatures also include corresponding `_c` values. Missing
+fields are omitted so older samples remain readable; probabilities must be finite
+and within 0..100, and a daily low cannot exceed its high. Home labels rain as
+today's maximum forecast probability. Daily details are hidden for older readings.
+Attribution and model time remain in Date & weather and website Weather details.

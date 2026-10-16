@@ -38,8 +38,8 @@ percentages, which cannot reproduce arbitrary fractional drive settings.
 
 Home combines stacked Lights on/off with time and outdoor weather. The blind
 buttons are intentionally disabled and have no command callbacks. No blind
-adapter is added. Advanced → White light opens the existing sliders and
-scenes; Scenes & channels opens the channel editor. Home returns to everyday
+adapter is added. Advanced → White light opens the colour and level sliders;
+Scenes & channels opens the preset buttons and channel editor. Home returns to everyday
 controls. All light controls share one latest selection queue. Wait for
 confirmation to distinguish a selection from a result.
 
@@ -76,8 +76,8 @@ default to Fahrenheit. Direct previews can use `--temperature-unit c` or `f`.
 Switching units converts cached data; it does not fetch again or change room controls.
 Screen settings save `idle_timeout` as 0, 60, 300 or 900 seconds. Old settings
 default to 300 seconds; `--idle-timeout` selects the preview default. Idle reuses
-Visitor and its existing weather cache/cadence. It preserves the prior page and
-Advanced channel view. The first wake touch is intercepted before button bindings;
+Visitor and its existing weather cache/cadence. Every wake opens Home so visitors
+can find Lights on/off. The first wake touch is intercepted before button bindings;
 controls need a subsequent touch. Experiment mode, Legacy, blank screen, active touches,
 pending/queued commands, restoration and uncertain lighting block idle entry.
 Lighting failures leave idle automatically. Confirmation age uses monotonic time
@@ -98,15 +98,18 @@ coordinates, Visitor shows weather as unconfigured. Direct previews accept
 `--weather-latitude`, `--weather-longitude` and `--weather-name`.
 
 The [Open-Meteo forecast API](https://open-meteo.com/en/docs) provides temperature,
-condition, sunrise and sunset in the panel timezone. The public endpoint needs
+feels-like temperature, today's high/low and maximum rain probability, condition,
+sunrise and sunset in the panel timezone. The public endpoint needs
 no API key for its free non-commercial use; review its terms for other uses.
-The panel displays attribution and model time. It starts one helper at most
+Date & weather displays attribution and model time. Home keeps these details
+out of the everyday view. It starts one helper at most
 every 15 minutes while Home or the clock view is open, bounds its response to 32 KiB and kills
 the helper after eight seconds. Requests never use the Tk thread. A failed
 refresh labels the last available data; data older than 30 minutes has an age
 warning. Weather never drives lights, screen themes or experiment timing.
 
 The weather helper and UI ship together: its JSON contains numeric temperatures,
+optional feels-like/high/low/rain fields,
 condition/code and dated sunrise, sunset and model timestamps. The UI validates
 these fields before displaying them. Daylight progress is clamped before sunrise
 and after sunset; it is hidden when the timestamps refer to another date.

@@ -363,6 +363,27 @@ def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch
     assert 'ask staff' in status[-1]
 
 
+def test_weather_details_are_optional_convert_units_and_reject_invalid_forecasts():
+    raw = {'current': {'temperature_2m': 50, 'apparent_temperature': 45, 'weather_code': 2,
+                      'time': '2026-10-15T12:00'},
+           'daily': {'sunrise': ['2026-10-15T07:00'], 'sunset': ['2026-10-15T18:00'],
+                     'temperature_2m_max': [59], 'temperature_2m_min': [32],
+                     'precipitation_probability_max': [80]}}
+    value = weather.summary(raw)
+    assert value['high_c'] == 15 and value['low_c'] == 0
+    assert weather.details(value, 'f') == 'Feels like 45° F\nHigh 59° · Low 32° · Rain today 80%'
+    assert 'High 15° · Low 0°' in weather.details(value, 'c')
+    assert weather.details(value, earlier=True) == 'Earlier weather: 2026-10-15 12:00'
+    for invalid in ({'rain_chance': -1}, {'rain_chance': 101}, {'high_f': float('nan')},
+                    {'feels_like_f': True}, {'low_f': 60}):
+        with pytest.raises(ValueError):
+            weather.validate(dict(value, **invalid))
+    raw['current'].pop('apparent_temperature')
+    for key in ('temperature_2m_max', 'temperature_2m_min', 'precipitation_probability_max'):
+        raw['daily'].pop(key)
+    assert weather.details(weather.summary(raw)) == ''
+
+
 def test_idle_guards_and_wake_do_not_dispatch_a_touch(monkeypatch):
     state = panel.Panel.__new__(panel.Panel)
     state.idle_timeout, state.mode, state.light_state = 300, 'room', 'ready'
@@ -396,11 +417,11 @@ def test_idle_guards_and_wake_do_not_dispatch_a_touch(monkeypatch):
     assert not shown
     monkeypatch.setattr(panel, 'monotonic', lambda: 300)
     state.update_idle()
-    assert shown == ['visitor'] and state.idle_return == ('room', 'channels')
+    assert shown == ['visitor'] and state.idle_active
     assert state.wake_idle(True) == 'break' and not deferred
     assert state.wake_idle(False) == 'break' and state.mode == 'visitor'
     deferred.pop()()
-    assert shown == ['visitor', 'room'] and restored == ['channels']
+    assert shown == ['visitor', 'room'] and not restored
     assert not state.idle_active and state.last_touch == 300 and not state.press_active
     assert state.wake_idle(True) is None
     state.mode = 'advanced'
@@ -408,7 +429,7 @@ def test_idle_guards_and_wake_do_not_dispatch_a_touch(monkeypatch):
     state.idle_active, state.idle_return = True, ('room', 'lighting')
     state.open_lighting = lambda: restored.append('lighting')
     state.return_from_idle()
-    assert restored[-1] == 'lighting' and not state.idle_active
+    assert shown[-1] == 'room' and not restored and not state.idle_active
     assert panel.confirmation_age(59, 0) == 'just now'
     assert panel.confirmation_age(60, 0) == '1 min ago'
     assert panel.confirmation_age(3600, 0) == '1 h ago'
@@ -487,7 +508,7 @@ def test_scene_highlight_uses_exact_confirmed_words_and_clears_for_custom_or_unc
     assert all(button.options['bg'] == 'neutral' for button, name in buttons)
 
 
-def test_advanced_navigation_and_wake_preserve_selected_tool():
+def test_advanced_navigation_and_blank_return_preserve_tool_but_idle_opens_home():
     state = panel.Panel.__new__(panel.Panel)
     state.last_advanced_page, state.release_target, state.closing = 'scenes', None, None
     shown = []
@@ -499,14 +520,13 @@ def test_advanced_navigation_and_wake_preserve_selected_tool():
     state.blank_advanced_return, state.blank_return = 'screen', 'settings'
     state.return_from_blank()
     assert shown[-1] == ('settings', {'advanced_page': 'screen'})
-    state.idle_advanced_return, state.idle_return = 'scenes', ('room', 'channels')
     state.idle_active = True
     state.root = SimpleNamespace(focus_set=lambda: None)
     state.return_from_idle()
-    assert shown[-1] == ('room', {'advanced_page': 'scenes'})
+    assert shown[-1] == ('room', {})
     state.release_target = 'original'
     state.open_advanced('white')
-    assert shown[-1] == ('room', {'advanced_page': 'scenes'})
+    assert shown[-1] == ('room', {})
 
 
 def journal_panel(journal, path):
