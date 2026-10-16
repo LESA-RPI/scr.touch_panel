@@ -63,6 +63,7 @@ def test_theme_text_contrast_and_strictly_neutral_dark_roles():
         high,low=sorted((light(a),light(b)),reverse=True);return (high+.05)/(low+.05)
     for theme in THEMES.values():
         for fg,bg in [('ink','bg'),('muted','bg'),('ink','control'),('muted','control'),
-                      ('selected_ink','accent'),('selected_ink','accent_pressed'),('ink','pressed')]:
+                      ('selected_ink','accent'),('selected_ink','accent_pressed'),('ink','pressed'),
+                      ('good','control'),('warning','control'),('warning','bg')]:
             assert ratio(theme[fg],theme[bg])>=4.5,(fg,bg,theme)
     assert all(len(set(rgb(value)))==1 for value in THEMES['dark'].values())

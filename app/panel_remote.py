@@ -20,7 +20,7 @@ def snapshot(panel):
             'preferences':{'theme':panel.theme_choice,'resolved_theme':panel.theme,'clock':'24' if panel.clock_24 else '12',
                            'temperature':panel.temperature_unit,'idle':panel.idle_timeout,'tips':panel.help_on,
                            'blinds_display':panel.blinds_display,'light_at':panel.args.light_at,'dark_at':panel.args.dark_at},
-            'palette':{key:getattr(panel,key) for key in ('bg','surface','ink','muted','control','border','accent','selected_ink','icon_colour','accent_pressed','pressed')},
+            'palette':{key:getattr(panel,key) for key in ('bg','surface','ink','muted','control','border','accent','selected_ink','icon_colour','accent_pressed','pressed','good','warning')},
             'experiment':{'profile':panel.profile,'running':panel.running,'stage':panel.stage,'elapsed_s':int(elapsed),
                           'annotation':panel.annotation_text.get(),'recording':False},
             'guide':[{'title':title,'icon':kind,'text':text} for title,kind,text in DEMO],

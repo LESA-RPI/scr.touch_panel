@@ -675,8 +675,8 @@ class Panel(object):
         text, kind, colour = connection(self.light_state, self.args.live_lights)
         if hasattr(self, 'connection_text'):
             set_changed(self.connection_text, text)
-        colours = {'good': '#23794c' if self.theme == 'light' else self.ink,
-                   'waiting': self.icon_colour, 'warning': '#9a650b' if self.theme == 'light' else self.ink,
+        colours = {'good': THEMES[self.theme]['good'],
+                   'waiting': self.icon_colour, 'warning': THEMES[self.theme]['warning'],
                    'neutral': self.muted}
         for button, legacy in getattr(self, 'connection_badges', []):
             if button.winfo_exists():
@@ -1162,10 +1162,9 @@ class Panel(object):
             self.weather_worker = None
 
     def slider_group(self, parent, title, variable, low, high, step, unit):
-        group = tk.Frame(parent, bg=self.surface, height=190, highlightbackground=self.border, highlightthickness=1)
-        group.pack(fill='x', pady=(0, 12))
-        group.pack_propagate(False)
-        self.label(group, title, 18).pack(anchor='w', padx=20, pady=(8, 0))
+        group = tk.Frame(parent, bg=self.surface, highlightbackground=self.border, highlightthickness=1)
+        group.pack(fill='x', pady=(0, 8))
+        self.label(group, title, 18).pack(anchor='w', padx=20, pady=(6, 0))
         row = tk.Frame(group, bg=self.surface, height=62)
         row.pack(fill='x', padx=20, pady=(4, 0))
         row.pack_propagate(False)
@@ -1631,7 +1630,7 @@ class Panel(object):
                                        'Load average, one minute: %.2f' %
                                        (h['temperature'], h['uptime'], h['load']))
         self.power_label.config(text='Power: ' + h['power'],
-                                fg=('#9a650b' if self.theme == 'light' else self.ink) if h['power'].startswith('Current') else self.muted)
+                                fg=THEMES[self.theme]['warning'] if h['power'].startswith('Current') else self.muted)
         self.services_label.config(text=self.room_status)
 
     def start_status(self):
