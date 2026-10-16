@@ -5,6 +5,17 @@ import tempfile
 import threading
 
 
+def sync_directory(directory):
+    """Persist the renamed filename on POSIX, after the file itself is synced."""
+    if os.name != 'posix':
+        return  # Windows does not expose a portable directory fsync through os.
+    descriptor = os.open(directory, os.O_RDONLY | getattr(os, 'O_DIRECTORY', 0))
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
 def validated(value):
     if not isinstance(value, dict):
         raise ValueError('Expected an appearance settings object')
@@ -58,9 +69,12 @@ class Preferences(object):
         self.path = path
         self.condition = threading.Condition()
         self.pending = None
+        self.writing = False
         self.error = None
         self.closing = False
         self.done = threading.Event()
+        self.settled = threading.Event()
+        self.settled.set()
         self.thread = threading.Thread(target=self._run, name='scr-panel-preferences')
         self.thread.daemon = True
         self.thread.start()
@@ -71,6 +85,7 @@ class Preferences(object):
             if self.closing:
                 return
             self.pending = value
+            self.settled.clear()
             self.condition.notify()
 
     def close(self):
@@ -87,6 +102,7 @@ class Preferences(object):
                     if self.pending is None:
                         return
                     value, self.pending = self.pending, None
+                    self.writing = True
                 temporary = None
                 try:
                     directory = os.path.dirname(os.path.abspath(self.path))
@@ -100,11 +116,19 @@ class Preferences(object):
                         os.fsync(stream.fileno())
                     getattr(os, 'replace', os.rename)(temporary, self.path)
                     temporary = None
+                    sync_directory(directory)
                     self.error = None
                 except (IOError, OSError) as error:
                     self.error = str(error)
                 finally:
                     if temporary:
-                        os.unlink(temporary)
+                        try:
+                            os.unlink(temporary)
+                        except OSError as error:
+                            self.error = str(error)
+                    with self.condition:
+                        self.writing = False
+                        if self.pending is None:
+                            self.settled.set()
         finally:
             self.done.set()
