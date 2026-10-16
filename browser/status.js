@@ -10,10 +10,25 @@ const age = seconds => seconds < 60 ? `${Math.floor(seconds)} seconds ago` : `${
 function localTime(value) { const [h,m] = value.slice(11,16).split(':').map(Number); return `${h%12||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`; }
 function badge(node, value, colour='') { if (!node) return; node.textContent=value; node.className=(node.id==='connection'||node.id==='room-connection'?'connection':'service-state')+' '+colour; }
 let snapshot=null, receivedAt=0, pending=false, failed=false;
+function weatherIcon(code, night=false) {
+  if (code===0) return night?'moon':'sun';
+  if ([1,2].includes(code)) return night?'cloud-moon':'cloud-sun';
+  if (code===3) return 'cloud';
+  if ([45,48].includes(code)) return 'cloud-fog';
+  if ([51,53,55,56,57,61,63,65,66,67,80,81,82].includes(code)) return 'cloud-rain';
+  if ([71,73,75,77,85,86].includes(code)) return 'cloud-snow';
+  if ([95,96,99].includes(code)) return 'cloud-lightning';
+  return 'circle-question-mark';
+}
+function setWeatherIcon(name) {
+  const icon=byId('weather-icon');
+  if(icon && icon.getAttribute('src')!==`/icons/${name}-light.png`) icon.setAttribute('src',`/icons/${name}-light.png`);
+}
 function weather(elapsed) {
   const info=snapshot.weather || {state:'unconfigured',data:null};
   const value=info.data;
   if (!value) {
+    setWeatherIcon('circle-question-mark');
     text('weather-temperature','—'); text('weather-condition',info.state==='unconfigured'?'Weather not configured':'Weather unavailable');
     text('weather-source','Weather is optional.');
     text('weather-model','No weather reading is available.');
@@ -35,6 +50,10 @@ function weather(elapsed) {
   text('weather-daily',stale?'':daily.join(' · '));
   text('weather-source',stale?'Earlier weather':'');
   text('weather-model',`Open-Meteo · Model ${value.model_time.slice(0,10)} at ${localTime(value.model_time)} · Outdoor weather is separate from room sensors.`);
+  const daylightCurrent=value.sunrise.slice(0,10)===today&&value.sunset.slice(0,10)===today;
+  const localNow=`${today}T${parts.hour}:${parts.minute}`;
+  const night=daylightCurrent&&(localNow<value.sunrise||localNow>=value.sunset);
+  setWeatherIcon(!daylightCurrent&&[0,1,2].includes(value.code)?'circle-question-mark':weatherIcon(value.code,night));
   const daylight=byId('daylight');
   if (!daylight) return;
   daylight.hidden=stale||value.sunrise.slice(0,10)!==today||value.sunset.slice(0,10)!==today;

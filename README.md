@@ -103,3 +103,5 @@ Read-only browser views are implemented; browser control remains future work.
 
 Beta: **Diyanko Bhowmik**, with Codex assistance. Original contributors remain in
 Git history. The supplied LESA logo is retained unchanged.
+
+Browser and panel use a shared Lucide icon family and coordinated weather artwork. Artwork notices are retained in [browser/icons/LICENSE](browser/icons/LICENSE).

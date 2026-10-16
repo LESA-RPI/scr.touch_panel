@@ -1,10 +1,10 @@
 :root {
   color-scheme: light;
-  --ink: #24282d;
-  --muted: #636a72;
-  --line: #e1e3e6;
-  --soft: #f6f6f5;
-  --accent: #0072b2;
+  --ink: #12384b;
+  --muted: #476373;
+  --line: #cbd6df;
+  --soft: #edf1f4;
+  --accent: #176b72;
   --good: #26744b;
   --warning: #92580c;
 }
@@ -48,7 +48,7 @@ main { padding-block: 26px; }
 .daylight { margin-top: 18px; }
 .daylight-labels { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); font-size: .78rem; }
 .daylight-track { height: 5px; margin: 8px 0; background: #dedfdc; border-radius: 2px; overflow: hidden; }
-#daylight-fill { height: 100%; width: 0; background: #c99431; }
+#daylight-fill { height: 100%; width: 0; background: var(--accent); }
 #daylight-note { font-size: .85rem; color: var(--muted); }
 .section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 28px 0 14px; }
 .section-heading a { font-size: .9rem; }
@@ -115,3 +115,7 @@ main { padding-block: 26px; }
   .service-grid { grid-template-columns: 1fr; }
   .clock { font-size: 2.6rem; }
 }
+
+.weather-icon { width: 96px; height: 96px; object-fit: contain; }
+.control-icon { width: 24px; height: 24px; flex-shrink: 0; }
+.essential-actions button, .home-tools a { display: flex; align-items: center; justify-content: center; gap: 10px; }

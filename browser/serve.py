@@ -31,6 +31,24 @@ ASSETS = {'/': ('index.html', 'text/html'), '/styles.css': ('styles.css', 'text/
           '/diagnostics': ('diagnostics.html', 'text/html'), '/guide': ('guide.html', 'text/html'),
           '/logo.jpg': ('lesa-logo.jpeg', 'image/jpeg')}
 
+# Explicit static artwork allowlist; never resolve request paths from the filesystem.
+ASSETS.update({
+    '/icons/book-open.svg': ('icons/book-open.svg', 'image/svg+xml'),
+    '/icons/circle-question-mark-light.png': ('icons/circle-question-mark-light.png', 'image/png'),
+    '/icons/cloud-fog-light.png': ('icons/cloud-fog-light.png', 'image/png'),
+    '/icons/cloud-light.png': ('icons/cloud-light.png', 'image/png'),
+    '/icons/cloud-lightning-light.png': ('icons/cloud-lightning-light.png', 'image/png'),
+    '/icons/cloud-moon-light.png': ('icons/cloud-moon-light.png', 'image/png'),
+    '/icons/cloud-rain-light.png': ('icons/cloud-rain-light.png', 'image/png'),
+    '/icons/cloud-snow-light.png': ('icons/cloud-snow-light.png', 'image/png'),
+    '/icons/cloud-sun-light.png': ('icons/cloud-sun-light.png', 'image/png'),
+    '/icons/lightbulb-off.svg': ('icons/lightbulb-off.svg', 'image/svg+xml'),
+    '/icons/lightbulb.svg': ('icons/lightbulb.svg', 'image/svg+xml'),
+    '/icons/moon-light.png': ('icons/moon-light.png', 'image/png'),
+    '/icons/sliders-horizontal.svg': ('icons/sliders-horizontal.svg', 'image/svg+xml'),
+    '/icons/sun-light.png': ('icons/sun-light.png', 'image/png'),
+})
+
 
 def utc():
     return dt.datetime.now(dt.timezone.utc).isoformat()

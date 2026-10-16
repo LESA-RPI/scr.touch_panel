@@ -87,9 +87,16 @@ def test_http_boundary_and_cache(server):
         code, image, headers = request(server, 'GET', '/logo.jpg')
         assert code == 200 and image.startswith(b'\xff\xd8')
         assert headers['Content-Type'] == 'image/jpeg'
+        code, image, headers = request(server, 'GET', '/icons/cloud-moon-light.png')
+        assert code == 200 and image.startswith(b'\x89PNG\r\n\x1a\n')
+        assert headers['Content-Type'] == 'image/png'
+        code, icon, headers = request(server, 'GET', '/icons/lightbulb.svg')
+        assert code == 200 and b'<svg' in icon
+        assert headers['Content-Type'] == 'image/svg+xml'
         for method in ('POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'):
             assert request(server, method, '/api/status')[0] == 405
-        for path in ('/../README.md', '/api/status?master=http://other', '/deployment.env'):
+        for path in ('/../README.md', '/api/status?master=http://other', '/deployment.env',
+                     '/icons/../serve.py', '/icons/not-listed.svg', '/icons/LICENSE'):
             assert request(server, 'GET', path)[0] == 404
         assert request(server, 'GET', '/api/status', {'Host': 'foreign.test'})[0] == 403
         assert request(server, 'GET', '/api/status', {'Origin': 'http://foreign.test'})[0] == 403
