@@ -191,6 +191,50 @@ def test_gateway_requires_exact_origin_nonce_and_bounded_json_without_polling_de
     assert len(gateway.calls)==1
 
 
+def test_gateway_is_disabled_by_default_and_tokens_are_per_server(server):
+    assert server.controller is None
+    assert request(server, 'POST', '/api/command', body='{}')[0] == 405
+    other = status.RoomServer(('127.0.0.1', 0), status.Handler)
+    try:
+        assert server.control_nonce and server.control_nonce != other.control_nonce
+    finally:
+        other.server_close()
+
+
+@pytest.mark.parametrize('body,override,expected', [
+    ('{}', {'Origin': ''}, 403), ('{}', {'X-SCR-Token': 'é'}, 403),
+    ('{}', {'Transfer-Encoding': 'chunked'}, 400),
+    ('{}', {'Content-Length': '-1'}, 400),
+    ('x'*4097, {}, 400), ('{', {}, 400), ('[]', {}, 400),
+])
+def test_gateway_rejects_invalid_authentication_and_bodies(server, body, override, expected):
+    calls = []
+    class Gateway:
+        def exchange(self, value):
+            calls.append(value)
+            raise AssertionError('Rejected command reached the owner')
+    server.controller = Gateway()
+    headers = {'Origin': 'http://' + server.expected_host,
+               'X-SCR-Token': server.control_nonce, 'Content-Type': 'application/json'}
+    assert request(server, 'POST', '/api/command', dict(headers, **override), body)[0] == expected
+    assert not calls
+
+
+@pytest.mark.parametrize('header', ['Host', 'Origin', 'X-SCR-Token', 'Content-Length'])
+def test_gateway_rejects_ambiguous_duplicate_headers(server, header):
+    server.controller = object()
+    headers = {'Host': server.expected_host, 'Origin': 'http://' + server.expected_host,
+               'X-SCR-Token': server.control_nonce, 'Content-Length': '2',
+               'Content-Type': 'application/json'}
+    lines = [f'{key}: {value}' for key, value in headers.items()]
+    lines.append(f'{header}: {headers[header]}')
+    raw = ('POST /api/command HTTP/1.0\r\n' + '\r\n'.join(lines) + '\r\n\r\n{}').encode()
+    with socket.create_connection(server.server_address, timeout=6) as client:
+        client.sendall(raw)
+        reply = client.recv(4096)
+    assert b' 400 ' in reply or b' 403 ' in reply
+
+
 @pytest.mark.parametrize('operation', ['reboot', 'shutdown'])
 def test_gateway_relays_confirmed_panel_power_to_its_existing_owner(server, operation):
     class Owner:

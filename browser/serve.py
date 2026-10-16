@@ -90,6 +90,11 @@ def client_network(value):
 
 
 class RoomServer(HTTPServer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.controller = None
+        self.control_nonce = secrets.token_urlsafe(32)
+
     def verify_request(self, request, client_address):
         # Use the socket peer, never a caller-supplied forwarding header.
         return ipaddress.IPv4Address(client_address[0]) in self.allowed_clients
@@ -279,11 +284,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         # A foreign origin cannot use this as a cross-origin status API. Exact Host
         # also prevents DNS rebinding; links use the configured literal IP address.
-        if self.headers.get('Host') != self.server.expected_host:
+        if self.headers.get_all('Host') != [self.server.expected_host]:
             self.respond(403)
             return
         origin = self.headers.get('Origin')
-        if origin and origin != 'http://' + self.server.expected_host:
+        if origin is not None and self.headers.get_all('Origin') != ['http://' + self.server.expected_host]:
             self.respond(403)
             return
         path = self.path
@@ -306,13 +311,14 @@ class Handler(BaseHTTPRequestHandler):
         gateway=getattr(self.server,'controller',None)
         if self.path!='/api/command' or gateway is None:
             self.respond(405,b'Control is not configured');return
-        if (self.headers.get('Host')!=self.server.expected_host or
-            self.headers.get('Origin')!='http://'+self.server.expected_host or
-            not hmac.compare_digest(self.headers.get('X-SCR-Token',''),self.server.control_nonce)):
+        if (self.headers.get_all('Host') != [self.server.expected_host] or
+            self.headers.get_all('Origin') != ['http://'+self.server.expected_host] or
+            len(self.headers.get_all('X-SCR-Token', [])) != 1 or
+            not hmac.compare_digest(self.headers.get('X-SCR-Token','').encode('utf-8'),self.server.control_nonce.encode('utf-8'))):
             self.respond(403);return
         try:
             length=int(self.headers.get('Content-Length','0'))
-            if (not 1<=length<=4096 or self.headers.get('Transfer-Encoding') or
+            if (not 1<=length<=4096 or len(self.headers.get_all('Content-Length', [])) != 1 or self.headers.get('Transfer-Encoding') or
                 self.headers.get('Content-Type')!='application/json'):
                 raise ValueError('Invalid command body')
             self.body_consumed=True
@@ -369,7 +375,6 @@ def main():
     server.expected_host = '%s:%d' % server.server_address
     server.snapshot = snapshot
     server.controller = None
-    server.control_nonce = secrets.token_urlsafe(32)
     if args.panel_control_socket:
         from controller import Controller
         if not Path(args.panel_control_socket).is_absolute():parser.error('Panel socket path must be absolute')

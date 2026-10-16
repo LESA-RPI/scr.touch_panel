@@ -3,10 +3,24 @@ import json
 from pathlib import Path
 import sys
 import threading
+import pytest
 from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'app'))
 import preferences
+
+
+@pytest.mark.parametrize('text', [None, '{', '[]', '{"blinds_enabled": 1}',
+                                '{"blinds_enabled": true, "theme": "broken"}',
+                                '{"theme": "dark"}'])
+def test_missing_corrupt_and_old_preferences_default_to_locked(tmp_path, text):
+    path = tmp_path / 'appearance.json'
+    if text is not None:
+        path.write_text(text)
+    saved, warning = preferences.load(str(path))
+    assert saved.get('blinds_enabled', False) is False
+    if text == '{"theme": "dark"}':
+        assert saved == {'theme': 'dark'} and warning is None
 
 
 def finish(writer):
