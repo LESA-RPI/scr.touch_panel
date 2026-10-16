@@ -27,6 +27,8 @@ never executable buttons. Each documented step explains the computer, purpose
 and expected result, with its own Copy button and a Copy all option for the topic.
 Dark backgrounds stay neutral gray; controls, weather and status use restrained
 teal, warm and green/amber accents shared with the panel.
+Weather readings use aligned labels and values, with dashes for missing readings.
+Earlier forecasts are dated and hide current-day details until fresh data returns.
 Desktop layouts place white-light controls side by side. Landscape tablets keep
 large controls; phones put lights first with expandable blinds and a compact
 Room tools section selector. Numeric light

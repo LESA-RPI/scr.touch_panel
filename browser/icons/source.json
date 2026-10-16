@@ -44,5 +44,5 @@
     "eye-off",
     "circle-question-mark"
   ],
-  "derivatives": "96px alpha masks for theme-coloured controls; 288px weather artwork preserves original Lucide paths with a thin outline and restrained day/night colours. No gradients or halos."
+  "derivatives": "96px alpha masks for theme-coloured controls; 288px weather artwork uses Lucide paths with a thin outline and restrained day/night colours. The cloud-moon crescent is repositioned to meet the foreground cloud. No gradients or halos."
 }
