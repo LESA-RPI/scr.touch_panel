@@ -4,9 +4,10 @@ from room_controls import BLIND_ACTIONS
 from panel_version import BUILD_COMMIT
 from room_controls import LIGHTING_TABS
 from room_controls import UNAVAILABLE_LIGHTING, BLINDS_UNAVAILABLE
-from room_controls import SCENES
+from room_controls import SCENES, WEBSITE_URL
 from touch_slider import TouchSlider
 from panel_version import VERSION
+import os
 import time
 import tkinter as tk
 from panel_common import ADVANCED_PAGES, CHANNELS, CHANNEL_COLOURS
@@ -726,3 +727,25 @@ class PanelViews:
             parent, "Source: github.com/LESA-RPI/scr.touch_panel", 18, True
         ).pack(anchor="w", pady=(0, 20))
         self.label(parent, "Icons: Lucide · lucide.dev", 17, True).pack(anchor="w")
+        self.website_qr(parent)
+
+    def website_qr(self, parent):
+        """QR code for the room website, so visitors can open it on a phone."""
+        path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "assets",
+            "website-qr.png",
+        )
+        try:
+            image = self.icon_cache.get("website-qr") or tk.PhotoImage(file=path)
+        except tk.TclError:
+            return  # Missing artwork only hides the code; About still works.
+        self.icon_cache["website-qr"] = image
+        card = tk.Frame(parent, bg=parent.cget("bg"))
+        card.place(relx=1.0, rely=0.0, anchor="ne")
+        # A white border keeps the code scannable in the dark theme too.
+        tk.Label(card, image=image, bg="#ffffff", bd=0, padx=8, pady=8).pack(anchor="e")
+        self.label(card, "Room website", 19).pack(anchor="e", pady=(12, 2))
+        address = WEBSITE_URL.split("//")[1].rstrip("/")
+        self.label(card, address, 15, True).pack(anchor="e")
+        self.label(card, "Scan on the room network", 15, True).pack(anchor="e")

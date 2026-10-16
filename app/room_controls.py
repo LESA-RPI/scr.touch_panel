@@ -54,3 +54,7 @@ def blind_readiness(enabled, connected, busy=False):
         "detail": "Ready",
         "reason": "Controls unlocked",
     }
+
+# Room website shown as a QR code on the panel's About page. After changing it,
+# regenerate the image: npx qrcode -o assets/website-qr.png -w 200 -q 2 "<address>"
+WEBSITE_URL = "http://192.168.0.28:8768/"
