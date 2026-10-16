@@ -34,7 +34,7 @@ except ImportError:
 FONT = 'Cantarell'
 CHANNELS = ('Blue 1', 'Blue 2', 'Blue 3', 'Lime', 'Amber', 'Orange', 'Red 1', 'Red 2')
 CHANNEL_COLOURS = ('#4764bc', '#337cb9', '#2198c2', '#86a83b', '#c69c32', '#d47d34', '#ba6052', '#a84658')
-PALETTES = {'dark': ('#16181b', '#202327', '#f0f1f2', '#b9bdc4', '#30343a'),
+PALETTES = {'dark': ('#151a20', '#151a20', '#f0f3f6', '#b5c0ca', '#27333f'),
             'light': ('#ffffff', '#ffffff', '#12384b', '#476373', '#edf1f4')}
 ACCENT = '#0072b2'
 NAVIGATION = [('Home', 'room'), ('Advanced', 'advanced'),
@@ -339,7 +339,32 @@ class Panel(object):
                 getattr(self, 'confirmed_light', 'Not checked') + suffix)
         if not hasattr(self.light_text, 'get') or self.light_text.get() != text:
             self.light_text.set(text)
+        if hasattr(self, 'feedback_message'):
+            self.feedback_message.set(self.light_message)
+            self.feedback_detail.set('Last confirmed drive: ' + self.confirmed_light + suffix)
+        card = getattr(self, 'light_feedback_card', None)
+        if card is not None and card.winfo_exists():
+            edge = '#b88036' if self.light_state == 'failed' else ACCENT if self.pending or self.queued_intent else self.border
+            card.config(highlightbackground=edge)
         self.update_power_highlights()
+
+    def feedback_card(self, parent):
+        """Keep results in the page flow, with separate message and readback lines."""
+        if not hasattr(self, 'feedback_message'):
+            self.feedback_message = tk.StringVar()
+            self.feedback_detail = tk.StringVar()
+        card = tk.Frame(parent, bg=parent.cget('bg'), highlightbackground=self.border, highlightthickness=1)
+        card.pack(fill='x', pady=(12, 0))
+        self.light_feedback_card = card
+        content = tk.Frame(card, bg=card.cget('bg'))
+        content.pack(fill='x', padx=14, pady=12)
+        message = self.label(content, size=15)
+        message.config(textvariable=self.feedback_message)
+        self.wrap_label(message).pack(fill='x')
+        detail = self.label(content, size=14, muted=True)
+        detail.config(textvariable=self.feedback_detail)
+        self.wrap_label(detail).pack(fill='x', pady=(4, 0))
+        self.refresh_confirmation_age()
 
     def update_power_highlights(self):
         certain = self.light_state == 'ready' and not any((self.pending, self.queued_intent, self.release_target, self.closing))
@@ -348,6 +373,7 @@ class Panel(object):
             if button.winfo_exists():
                 selected = state == power
                 button.config(bg=ACCENT if selected else self.control,
+                              highlightbackground=ACCENT if selected else self.border,
                               fg='white' if selected else self.ink,
                               activebackground=ACCENT if selected else self.control,
                               text=label,
@@ -356,6 +382,7 @@ class Panel(object):
             if button.winfo_exists():
                 selected = certain and getattr(self, 'confirmed_scene', None) == name
                 button.config(bg=ACCENT if selected else self.control,
+                              highlightbackground=ACCENT if selected else self.border,
                               fg='white' if selected else self.ink,
                               activebackground=ACCENT if selected else self.control,
                               activeforeground='white' if selected else self.ink,
@@ -414,7 +441,9 @@ class Panel(object):
                          fg='white' if accent else self.ink, bg=ACCENT if accent else self.control,
                          activebackground=ACCENT if accent else self.control,
                          activeforeground='white' if accent else self.ink, disabledforeground=self.muted,
-                         bd=0, highlightthickness=0, padx=14, pady=14, takefocus=True)
+                         bd=0, relief='flat', highlightthickness=1,
+                         highlightbackground=ACCENT if accent else self.border, highlightcolor=ACCENT,
+                         padx=14, pady=13, takefocus=True)
         button.bind('<ButtonPress-1>', lambda event: self.show_tip(text), add='+')
         return button
 
@@ -491,11 +520,16 @@ class Panel(object):
     def row_buttons(self, parent, items, height=64):
         row = tk.Frame(parent, bg=parent.cget('bg'), height=height)
         row.pack(fill='x', pady=6)
-        row.pack_propagate(False)
+        row.grid_propagate(False)
+        row.rowconfigure(0, weight=1)
         buttons = []
         for index, (text, action, accent) in enumerate(items):
             button = self.button(row, text, action, accent)
-            button.pack(side='left', fill='both', expand=True, padx=(0, 10 if index < len(items) - 1 else 0))
+            # Spacer columns keep the actual button widths equal, including the last.
+            row.columnconfigure(index * 2, weight=1, uniform='buttons')
+            if index:
+                row.columnconfigure(index * 2 - 1, minsize=12)
+            button.grid(row=0, column=index * 2, sticky='nsew')
             buttons.append(button)
         return buttons
 
@@ -513,7 +547,7 @@ class Panel(object):
         advanced_page = getattr(self, 'advanced_page', None)
         self.theme = chosen
         self.bg, self.surface, self.ink, self.muted, self.control = PALETTES[chosen]
-        self.border = '#b8c8d4' if chosen == 'light' else '#50565e'
+        self.border = '#cbd6df' if chosen == 'light' else '#3b4a58'
         self.icon_colour = ACCENT if chosen == 'light' else '#6dbce8'
         self.connection_badges = []
         for child in self.root.winfo_children():
@@ -523,14 +557,14 @@ class Panel(object):
         self.banner = tk.Frame(self.root, bg=self.bg, height=70)
         self.banner.pack(fill='x', padx=24, pady=(8, 6))
         self.banner.pack_propagate(False)
-        if self.artwork and (chosen == 'light' or getattr(self.args, 'dark_brand', 'wordmark') == 'original'):
+        if self.artwork:
             tk.Label(self.banner, image=self.artwork, bg='white', bd=0, padx=8).pack(side='left', padx=(0, 18))
         else:
             brand = self.label(self.banner, 'LESA', 30)
             brand.config(fg=ACCENT)
             brand.pack(side='left', padx=(0, 18))
         identity = tk.Frame(self.banner, bg=self.bg)
-        identity.pack(side='left', pady=(18, 0))
+        identity.pack(side='left')
         self.label(identity, 'Smart Conference Room', 26).pack(side='left')
         beta = self.label(identity, 'Beta', 16)
         beta.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
@@ -568,7 +602,7 @@ class Panel(object):
         top = tk.Frame(self.dock, bg=self.bg, height=70)
         top.pack(fill='x', padx=24, pady=(8, 6))
         top.pack_propagate(False)
-        if self.artwork and (self.theme == 'light' or getattr(self.args, 'dark_brand', 'wordmark') == 'original'):
+        if self.artwork:
             tk.Label(top, image=self.artwork, bg='white', bd=0, padx=8).pack(side='left', padx=(0, 18))
         else:
             brand = self.label(top, 'LESA', 30)
@@ -696,6 +730,12 @@ class Panel(object):
             self.root.bind('<B1-Motion>', self.move_hold)
             return
         self.root.configure(bg=self.bg)
+        if self.idle_active:
+            self.banner.pack_forget()
+            self.footer.pack_forget()
+            self.rebuild_body(self.screensaver_view)
+            self.install_wake_bindings()
+            return
         if not self.banner.winfo_manager():
             self.banner.pack(fill='x', padx=24, pady=(8, 6))
         if self.mode == 'room' and self.section == 'basic':
@@ -762,9 +802,7 @@ class Panel(object):
                     button.config(state='disabled')
             caption = self.label(group, 'Turns on standard white' if index == 0 else 'Not enabled', 17, True)
             self.wrap_label(caption).pack(fill='x', pady=(8, 0))
-        state = self.label(left, size=16, muted=True)
-        state.config(textvariable=self.light_text, height=5)
-        self.wrap_label(state).pack(fill='x', pady=(8, 0))
+        self.feedback_card(left)
         self.label(right, getattr(self.args, 'weather_name', 'Local time'), 18, True).pack(anchor='w')
         clock = self.label(right, size=70)
         clock.config(textvariable=self.visitor_time)
@@ -785,7 +823,7 @@ class Panel(object):
             button = self.row_buttons(sidebar, [(label, lambda page=page: self.open_advanced(page),
                                                 self.advanced_page == page)], height=52)[0]
             button.config(font=(FONT, 17), anchor='w', padx=12, pady=8)
-        detail = tk.Frame(shell, bg=self.surface)
+        detail = tk.Frame(shell, bg=self.bg)
         detail.pack(side='left', fill='both', expand=True, pady=(10, 0))
         self.body = detail
         try:
@@ -795,9 +833,7 @@ class Panel(object):
                 self.label(detail, 'Selected inputs send after your touch settles.', 17, True).pack(anchor='w', pady=(0, 18))
                 self.slider_group(detail, 'White-light colour · selected', self.cct, 1600, 10000, 100, 'K')
                 self.slider_group(detail, 'Light level · selected', self.intensity, 0, 1900, 25, 'controller units')
-                feedback = self.label(detail, size=16, muted=True)
-                feedback.config(textvariable=self.light_text, height=4)
-                self.wrap_label(feedback).pack(fill='x', pady=(12, 0))
+                self.feedback_card(detail)
                 self.update_light_buttons()
             elif page == 'scenes':
                 self.channels_view()
@@ -891,11 +927,41 @@ class Panel(object):
         self.row_buttons(left, [('Home · light controls', lambda: self.show('room'), True)], height=76)
         self.weather_contents(right)
 
+    def screensaver_view(self):
+        top = tk.Frame(self.body, bg=self.bg)
+        top.pack(fill='x', padx=28, pady=(28, 0))
+        if self.artwork:
+            tk.Label(top, image=self.artwork, bg='white', bd=0).pack(side='left', padx=(0, 20))
+        self.label(top, 'Smart Conference Room', 24).pack(side='left')
+        self.label(top, 'SCREENSAVER', 17, True).pack(side='right')
+        bottom = tk.Frame(self.body, bg=self.bg)
+        bottom.pack(side='bottom', fill='x', padx=100, pady=(0, 44))
+        self.row_buttons(bottom, [('Touch anywhere to open controls', self.return_from_idle, True)], height=88)
+        hint = self.label(bottom, 'Lights on / off on Home · Your first touch only opens the controls', 17, True)
+        hint.config(anchor='center')
+        hint.pack(fill='x', pady=(12, 0))
+        row = tk.Frame(self.body, bg=self.bg)
+        row.pack(fill='both', expand=True, padx=48, pady=(48, 28))
+        row.columnconfigure(0, weight=56, uniform='idle')
+        row.columnconfigure(1, weight=44, uniform='idle')
+        left = tk.Frame(row, bg=self.bg)
+        left.grid(row=0, column=0, sticky='nsew', padx=(0, 36))
+        right = tk.Frame(row, bg=self.bg)
+        right.grid(row=0, column=1, sticky='nsew', padx=(36, 0))
+        self.label(left, 'LOCAL TIME', 16, True).pack(anchor='w', pady=(28, 0))
+        clock = self.label(left, size=86)
+        clock.config(textvariable=self.visitor_time)
+        clock.pack(anchor='w', pady=(8, 4))
+        date = self.label(left, size=21)
+        date.config(textvariable=self.visitor_date)
+        self.wrap_label(date).pack(fill='x')
+        self.weather_contents(right, compact=True)
+
     def weather_contents(self, right, compact=False):
         self.label(right, 'OUTDOOR WEATHER' if compact else 'WEATHER · ' + getattr(self.args, 'weather_name', 'Local area'), 16, True).pack(anchor='w')
-        reading = tk.Frame(right, bg=self.surface)
+        reading = tk.Frame(right, bg=right.cget('bg'))
         reading.pack(fill='x', pady=(6, 2) if compact else (18, 6))
-        self.weather_symbol = tk.Canvas(reading, width=82, height=74, bg=self.surface, highlightthickness=0)
+        self.weather_symbol = tk.Canvas(reading, width=82, height=74, bg=right.cget('bg'), highlightthickness=0)
         self.weather_symbol.pack(side='right', pady=0 if compact else 12)
         size = 50 if compact else 68
         temperature = self.label(reading, size=size)
@@ -910,7 +976,7 @@ class Panel(object):
         self.wrap_label(status).pack(fill='x', pady=(6, 0))
         self.daylight_label = self.label(right, size=21)
         self.daylight_label.pack(anchor='w', pady=(8, 2) if compact else (18, 2))
-        self.daylight_canvas = tk.Canvas(right, height=84, bg=self.surface, highlightthickness=0)
+        self.daylight_canvas = tk.Canvas(right, height=84, bg=right.cget('bg'), highlightthickness=0)
         self.daylight_canvas.pack(fill='x')
         self.daylight_canvas.bind('<Configure>', lambda event: self.update_weather(force=True))
         self.update_weather(force=True)
@@ -1004,12 +1070,12 @@ class Panel(object):
             self.weather_worker = None
 
     def slider_group(self, parent, title, variable, low, high, step, unit):
-        group = tk.Frame(parent, bg=self.surface, height=166, highlightbackground=self.border, highlightthickness=1)
-        group.pack(fill='x', pady=(0, 4))
+        group = tk.Frame(parent, bg=self.surface, height=184, highlightbackground=self.border, highlightthickness=1)
+        group.pack(fill='x', pady=(0, 12))
         group.pack_propagate(False)
-        self.label(group, title, 20).pack(anchor='w', padx=16, pady=(8, 0))
+        self.label(group, title, 19).pack(anchor='w', padx=20, pady=(12, 0))
         row = tk.Frame(group, bg=self.surface, height=66)
-        row.pack(fill='x', padx=16, pady=(4, 0))
+        row.pack(fill='x', padx=20, pady=(4, 0))
         row.pack_propagate(False)
         minus_area, plus_area = tk.Frame(row, width=64), tk.Frame(row, width=64)
         plus_area.pack(side='right', fill='y')
@@ -1026,8 +1092,9 @@ class Panel(object):
         self.label(row, unit, 16, True).pack(side='left', padx=10, anchor='s', pady=12)
         scale = tk.Scale(group, variable=variable, from_=low, to=high, resolution=step, orient='horizontal',
                          bg=self.surface, troughcolor=self.control, activebackground=ACCENT,
-                         highlightthickness=0, bd=0, width=44, sliderlength=64, showvalue=False)
-        scale.pack(fill='x', padx=16, pady=(2, 0))
+                         highlightthickness=0, bd=0, relief='flat', sliderrelief='raised',
+                         width=44, sliderlength=64, showvalue=False)
+        scale.pack(fill='x', padx=20, pady=(4, 12))
         self.bind_slider(scale, 'cct')
         self.light_buttons.extend([minus, plus, scale])
 
@@ -1076,13 +1143,11 @@ class Panel(object):
             tk.Frame(cell, height=8, bg=CHANNEL_COLOURS[index]).pack(fill='x', pady=8)
             scale = tk.Scale(cell, variable=value, from_=100, to=0, resolution=1, bg=self.bg, fg=self.ink,
                              troughcolor=self.control, activebackground=ACCENT, highlightthickness=0,
-                             bd=0, font=(FONT, 16), width=44, sliderlength=48, length=200)
+                             bd=0, relief='flat', sliderrelief='raised', font=(FONT, 16), width=44, sliderlength=48, length=200)
             scale.pack(fill='both', expand=True)
             self.bind_slider(scale, 'channels')
             self.light_buttons.append(scale)
-        feedback = self.label(self.body, size=16, muted=True)
-        feedback.config(textvariable=self.light_text, height=4)
-        self.wrap_label(feedback).pack(fill='x', pady=(6, 0))
+        self.feedback_card(self.body)
         self.update_light_buttons()
 
     def preset(self, name):
@@ -1862,8 +1927,8 @@ def main(argv=None):
                         help='Idle clock/weather after seconds; 0 disables. Default 300; adjustable in Screen settings')
     parser.add_argument('--font', default='Cantarell', help='An installed font family; default Cantarell')
     parser.add_argument('--tips', choices=['on', 'off'], default='on', help='Short touch explanations; also switchable in the header')
-    parser.add_argument('--dark-brand', choices=['wordmark', 'original'], default='wordmark',
-                        help='Plain LESA text in dark mode, or original logo on a white plate')
+    parser.add_argument('--dark-brand', choices=['wordmark', 'original'], default='original',
+                        help='Compatibility option; the original logo is retained in both themes')
     parser.add_argument('--adapter-python', default='/usr/bin/python2.7', help='Installed ROS interpreter, independent of the UI')
     parser.add_argument('--expected-master', default=os.environ.get('SCR_PANEL_MASTER'),
                         help='Approved ROS_MASTER_URI, or private SCR_PANEL_MASTER environment setting')

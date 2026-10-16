@@ -452,7 +452,7 @@ def test_home_power_requires_confirmed_readback_and_clears_during_changes():
     state = panel.Panel.__new__(panel.Panel)
     state.light_state, state.confirmed_power = 'ready', 'off'
     state.pending = state.queued_intent = state.release_target = state.closing = None
-    state.control, state.ink, state.icon_colour = 'neutral', 'ink', 'icon'
+    state.control, state.ink, state.icon_colour, state.border = 'neutral', 'ink', 'icon', 'border'
     state.icon = lambda *args: None
     buttons = [SimpleNamespace(winfo_exists=lambda: True, config=lambda **kw: None) for _ in range(2)]
     for button in buttons:
@@ -474,7 +474,7 @@ def test_scene_highlight_uses_exact_confirmed_words_and_clears_for_custom_or_unc
     state = panel.Panel.__new__(panel.Panel)
     state.light_state = 'ready'
     state.pending = state.queued_intent = state.release_target = state.closing = None
-    state.control, state.ink = 'neutral', 'ink'
+    state.control, state.ink, state.border = 'neutral', 'ink', 'border'
     buttons = []
     for name in ('Fid', 'Sat', 'Dul'):
         button = SimpleNamespace(winfo_exists=lambda: True)

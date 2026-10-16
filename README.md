@@ -40,9 +40,13 @@ Scenes & channels highlights the preset matching the confirmed drive words.
 A custom mix clears the preset highlight. Routine Ready confirmations stay in
 the feedback area; the footer is reserved for explanations, progress and problems.
 
-The clock/weather view appears after five idle minutes by default. Its first wake
-touch always opens Home without activating controls. The idle view prominently
-says how to reach Home and light controls. **Advanced → Screen**
+The full-screen screensaver appears after five idle minutes by default. It has a
+large clock, weather and a prominent “Touch anywhere to open controls” prompt,
+without the normal control-page navigation. Its first wake touch always opens
+Home without activating controls. The original LESA logo is consistent
+in both themes. Related buttons share widths and spacing; lighting results appear
+in a compact outlined card with the historical readback kept separate.
+**Advanced → Screen**
 offers Off, 1, 5 or 15 minutes. Idle does not interrupt Experiment mode, Legacy, held
 touches, pending commands or uncertain lighting. Preferences save appearance and
 idle choices, not light settings or recording state.
