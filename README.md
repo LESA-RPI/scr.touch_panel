@@ -30,7 +30,8 @@ Home and the idle view show outdoor temperature, conditions, feels-like temperat
 today's high/low and rain chance when available, plus daylight. Source/model
 details remain under Advanced → Date & weather. Earlier data is clearly dated.
 
-Light changes send automatically. Large values show your selection; the feedback
+Light buttons queue immediately on release; sliders send after your touch settles.
+Large values show your selection; the feedback
 area shows the last confirmed controller settings and their age. **Ready** means
 the lighting adapter is available. It does not confirm every room sensor is healthy
 or measure physical brightness. The selected Home button reflects the last
@@ -39,6 +40,9 @@ request is pending or uncertain.
 Scenes & channels highlights the preset matching the confirmed drive words.
 A custom mix clears the preset highlight. Routine Ready confirmations stay in
 the feedback area; the footer is reserved for explanations, progress and problems.
+Advanced keeps its sidebar in place while changing tools. Unchanged clock/status
+values do not trigger another redraw. Resource checks run in the background so
+slow reads do not hold up touches.
 
 The full-screen screensaver appears after five idle minutes by default. It has a
 large clock, weather and a prominent “Touch anywhere to open controls” prompt,

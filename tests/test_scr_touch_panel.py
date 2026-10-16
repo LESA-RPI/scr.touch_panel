@@ -272,6 +272,81 @@ def test_latest_touch_intent_is_copied_serialized_and_cancelled_before_release(m
     assert state.trial_deadline is None
 
 
+def test_button_intents_dispatch_without_slider_delay_but_stay_serialized():
+    state = panel.Panel.__new__(panel.Panel)
+    state.mode, state.light_state = 'room', 'ready'
+    state.pending = state.release_target = state.closing = None
+    state.queued_intent = state.intent_timer = state.slider_drag = None
+    state.view_generation = 0
+    cancelled, sent, feedback = [], [], []
+    def delayed(*args):
+        raise AssertionError('Discrete button must not wait for slider debounce')
+    state.root = SimpleNamespace(after=delayed, after_cancel=cancelled.append)
+    state.status_text = state.light_text = SimpleNamespace(set=feedback.append)
+    state.update_light_buttons = lambda: None
+    def request(action, arguments):
+        sent.append((action, arguments))
+        state.pending = {'request_id': str(len(sent))}
+        return True
+    state.request = request
+    state.intent_timer = 'old slider timer'
+    state.apply('cct', immediate=True, cct=3500, intensity=1000)
+    assert cancelled == ['old slider timer']
+    assert sent == [('cct', {'cct': 3500, 'intensity': 1000})]
+    assert state.intent_timer is None and state.queued_intent is None
+    state.apply('channels', immediate=True, values=[0] * 8)
+    assert len(sent) == 1 and state.queued_intent[0] == 'channels'
+    assert any('waiting for current request' in text for text in feedback)
+    state.pending, state.light_state = None, 'ready'
+    state.dispatch_intent()
+    assert sent[-1] == ('channels', {'values': [0] * 8})
+    # Uncertainty blocks button dispatch just as it blocks slider changes.
+    state.pending, state.light_state = None, 'failed'
+    state.apply('cct', immediate=True, cct=3500, intensity=1000)
+    assert len(sent) == 2
+
+
+def test_unchanged_display_variables_do_not_schedule_another_redraw():
+    updates = []
+    variable = SimpleNamespace(get=lambda: '12:34', set=updates.append)
+    panel.set_changed(variable, '12:34')
+    assert not updates
+    panel.set_changed(variable, '12:35')
+    assert updates == ['12:35']
+
+
+def test_slow_resource_read_never_holds_navigation_or_starts_a_second_query(monkeypatch):
+    entered, release = threading.Event(), threading.Event()
+    def slow_read():
+        entered.set()
+        assert release.wait(3)
+        return {'error': 'Controlled slow resource read'}
+    monkeypatch.setattr(panel, 'health', slow_read)
+    state = panel.Panel.__new__(panel.Panel)
+    state.mode, state.health_at, state.health_cache = 'health', -10, {}
+    state.health_worker = state.health_pending = None
+    state.status_worker, state.room_status_at, state.room_status = None, panel.monotonic(), 'Not queried'
+    shown = []
+    state.health_details = state.services_label = SimpleNamespace(config=lambda **kw: shown.append(kw))
+    try:
+        state.update_health()  # Returns while the resource read is held below.
+        assert entered.wait(1) and state.health_worker.is_alive()
+        worker = state.health_worker
+        state.health_at = -10
+        state.update_health()
+        assert state.health_worker is worker
+        state.mode = 'room'
+        state.update_health()
+        assert state.health_worker is worker
+    finally:
+        release.set()
+        state.health_worker.join(3)
+    state.mode, state.health_at = 'health', panel.monotonic()
+    state.update_health()
+    assert state.health_cache == {'error': 'Controlled slow resource read'}
+    assert any('Controlled slow resource read' in item['text'] for item in shown)
+
+
 def test_slow_adapter_initialization_sends_fresh_request_once_and_honors_exit(monkeypatch):
     now = [100.0]
     monkeypatch.setattr(panel, 'monotonic', lambda: now[0])

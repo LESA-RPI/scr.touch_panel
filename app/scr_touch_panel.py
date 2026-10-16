@@ -16,6 +16,7 @@ import select
 import signal
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from io import BytesIO
@@ -69,6 +70,12 @@ def monotonic():
         return time.monotonic()
     with open('/proc/uptime') as stream:
         return float(stream.read().split()[0])
+
+
+def set_changed(variable, value):
+    """Avoid scheduling redraws for unchanged clock/status values."""
+    if not hasattr(variable, 'get') or variable.get() != value:
+        variable.set(value)
 
 
 def boot_identity():
@@ -222,6 +229,7 @@ class Panel(object):
         self.hold = self.hold_origin = None
         self.theme_choice, self.theme = args.theme, None
         self.health_at, self.health_cache = -10, {}
+        self.health_worker, self.health_pending = None, None
         self.worker, self.pending, self.worker_buffer = None, None, ''
         self.queued_intent, self.intent_timer, self.slider_drag = None, None, None
         self.view_generation = 0
@@ -340,12 +348,14 @@ class Panel(object):
         if not hasattr(self.light_text, 'get') or self.light_text.get() != text:
             self.light_text.set(text)
         if hasattr(self, 'feedback_message'):
-            self.feedback_message.set(self.light_message)
-            self.feedback_detail.set('Last confirmed drive: ' + self.confirmed_light + suffix)
+            set_changed(self.feedback_message, self.light_message)
+            set_changed(self.feedback_detail, 'Last confirmed drive: ' + self.confirmed_light + suffix)
         card = getattr(self, 'light_feedback_card', None)
         if card is not None and card.winfo_exists():
             edge = '#b88036' if self.light_state == 'failed' else ACCENT if self.pending or self.queued_intent else self.border
-            card.config(highlightbackground=edge)
+            if getattr(card, '_edge', None) != edge:
+                card.config(highlightbackground=edge)
+                card._edge = edge
         self.update_power_highlights()
 
     def feedback_card(self, parent):
@@ -372,19 +382,27 @@ class Panel(object):
         for button, power, label in getattr(self, 'home_power_buttons', []):
             if button.winfo_exists():
                 selected = state == power
+                style = (selected, self.control, self.ink, self.icon_colour)
+                if getattr(button, '_power_style', None) == style:
+                    continue
+                button._power_style = style
                 button.config(bg=ACCENT if selected else self.control,
                               highlightbackground=ACCENT if selected else self.border,
                               fg='white' if selected else self.ink,
-                              activebackground=ACCENT if selected else self.control,
+                              activebackground='#005f95' if selected else self.pressed_colour(),
                               text=label,
                               image=self.icon(power, 'white' if selected else self.icon_colour))
         for button, name in getattr(self, 'scene_buttons', []):
             if button.winfo_exists():
                 selected = certain and getattr(self, 'confirmed_scene', None) == name
+                style = (selected, self.control, self.ink)
+                if getattr(button, '_scene_style', None) == style:
+                    continue
+                button._scene_style = style
                 button.config(bg=ACCENT if selected else self.control,
                               highlightbackground=ACCENT if selected else self.border,
                               fg='white' if selected else self.ink,
-                              activebackground=ACCENT if selected else self.control,
+                              activebackground='#005f95' if selected else self.pressed_colour(),
                               activeforeground='white' if selected else self.ink,
                               text=name)
 
@@ -436,10 +454,13 @@ class Panel(object):
         self.activity(False)
         self.show('room')
 
+    def pressed_colour(self):
+        return '#d8e4ee' if getattr(self, 'theme', 'light') == 'light' else '#394b5c'
+
     def button(self, parent, text, action, accent=False):
         button = tk.Button(parent, text=text, command=action, font=(FONT, 19),
                          fg='white' if accent else self.ink, bg=ACCENT if accent else self.control,
-                         activebackground=ACCENT if accent else self.control,
+                         activebackground='#005f95' if accent else self.pressed_colour(),
                          activeforeground='white' if accent else self.ink, disabledforeground=self.muted,
                          bd=0, relief='flat', highlightthickness=1,
                          highlightbackground=ACCENT if accent else self.border, highlightcolor=ACCENT,
@@ -751,8 +772,12 @@ class Panel(object):
             self.clock.pack_forget()
         if not self.footer.winfo_manager():
             self.footer.pack(side='bottom', fill='x', padx=24, pady=(8, 10))
-        self.rebuild_body(self.advanced_view if getattr(self, 'advanced_page', None)
-                          else getattr(self, self.mode + '_view'))
+        if (getattr(self, 'advanced_page', None) and
+                getattr(self, 'advanced_shell', None) is self.body):
+            self.rebuild_advanced_detail()
+        else:
+            self.rebuild_body(self.advanced_view if getattr(self, 'advanced_page', None)
+                              else getattr(self, self.mode + '_view'))
         if self.idle_active:
             self.install_wake_bindings()
         for button in self.footer.winfo_children():
@@ -821,6 +846,9 @@ class Panel(object):
 
     def advanced_view(self):
         shell = self.body
+        self.advanced_shell = shell
+        self.advanced_sidebar_buttons = []
+        self.advanced_detail = None
         sidebar = tk.Frame(shell, bg=self.bg, width=264)
         sidebar.pack(side='left', fill='y', padx=(0, 28), pady=(10, 0))
         sidebar.pack_propagate(False)
@@ -829,8 +857,22 @@ class Panel(object):
             button = self.row_buttons(sidebar, [(label, lambda page=page: self.open_advanced(page),
                                                 self.advanced_page == page)], height=52)[0]
             button.config(font=(FONT, 17), anchor='w', padx=12, pady=8)
+            self.advanced_sidebar_buttons.append((button, page))
+        self.rebuild_advanced_detail()
+
+    def rebuild_advanced_detail(self):
+        """Keep the sidebar mapped while replacing only the selected tool."""
+        shell = self.body
+        for button, page in self.advanced_sidebar_buttons:
+            selected = self.advanced_page == page
+            colour = ACCENT if selected else self.control
+            if button.cget('bg') != colour:
+                button.config(bg=colour, fg='white' if selected else self.ink,
+                              highlightbackground=ACCENT if selected else self.border,
+                              activebackground='#005f95' if selected else self.pressed_colour(),
+                              activeforeground='white' if selected else self.ink)
+        previous = self.advanced_detail
         detail = tk.Frame(shell, bg=self.bg)
-        detail.pack(side='left', fill='both', expand=True, pady=(10, 0))
         self.body = detail
         try:
             page = self.advanced_page
@@ -857,6 +899,12 @@ class Panel(object):
                 self.wrap_label(saved).pack(fill='x', pady=(8, 0))
         finally:
             self.body = shell
+        if previous is not None:
+            previous.pack_forget()
+        detail.pack(side='left', fill='both', expand=True, pady=(10, 0))
+        self.advanced_detail = detail
+        if previous is not None:
+            previous.destroy()
 
     def open_advanced(self, page=None):
         page = page or self.last_advanced_page
@@ -865,6 +913,8 @@ class Panel(object):
         target = 'room' if page in ('white', 'scenes') else ('experiment' if page == 'experiment' else
                   'health' if page == 'system' else 'about' if page == 'about' else 'settings')
         if self.release_target or self.closing:
+            return
+        if getattr(self, 'mode', None) == target and getattr(self, 'advanced_page', None) == page:
             return
         self.last_advanced_page = page
         self.show(target, advanced_page=page)
@@ -1159,12 +1209,12 @@ class Panel(object):
     def preset(self, name):
         for variable, value in zip(self.channel_values, PRESETS[name]):
             variable.set(value)
-        self.apply('channels', values=list(PRESETS[name]))
+        self.apply('channels', immediate=True, values=list(PRESETS[name]))
 
     def lights_on(self):
         self.cct.set(3500)
         self.intensity.set(1000)
-        self.cct_apply()
+        self.apply('cct', immediate=True, cct=self.cct.get(), intensity=self.intensity.get())
 
     def cct_apply(self):
         self.apply('cct', cct=self.cct.get(), intensity=self.intensity.get())
@@ -1172,7 +1222,7 @@ class Panel(object):
     def channels_apply(self):
         self.apply('channels', values=[item.get() for item in self.channel_values])
 
-    def apply(self, action, **arguments):
+    def apply(self, action, immediate=False, **arguments):
         if self.mode != 'room' or self.light_state not in ('ready', 'applying') or self.release_target or self.closing:
             self.status_text.set('Lighting unavailable. Use Legacy or ask staff.')
             return
@@ -1181,6 +1231,12 @@ class Panel(object):
         self.queued_intent = (action, arguments, self.view_generation)
         if self.intent_timer is not None:
             self.root.after_cancel(self.intent_timer)
+        self.intent_timer = None
+        if immediate:
+            if self.pending:
+                self.lighting_feedback('Selected: ' + light_selection(action, arguments) + ' / waiting for current request')
+            self.dispatch_intent()
+            return
         self.intent_timer = self.root.after(250, self.dispatch_intent)
         self.lighting_feedback('Selected: ' + light_selection(action, arguments) + ' / waiting to send')
 
@@ -1396,11 +1452,28 @@ class Panel(object):
         if self.mode != 'health':
             return
         now = monotonic()
-        if now - self.health_at >= 5:
-            self.health_cache, self.health_at = health(), now
+        pending = getattr(self, 'health_pending', None)
+        if pending is not None:
+            self.health_cache, self.health_pending = pending, None
+        worker = getattr(self, 'health_worker', None)
+        if now - self.health_at >= 5 and (worker is None or not worker.is_alive()):
+            self.health_at = now
+            def read_resources():
+                # No Tk calls on this thread; a slow SD or power query cannot hold a touch.
+                try:
+                    self.health_pending = health()
+                except Exception as error:
+                    self.health_pending = {'error': str(error)}
+            self.health_worker = threading.Thread(target=read_resources, name='scr-panel-resources')
+            self.health_worker.daemon = True
+            self.health_worker.start()
         if not self.status_worker and now - self.room_status_at >= 60:
             self.start_status()
         h = self.health_cache
+        if not h:
+            self.health_details.config(text='Checking panel resources…')
+            self.services_label.config(text=self.room_status + '\nService presence is not sensor health.')
+            return
         if 'error' in h:
             self.health_details.config(text='Resource reading unavailable: ' + h['error'])
             return
@@ -1692,6 +1765,8 @@ class Panel(object):
     def poll_worker(self):
         if self.closed:
             return
+        if getattr(self, 'mode', None) == 'health' and getattr(self, 'health_pending', None) is not None:
+            self.update_health()
         self.poll_journal()
         self.poll_status()
         self.poll_weather()
@@ -1826,10 +1901,12 @@ class Panel(object):
         if self.closed:
             return
         self.set_theme()
-        self.clock.config(text=time.strftime('%a %d %b') + '  ' + time.strftime('%H:%M' if self.clock_24 else '%I:%M %p'))
-        self.visitor_time.set(time.strftime('%H:%M') if self.clock_24 else time.strftime('%I:%M %p').lstrip('0'))
-        self.visitor_date.set(time.strftime('%A, %d %B %Y'))
-        self.preference_text.set(self.preference_summary())
+        clock = time.strftime('%a %d %b') + '  ' + time.strftime('%H:%M' if self.clock_24 else '%I:%M %p')
+        if self.clock.cget('text') != clock:
+            self.clock.config(text=clock)
+        set_changed(self.visitor_time, time.strftime('%H:%M') if self.clock_24 else time.strftime('%I:%M %p').lstrip('0'))
+        set_changed(self.visitor_date, time.strftime('%A, %d %B %Y'))
+        set_changed(self.preference_text, self.preference_summary())
         self.update_connection_badges()
         self.refresh_confirmation_age()
         self.update_idle()
@@ -1840,7 +1917,7 @@ class Panel(object):
             caption = weather_data.details(self.weather_reading, self.temperature_unit, earlier=old)
         else:
             caption = 'Weather not configured' if self.args.weather_latitude is None else 'Weather unavailable'
-        self.home_weather_text.set(caption)
+        set_changed(self.home_weather_text, caption)
         if self.mode == 'visitor' or self.mode == 'room' and self.section == 'basic':
             self.start_weather()
             self.update_weather()
