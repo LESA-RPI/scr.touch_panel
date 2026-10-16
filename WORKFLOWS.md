@@ -80,7 +80,8 @@ or restore light settings. Remove this private file to reset appearance.
 A direct preview saves preferences only when `--preferences PATH` is supplied.
 `blinds_enabled` is a strict boolean, defaults to false and is saved separately
 from Home visibility. Changing this setting never sends a blind command.
-No blind adapter is installed: enabled controls still report Controller not connected.
+No blind adapter is installed. Screen & controls shows one unavailable note and
+omits unlocking until a controller is connected; movement remains disabled.
 Room tools → Date & weather selects Celsius or Fahrenheit. Old preference files
 default to Fahrenheit. Direct previews can use `--temperature-unit c` or `f`.
 Switching units converts cached data; it does not fetch again or change room controls.
@@ -345,7 +346,7 @@ automatic command retries or silent takeover of an experiment.
 Prefer standard semantic HTML/CSS, large touch targets and visible keyboard focus.
 Keep weather/help usable when room control is unavailable. Describe capabilities
 and experiment profiles as data; keep Project-X's recorder integration in its own
-repository. Add a versioned HTTP schema when a browser endpoint is implemented.
+repository. The implemented version 1 gateway schema is in docs/interface.md.
 Choose packages for that tested workflow; no framework or room-server upgrade is
 required for the current client. README owns setup, WORKFLOWS owns operation,
 and tests/adapter contracts provide the starting point for human and agent changes.

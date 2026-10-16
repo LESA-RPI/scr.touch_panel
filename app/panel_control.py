@@ -11,6 +11,7 @@ import socketserver
 import stat
 import threading
 import time
+from room_controls import PRESETS, BLIND_ACTIONS
 
 
 def command(value):
@@ -77,14 +78,14 @@ def command(value):
             and all(type(v) is int and 0 <= v <= 100 for v in args["values"])
         )
     choices = {
-        "preset": ("Fid", "Sat", "Dul", "Off"),
+        "preset": tuple(PRESETS),
         "theme": ("light", "dark", "auto"),
         "clock": ("12", "24"),
         "temperature": ("c", "f"),
         "idle": (0, 60, 300, 900),
         "blinds_display": ("hidden", "disabled"),
         "blinds_enabled": (True, False),
-        "blind": ("lift", "open", "close"),
+        "blind": tuple(name for name, label in BLIND_ACTIONS),
         "tips": (True, False),
     }
     if action in choices:

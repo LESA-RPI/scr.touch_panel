@@ -34,7 +34,6 @@ from help_reference import reference
 from room_controls import (
     LIGHTING_TABS,
     SCENES,
-    PROGRAMMES,
     BLIND_ACTIONS,
     blind_readiness,
 )
@@ -100,7 +99,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         self.weather_reading, self.weather_rendered_minute = None, None
         self.settings_category = "appearance"
         self.advanced_page, self.last_advanced_page = None, "lighting"
-        self.lighting_tab, self.selected_programme = "white", "Sun"
+        self.lighting_tab = "white"
         self.guide_page, self.support_page = -1, 0
         self.support_commands_visible = False
         self.support_step = 0
@@ -178,7 +177,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 raise ValueError(
                     "Shorten profile %s text to fit the touch layout" % key
                 )
-        self.root.title("LESA Smart Conference Room · " + VERSION)
+        self.root.title("LESA Smart Conference Room · Beta")
         if (self.root.winfo_screenwidth(), self.root.winfo_screenheight()) != (
             1280,
             800,
@@ -634,7 +633,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         identity = tk.Frame(self.banner, bg=self.bg)
         identity.pack(side="left", anchor="s")
         self.label(identity, "Smart Conference Room", 32).pack(side="left", anchor="s")
-        badge = self.label(identity, VERSION, 16)
+        badge = self.label(identity, "Beta", 16)
         badge.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
         badge.pack(side="left", anchor="s", padx=(12, 0), pady=(0, 10))
         self.clock = self.label(self.banner, size=17, muted=True)
@@ -715,7 +714,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         identity = tk.Frame(top, bg=self.bg)
         identity.pack(side="left", anchor="s")
         self.label(identity, "Smart Conference Room", 32).pack(side="left", anchor="s")
-        badge = self.label(identity, VERSION, 16)
+        badge = self.label(identity, "Beta", 16)
         badge.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
         badge.pack(side="left", anchor="s", padx=(12, 0), pady=(0, 10))
         navigation = tk.Frame(top, bg=self.bg, width=444, height=64)

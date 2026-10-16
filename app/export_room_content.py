@@ -7,7 +7,14 @@ from panel_guides import DEMO, SUPPORT
 from design_tokens import THEMES, WEATHER_ACCENTS
 from help_reference import reference
 from command_reference import command_tokens
-from room_controls import LIGHTING_TABS, SCENES, PROGRAMMES, BLIND_ACTIONS
+from room_controls import (
+    LIGHTING_TABS,
+    SCENES,
+    BLIND_ACTIONS,
+    PRESETS,
+    UNAVAILABLE_LIGHTING,
+    BLINDS_UNAVAILABLE,
+)
 from panel_version import VERSION
 import xml.etree.ElementTree as ET
 
@@ -62,7 +69,10 @@ def content():
         "weather_accents": WEATHER_ACCENTS,
         "lighting_tabs": LIGHTING_TABS,
         "scenes": SCENES,
-        "programmes": PROGRAMMES,
+        "presets": PRESETS,
+        "unavailable_lighting": UNAVAILABLE_LIGHTING,
+        "blinds_unavailable": BLINDS_UNAVAILABLE,
+        "generated_from": "app/export_room_content.py",
         "blind_actions": BLIND_ACTIONS,
         "guide": [
             {"title": title, "icon": kind, "text": text} for title, kind, text in DEMO

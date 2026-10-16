@@ -1,35 +1,20 @@
 """Shared room-control labels and readiness. No hardware access or discovery."""
 
+from scr_touch_panel_lights import PRESETS
+
 LIGHTING_TABS = (
     ("White light", "white"),
     ("Scenes", "scenes"),
     ("Programmes", "programmes"),
     ("Channels", "channels"),
 )
-SCENES = (
-    {"id": "Fid", "label": "Fid", "detail": "Original eight-channel room mixture."},
-    {"id": "Sat", "label": "Sat", "detail": "Original eight-channel room mixture."},
-    {"id": "Dul", "label": "Dul", "detail": "Original eight-channel room mixture."},
-    {
-        "id": "Gradient",
-        "label": "Gradient",
-        "detail": "A static colour pattern across individual fixtures.",
-    },
+SCENES = tuple(
+    {"id": name, "label": name, "detail": "Original eight-channel room mixture."}
+    for name in PRESETS
+    if name != "Off"
 )
-PROGRAMMES = (
-    {
-        "id": "Sun",
-        "label": "Sun",
-        "subtitle": "Travelling light",
-        "detail": "Colour temperature and light level move through fixture groups in sequence.",
-    },
-    {
-        "id": "Circ",
-        "label": "Circ",
-        "subtitle": "Whole-room cycle",
-        "detail": "All fixtures follow the same colour-temperature and light-level cycle together.",
-    },
-)
+UNAVAILABLE_LIGHTING = "Gradient, Sun and Circ are not available yet. Their adapters are not connected; use Legacy for the original controls."
+BLINDS_UNAVAILABLE = "Not available yet: the blind adapter is not connected."
 BLIND_ACTIONS = (
     ("lift", "Lift blinds"),
     ("open", "Open slats"),

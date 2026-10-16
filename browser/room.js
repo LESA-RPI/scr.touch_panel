@@ -93,14 +93,13 @@ function tools(root,page){
     detail.append(el('h3','Screen saver'));choices(detail,[['Off','idle',0],['1 min','idle',60],['5 min','idle',300],['15 min','idle',900]]);
     detail.append(el('p','A first touch on the screen saver opens Home without activating a control. The preview uses the same screen as the idle timer.','muted'));detail.append(el('h3','Touch panel display'));
     const row=el('div',undefined,'row');row.append(button('Preview screen saver',()=>command('clock_view'),{action:'clock_view'}),button('Blank touch panel',()=>command('blank'),{action:'blank'}),button('Wake to Home',()=>command('home'),{action:'home'}));detail.append(row);detail.append(el('p','Blank shows black pixels; the backlight stays on. Hold one spot on the panel for two seconds to return.','muted'));
-    detail.append(el('h3','Blind controls'));choices(detail,[['Locked','blinds_enabled',false],['Unlocked','blinds_enabled',true]]);
+    detail.append(el('h3','Blind controls'));
+    if(state?.blinds?.connected)choices(detail,[['Locked','blinds_enabled',false],['Unlocked','blinds_enabled',true]]);
     const reason=el('p',undefined,'muted');reason.id='blind-reason';detail.append(reason);
-    detail.append(el('p','Changing the lock does not move the blinds.','subtle'));
     detail.append(el('h3','Blinds on Home'));choices(detail,[['Show','blinds_display','disabled'],['Hide','blinds_display','hidden']]);
   }else if(page==='system')system(detail);
   else{const version=el('p',undefined,'muted'),build=el('p',undefined,'subtle');version.id='app-version';build.id='app-build';build.hidden=true;detail.append(el('h3','Smart Conference Room'),el('p','Touch panel and browser','muted'),version,build,el('p','Built by Diyanko Bhowmik'),el('p','Original contributors are credited in the repository history.','muted'));const a=el('a','github.com/LESA-RPI/scr.touch_panel');a.href='https://github.com/LESA-RPI/scr.touch_panel';detail.append(a,el('p','Icons: Lucide · lucide.dev','subtle'));}
 }
-let selectedProgramme='Sun';
 function lighting(detail,tab){
   const tabs=el('nav',undefined,'lighting-tabs');tabs.setAttribute('aria-label','Lighting');
   for(const [label,key] of content.lighting_tabs||[['White light','white'],['Scenes','scenes'],['Programmes','programmes'],['Channels','channels']]){
@@ -110,19 +109,12 @@ function lighting(detail,tab){
     detail.append(el('p','Original scene names and mixtures from Legacy.','muted'));
     const grid=el('div',undefined,'scene-grid');
     for(const scene of content.scenes||[]){
-      const card=el('section',undefined,'card'),b=scene.id==='Gradient'?button('Apply scene',()=>window.SCR_PREVIEW?.applyGradient()):button('Apply scene',()=>command('preset',{name:scene.id}),{action:'preset'});
-      if(scene.id==='Gradient'){b.id='gradient-apply';b.disabled=true;}else b.dataset.preset=scene.id;
-      card.append(el('h3',scene.label),el('p',scene.detail,'muted'));if(scene.id==='Gradient')card.append(el('small','Fixture control not connected','muted'));card.append(b);grid.append(card);
-    }detail.append(grid);feedback(detail);
+      const card=el('section',undefined,'card'),b=button('Apply scene',()=>command('preset',{name:scene.id}),{action:'preset'});
+      b.dataset.preset=scene.id;
+      card.append(el('h3',scene.label),el('p',scene.detail,'muted'),b);grid.append(card);
+    }detail.append(grid,el('p',content.unavailable_lighting,'muted'));feedback(detail);
   }else if(tab==='programmes'){
-    detail.append(el('p','Choose a finite light cycle from Legacy.','muted'));
-    const row=el('div',undefined,'row'),items=content.programmes||[];
-    for(const item of items){const b=button(item.label+' · '+item.subtitle,()=>{selectedProgramme=item.id;view='';layout();});b.setAttribute('aria-pressed',String(item.id===selectedProgramme));b.classList.toggle('selected',item.id===selectedProgramme);row.append(b);}detail.append(row);
-    const item=items.find(p=>p.id===selectedProgramme);if(item){const card=el('section',undefined,'card');card.append(el('h3',item.subtitle),el('p',item.detail),el('p','These are light demonstrations, independent of the clock and weather.','muted'));detail.append(card);}
-    const status=el('p','Programme control not connected','subtle');status.id='programme-status';detail.append(status);
-    const progress=el('progress');progress.id='programme-progress';progress.max=100;progress.value=0;progress.setAttribute('aria-label','Programme progress');progress.hidden=true;detail.append(progress);
-    const actions=el('div',undefined,'row');for(const [id,label,action] of [['programme-start','Start programme',()=>window.SCR_PREVIEW?.startProgramme(selectedProgramme)],['programme-stop','Stop programme',()=>window.SCR_PREVIEW?.stopProgramme()]]){const b=button(label,action);b.id=id;b.disabled=true;actions.append(b);}detail.append(actions);
-    detail.append(el('p',window.SCR_PREVIEW?'Offline preview uses an accelerated simulation.':'Programme controls become available when a compatible controller is connected.','subtle'));
+    detail.append(el('p',content.unavailable_lighting,'muted'));
   }else if(tab==='channels'){
     detail.append(el('p','Adjust the eight room-wide channel percentages.','muted'));
     const grid=el('div',undefined,'channel-grid');for(const [i,label] of ['Blue 1','Blue 2','Blue 3','Lime','Amber','Orange','Red 1','Red 2'].entries())range(grid,label,'channel-'+i,0,100,1,'%');detail.append(grid);feedback(detail);
@@ -211,12 +203,9 @@ function sync(){
   if(state?.palette)window.SCRDesign.apply(state.palette,p.resolved_theme);
   update('connection',!available&&powerRequest?.accepted?(powerRequest.operation==='reboot'?'Restarting panel':'Shutting down panel'):!available?'Panel unavailable':state.mode==='original'?'Legacy':state.busy?'Sending':state.can_control?'Ready':s.state==='failed'?'Uncertain':'Controls unavailable');
   if($('blind-group')){$('blind-group').hidden=p.blinds_display==='hidden';$('essentials').classList.toggle('single',p.blinds_display==='hidden');$('blind-group').classList.toggle('disabled-group',!state?.blinds?.available);update('blind-status',state?.blinds?.available?'Ready':'Disabled');}
-  update('blind-reason',state?.blinds?.reason||(!p.blinds_enabled?'Controls locked in settings':'Controller not connected'));
+  update('blind-reason',state?.blinds?.connected?state.blinds.reason:content.blinds_unavailable);
   for(const b of document.querySelectorAll('[data-action]')){const a=b.dataset.action,lighting=['on','off','cct','preset','channels'].includes(a),session=['start','pause','previous','next','mark'].includes(a);b.disabled=posting||Boolean(unknown)||!available||state.busy||(a==='blind'?!state?.blinds?.available:lighting?!state.can_control:session?!state.can_session:false);}
   for(const input of document.querySelectorAll('[data-range]')){const number=$('value-'+input.dataset.range);input.disabled=number.disabled=posting||Boolean(unknown)||!available||!state.can_control;if(!dragging){const k=input.dataset.range,value=k.startsWith('channel')?s.channels?.[Number(k.split('-')[1])]:s[k];if(value!==undefined){input.value=value;number.value=value;}}}
-  const preview=window.SCR_PREVIEW?.read(),previewReady=!!preview?.connected&&available&&state.can_control&&!posting&&!unknown&&!state.busy;
-  if($('gradient-apply')){$('gradient-apply').disabled=!previewReady;const note=$('gradient-apply').parentElement.querySelector('small');note.textContent=preview?.connected?'Offline simulation':'Fixture control not connected';}
-  if($('programme-start')){const programme=preview?.programme,running=programme?.phase==='running';$('programme-start').disabled=!previewReady||running;$('programme-stop').disabled=!previewReady||!running;update('programme-status',preview?.connected?(programme?programme.name+' · '+programme.phase+' · accelerated simulation':'Ready to preview · one cycle'):'Programme control not connected');$('programme-progress').hidden=!programme;$('programme-progress').value=programme?.progress||0;}
   for(const b of document.querySelectorAll('[data-choice]'))b.classList.toggle('selected',String(p[b.dataset.choice])===b.dataset.value);
   for(const b of document.querySelectorAll('[data-action=on],[data-action=off]'))b.classList.toggle('selected',available&&!posting&&!unknown&&s.power===b.dataset.action&&state.can_control);
   for(const b of document.querySelectorAll('[data-preset]'))b.classList.toggle('selected',available&&!posting&&!unknown&&s.scene===b.dataset.preset&&state.can_control);
@@ -272,5 +261,5 @@ async function refresh(){
 }
 document.addEventListener('click',event=>{const a=event.target.closest('a[href="#home"]');if(a&&state?.available&&state.mode!=='room'){event.preventDefault();command('home').then(ok=>{if(ok)location.hash='home';});}});
 window.addEventListener('hashchange',layout);document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
-window.addEventListener('scr-preview-change',()=>{const name=window.SCR_PREVIEW?.read().programme?.name;if(name)selectedProgramme=name;view='';layout();});
+window.addEventListener('scr-preview-change',()=>{view='';layout();});
 (async()=>{try{content=await(await fetch('/room-content.json')).json();}catch(_){}layout();await refresh();setInterval(refresh,1000);setInterval(weather,1000);})();

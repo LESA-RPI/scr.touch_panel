@@ -106,7 +106,7 @@ No new hardware adapter, shell executor or recording adapter exists.
 
 A command has exactly `id`, `revision`, `action`, `arguments`. IDs are unique,
 16–80 alphanumeric/hyphen characters. The revision identifies the panel session,
-journal sequence and view generation. A stale revision returns409 without executing.
+journal sequence and view generation. A stale revision returns 409 without executing.
 Duplicate IDs return their original receipt; differing payloads with a reused ID
 are refused. Queued requests expire after two seconds. Lost acceptance is uncertain:
 clients query receipts and never automatically repeat commands.
@@ -120,7 +120,8 @@ uncertain states block lighting. Panel and browser use these same study guards.
 Acceptance is not lighting confirmation, annotation persistence or recording.
 
 Blind readiness separates the short user-facing `detail` (Disabled, Busy or Ready)
-from a diagnostic `reason`. The saved `blinds_enabled` permission and controller
+from a diagnostic `reason`. When no controller is connected, settings show one unavailable note and omit
+unlocking. The saved `blinds_enabled` permission and controller
 connection remain independent; unlocking never connects a controller or moves blinds.
 
 `blinds_enabled` accepts a boolean `value`; `blind` accepts only a `name` of
@@ -133,8 +134,8 @@ hardware implementation. Window-group addressing is not implemented.
 
 Lighting navigation contains White light, Scenes, Programmes and Channels.
 `app/room_controls.py` owns their shared labels and descriptions. Gradient, Sun
-and Circ are represented with disconnected controls, not exposed as executable
-actions. No HTTP script launcher or independent programme runner is added.
+and Circ are represented by one unavailable note, with no inactive Apply/Start/Stop
+controls and no executable actions. No HTTP script launcher or independent programme runner is added.
 
 The opt-in HTTP gateway exposes `/api/controller` and `/api/command`. Commands
 require the exact configured Host, matching Origin, a per-service nonce and bounded
@@ -184,3 +185,12 @@ Per-fixture writes must verify unaffected fixtures, preserve the owner's expecte
 state and retain exact starting-state restoration. Blind ownership, naming,
 response/readback and completion semantics need qualification before wiring its
 controller; a setting alone cannot establish those capabilities.
+
+Presentation is split into `app/panel_views.py` (room, lighting and preferences),
+`app/panel_screensaver.py` (clock/weather) and `app/panel_guidance.py` (guide/help).
+They use the same `Panel` instance; `app/scr_touch_panel.py` retains command,
+recovery and lifecycle ownership. `app/panel_common.py` owns shared presentation
+values and pure helpers. Preset mixtures remain in `app/scr_touch_panel_lights.py`;
+shared control metadata and the browser export derive their available scene IDs
+from those mixtures. `browser/room-content.json` is generated fallback data and is
+checked against its exporter in tests, including the plain About version.

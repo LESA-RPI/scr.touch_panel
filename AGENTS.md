@@ -4,7 +4,9 @@
   readable controls over new layers, release bureaucracy or speculative features.
   Keep everyday actions direct and detailed controls together in Room tools.
 - Keep common panel and website behaviour consistent. Use the plain version from
-  app/panel_version.py; put Git/build details only in About. Refresh the private
+  app/panel_version.py for About and development tracking; everyday headers say
+  Beta. Put Git/build details only in About. Preserve Legacy as the older baseline
+  for backtracking, identified by Git history. Refresh the private
   screenshot gallery and interactive demo after verified deployments.
 - Read README.md for room-user behaviour, WORKFLOWS.md for operation, and
   docs/interface.md for profiles, events and adapter contracts. Technical details

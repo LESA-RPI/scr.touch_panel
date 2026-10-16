@@ -708,27 +708,53 @@
       "id": "Dul",
       "label": "Dul",
       "detail": "Original eight-channel room mixture."
-    },
-    {
-      "id": "Gradient",
-      "label": "Gradient",
-      "detail": "A static colour pattern across individual fixtures."
     }
   ],
-  "programmes": [
-    {
-      "id": "Sun",
-      "label": "Sun",
-      "subtitle": "Travelling light",
-      "detail": "Colour temperature and light level move through fixture groups in sequence."
-    },
-    {
-      "id": "Circ",
-      "label": "Circ",
-      "subtitle": "Whole-room cycle",
-      "detail": "All fixtures follow the same colour-temperature and light-level cycle together."
-    }
-  ],
+  "presets": {
+    "Fid": [
+      39,
+      6,
+      25,
+      56,
+      57,
+      100,
+      3,
+      6
+    ],
+    "Sat": [
+      21,
+      14,
+      4,
+      73,
+      22,
+      100,
+      22,
+      4
+    ],
+    "Dul": [
+      41,
+      2,
+      25,
+      53,
+      38,
+      100,
+      2,
+      0
+    ],
+    "Off": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "unavailable_lighting": "Gradient, Sun and Circ are not available yet. Their adapters are not connected; use Legacy for the original controls.",
+  "blinds_unavailable": "Not available yet: the blind adapter is not connected.",
+  "generated_from": "app/export_room_content.py",
   "blind_actions": [
     [
       "lift",

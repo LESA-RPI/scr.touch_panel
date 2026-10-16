@@ -3,7 +3,7 @@
 from room_controls import BLIND_ACTIONS
 from panel_version import BUILD_COMMIT
 from room_controls import LIGHTING_TABS
-from room_controls import PROGRAMMES
+from room_controls import UNAVAILABLE_LIGHTING, BLINDS_UNAVAILABLE
 from room_controls import SCENES
 from touch_slider import TouchSlider
 from panel_version import VERSION
@@ -153,14 +153,7 @@ class PanelViews:
                         24,
                     ),
                 )
-        key = (
-            (
-                self.lighting_tab,
-                self.selected_programme if self.lighting_tab == "programmes" else None,
-            )
-            if self.advanced_page == "lighting"
-            else None
-        )
+        key = self.lighting_tab if self.advanced_page == "lighting" else None
         if key is not None and key == old_key:
             self.detail_cache.pop(key, None)
             self.refresh_page()
@@ -330,84 +323,24 @@ class PanelViews:
                 note = self.label(card, scene["detail"], 15, True)
                 self.wrap_label(note).pack(fill="x", padx=16, pady=(0, 6))
                 button = self.button(
-                    card,
-                    (
-                        "Apply scene"
-                        if scene["id"] != "Gradient"
-                        else "Fixture control not connected"
-                    ),
-                    lambda name=scene["id"]: self.preset(name),
+                    card, "Apply scene", lambda name=scene["id"]: self.preset(name)
                 )
                 button.config(font=(self.font_family, 15), pady=8)
                 button.pack(fill="x", padx=16, pady=(0, 10), ipady=3)
-                if scene["id"] == "Gradient":
-                    button.config(state="disabled")
-                else:
-                    button._scene_label = "Apply scene"
-                    self.light_buttons.append(button)
-                    self.scene_buttons.append((button, scene["id"]))
+                button._scene_label = "Apply scene"
+                self.light_buttons.append(button)
+                self.scene_buttons.append((button, scene["id"]))
+            self.wrap_label(self.label(self.body, UNAVAILABLE_LIGHTING, 16, True)).pack(
+                fill="x", pady=(4, 8)
+            )
             self.feedback_card(self.body)
         elif self.lighting_tab == "programmes":
-            self.label(
-                self.body, "Choose a finite light cycle from Legacy.", 16, True
-            ).pack(anchor="w", pady=(2, 8))
-            buttons = self.row_buttons(
-                self.body,
-                [
-                    (
-                        item["label"] + " · " + item["subtitle"],
-                        lambda name=item["id"]: self.choose_programme(name),
-                        self.selected_programme == item["id"],
-                    )
-                    for item in PROGRAMMES
-                ],
-                height=76,
+            self.wrap_label(self.label(self.body, UNAVAILABLE_LIGHTING, 18, True)).pack(
+                fill="x", pady=16
             )
-            for button in buttons:
-                button.config(font=(self.font_family, 17))
-            item = next(
-                item for item in PROGRAMMES if item["id"] == self.selected_programme
-            )
-            card = tk.Frame(
-                self.body,
-                bg=self.surface,
-                highlightthickness=1,
-                highlightbackground=self.border,
-            )
-            card.pack(fill="x", pady=10)
-            self.label(card, item["subtitle"], 23).pack(
-                anchor="w", padx=20, pady=(16, 8)
-            )
-            note = self.label(
-                card,
-                item["detail"]
-                + "\n\nThese are light demonstrations, independent of the clock and weather.",
-                18,
-            )
-            self.wrap_label(note).pack(fill="x", padx=20, pady=(0, 16))
-            self.label(
-                self.body,
-                "Programme runner not connected · no programme is running",
-                16,
-                True,
-            ).pack(anchor="w", pady=10)
-            for button in self.row_buttons(
-                self.body,
-                [
-                    ("Start programme", lambda: None, False),
-                    ("Stop programme", lambda: None, False),
-                ],
-                height=58,
-            ):
-                button.config(state="disabled")
         else:
             self.channels_view(embedded=True)
         self.update_light_buttons()
-
-    def choose_programme(self, name):
-        if name in [item["id"] for item in PROGRAMMES]:
-            self.selected_programme = name
-            self.choose_lighting_tab("programmes")
 
     def slider_group(
         self, parent, title, variable, low, high, step, unit, compact=False
@@ -721,29 +654,35 @@ class PanelViews:
                 True,
             ).pack(anchor="w", pady=(0, 6))
             self.label(content, "Blind controls", 19).pack(anchor="w")
-            self.row_buttons(
-                content,
-                [
+            if self.blind_state()["connected"]:
+                self.row_buttons(
+                    content,
+                    [
+                        (
+                            "Locked",
+                            lambda: self.choose_blinds_enabled(False),
+                            not self.blinds_enabled,
+                        ),
+                        (
+                            "Unlocked",
+                            lambda: self.choose_blinds_enabled(True),
+                            self.blinds_enabled,
+                        ),
+                    ],
+                    height=50,
+                )
+            self.wrap_label(
+                self.label(
+                    content,
                     (
-                        "Locked",
-                        lambda: self.choose_blinds_enabled(False),
-                        not self.blinds_enabled,
+                        BLINDS_UNAVAILABLE
+                        if not self.blind_state()["connected"]
+                        else self.blind_state()["reason"]
                     ),
-                    (
-                        "Unlocked",
-                        lambda: self.choose_blinds_enabled(True),
-                        self.blinds_enabled,
-                    ),
-                ],
-                height=50,
-            )
-            self.label(
-                content,
-                self.blind_state()["reason"]
-                + " · changing the lock does not move blinds",
-                14,
-                True,
-            ).pack(anchor="w", pady=(0, 6))
+                    14,
+                    True,
+                )
+            ).pack(fill="x", pady=(0, 6))
             self.label(content, "Blinds on Home", 19).pack(anchor="w")
             self.row_buttons(
                 content,
