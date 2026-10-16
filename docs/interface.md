@@ -143,3 +143,30 @@ references are display/copy text, never command actions.
 panel-owned guide/help and Lucide paths for browser fallback and offline demos.
 The live snapshot supplies current preferences, controls, receipts, guide/help and
 experiment state. Original Legacy controls are external to this common Beta API.
+
+`app/help_reference.py` owns each command step's computer, effect, purpose,
+expected result and exact copy text. A help topic exports its `reference` object
+alongside the complete `commands` text for older clients. The complete text joins
+step commands with blank lines; highlighting never changes that text. These are
+display/copy references, not executable gateway actions.
+
+## Planned individual device controls
+
+The legacy room clients expose coordinate-based light `cct`/`sources` operations
+and named-blind `lift`/`tilt` operations in addition to whole-room commands.
+This is source-level capability evidence, not qualification of installed services.
+Beta's current light helper only admits whole-room commands, and its blind
+adapter is not implemented. No individual target picker is exposed yet.
+
+The intended extension keeps All as the default. An optional individual-controls
+setting would reveal only verified device names/groups reported by the owning
+adapter. Selecting a target must not send a command. Home's power shortcuts must
+always address All, and opening a new session must not inherit a previous narrow
+target. Window groups need an explicit mapping; client list order is not a room map.
+
+Every queued intent and receipt must include its immutable target. Invalid or
+missing target identities must be rejected rather than falling back to All.
+Per-fixture writes must verify unaffected fixtures, preserve the owner's expected
+state and retain exact starting-state restoration. Blind ownership, naming,
+response/readback and completion semantics need qualification before wiring its
+controller; a setting alone cannot establish those capabilities.

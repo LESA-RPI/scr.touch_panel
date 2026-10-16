@@ -36,12 +36,18 @@ percentages, which cannot reproduce arbitrary fractional drive settings.
 
 ## Switching and recovery
 
-Home combines stacked Lights on/off with time and outdoor weather. The blind
-buttons are intentionally disabled and have no command callbacks. No blind
-adapter is added. Room tools → White light opens the colour and level sliders;
-Scenes & channels opens the preset buttons and channel editor. Home returns to everyday
+Home combines stacked Lights on/off with time and outdoor weather. Blind
+callbacks check the saved permission and controller connection; movement defaults
+to disabled and no blind adapter is installed. Room tools → Lighting groups
+white-light adjustments, scenes, programmes and the channel editor. Home returns to everyday
 controls. All light controls share one latest selection queue. Wait for
 confirmation to distinguish a selection from a result.
+
+System & help explains each reference command's computer, purpose and expected
+result. The panel shows one command step at a time; the browser can copy each
+step or the complete topic and provides documentation links. Neither interface
+executes these references. Service-start commands use `cd ... && python ...` so
+a failed directory change cannot launch the script from another directory.
 
 Legacy waits for confirmed restoration and helper exit before showing
 the legacy program. Its matching header marks Legacy view; Home returns to the

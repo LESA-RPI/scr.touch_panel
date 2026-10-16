@@ -49,7 +49,7 @@ the lighting adapter is available. It does not confirm every room sensor is heal
 or measure physical brightness. The selected Home button reflects the last
 confirmed On/Off readback through a coloured highlight; neither is selected while a
 request is pending or uncertain.
-Scenes & channels highlights the preset matching the confirmed drive words.
+Lighting → Scenes highlights the preset matching the confirmed drive words.
 A custom mix clears the preset highlight. Routine Ready confirmations stay in
 the feedback area; the footer is reserved for explanations, progress and problems.
 Room tools keeps its sidebar in place while changing tools. Unchanged clock/status
@@ -58,16 +58,20 @@ slow reads do not hold up touches.
 
 White light shows the minimum and maximum beside each slider. System & help
 separates panel health, room connection and guidance. Reference commands are
-available through Room host reference and are never executed by the panel.
+available through View command steps and are never executed by the panel.
 Command references use a verified monospace font with restrained shell highlighting;
-the browser can copy the original text without formatting.
+the browser can copy each command or the complete topic without formatting.
+Command steps explain which computer to use, why the command helps and what
+result to expect. The panel shows one step at a time with Previous/Next;
+the website shows all steps with individual Copy buttons and reference links.
 
 The full-screen screensaver appears after five idle minutes by default. It has a
 large clock, weather and a prominent “Touch anywhere for room controls” prompt,
 without the normal control-page navigation. Its first wake touch always opens
 Home without activating controls. Control icons use a consistent Lucide outline
-family; weather uses thin, coordinated variants. Dark interface surfaces and controls use neutral grayscale; light mode uses a
-restrained teal accent. Selected controls retain readable text while pressed.
+family; weather uses thin, coordinated variants. Dark backgrounds and ordinary
+surfaces stay neutral gray. Both themes use restrained teal controls, warm weather
+accents and distinct green/amber status colours. Selected controls retain readable text while pressed.
 The original LESA logo stays
 consistent in both themes. Room tools uses the sidebar height and hides its footer
 shortcut while open.

@@ -6,6 +6,7 @@ from panel_icons import weather_kind
 from touch_slider import selected_value
 from command_reference import command_tokens
 from panel_guides import SUPPORT
+from help_reference import reference
 
 
 def test_reference_highlighting_preserves_copy_text_and_shell_command_boundaries():
@@ -16,6 +17,18 @@ def test_reference_highlighting_preserves_copy_text_and_shell_command_boundaries
         ('timeout', 'command'), ('10', 'number'), ('rosservice', 'command'),
         ('source', 'command'), ('~/catkin_ws/devel/setup.bash', 'path'),
         ('python', 'command'), ('startROS.py', 'path')]
+
+
+def test_help_steps_preserve_copy_text_and_explain_machine_purpose_and_result():
+    for title,kind,guidance,commands in SUPPORT:
+        guide=reference(title)
+        if not commands:assert guide['steps']==[];continue
+        assert guide['machine'] and guide['effect']
+        assert '\n\n'.join(step['commands'] for step in guide['steps'])==commands
+        for step in guide['steps']:
+            assert step['title'] and step['why'] and step['expect']
+            assert ''.join(token['text'] for token in step['command_tokens'])==step['commands']
+    assert all(' && python ' in step['commands'] for step in reference('Start services')['steps'])
 
 
 def test_weather_symbols_preserve_day_night_and_precipitation_meaning():

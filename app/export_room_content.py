@@ -3,7 +3,8 @@ import argparse
 import json
 from pathlib import Path
 from panel_guides import DEMO, SUPPORT
-from design_tokens import THEMES
+from design_tokens import THEMES, WEATHER_ACCENTS
+from help_reference import reference
 from command_reference import command_tokens
 from room_controls import LIGHTING_TABS, SCENES, PROGRAMMES, BLIND_ACTIONS
 import xml.etree.ElementTree as ET
@@ -18,10 +19,11 @@ def content():
     for key,name in names.items():
         svg=ET.parse(Path(__file__).resolve().parents[1]/'assets/icons/svg'/(name+'.svg')).getroot()
         icons[key]=[{'tag':node.tag.split('}')[-1],'attributes':node.attrib} for node in svg]
-    return {'version':1,'icons':icons,'themes':THEMES,
+    return {'version':1,'icons':icons,'themes':THEMES,'weather_accents':WEATHER_ACCENTS,
             'lighting_tabs':LIGHTING_TABS,'scenes':SCENES,'programmes':PROGRAMMES,'blind_actions':BLIND_ACTIONS,
             'guide':[{'title':title,'icon':kind,'text':text} for title,kind,text in DEMO],
-            'help':[{'title':title,'text':text,'commands':commands,'command_tokens':command_tokens(commands)} for title,kind,text,commands in SUPPORT]}
+            'help':[{'title':title,'text':text,'commands':commands,'command_tokens':command_tokens(commands),
+                     'reference':reference(title)} for title,kind,text,commands in SUPPORT]}
 
 
 if __name__=='__main__':

@@ -1,6 +1,7 @@
 """Shared presentation/state and actions, always called on the panel's Tk thread."""
 from panel_guides import DEMO, SUPPORT
 from command_reference import command_tokens
+from help_reference import reference
 import time
 
 
@@ -21,11 +22,12 @@ def snapshot(panel):
                            'temperature':panel.temperature_unit,'idle':panel.idle_timeout,'tips':panel.help_on,
                            'blinds_display':panel.blinds_display,'blinds_enabled':panel.blinds_enabled,
                            'light_at':panel.args.light_at,'dark_at':panel.args.dark_at},
-            'palette':{key:getattr(panel,key) for key in ('bg','surface','ink','muted','control','border','accent','selected_ink','icon_colour','accent_pressed','pressed','good','warning')},
+            'palette':{key:getattr(panel,key) for key in ('bg','surface','ink','muted','control','border','accent','selected_ink','icon_colour','accent_pressed','pressed','good','warning','weather_warm','weather_cool')},
             'experiment':{'profile':panel.profile,'running':panel.running,'stage':panel.stage,'elapsed_s':int(elapsed),
                           'annotation':panel.annotation_text.get(),'recording':False},
             'guide':[{'title':title,'icon':kind,'text':text} for title,kind,text in DEMO],
-            'help':[{'title':title,'text':text,'commands':commands,'command_tokens':command_tokens(commands)} for title,kind,text,commands in SUPPORT],
+            'help':[{'title':title,'text':text,'commands':commands,'command_tokens':command_tokens(commands),
+                     'reference':reference(title)} for title,kind,text,commands in SUPPORT],
             'weather':panel.weather_reading,'weather_age_s':None if not panel.weather_good else max(0,time.monotonic()-panel.weather_good),
             'health':panel.health_cache,'room_status':panel.room_status,'blinds_enabled':panel.blinds_enabled,
             'blinds':panel.blind_state()}

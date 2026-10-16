@@ -29,6 +29,7 @@ from design_tokens import THEMES
 from touch_slider import TouchSlider
 from panel_guides import DEMO, SUPPORT, connection
 from command_reference import command_tokens
+from help_reference import reference
 from room_controls import LIGHTING_TABS, SCENES, PROGRAMMES, BLIND_ACTIONS, blind_readiness
 try:
     import Tkinter as tk
@@ -217,6 +218,7 @@ class Panel(object):
         self.lighting_tab,self.selected_programme='white','Sun'
         self.guide_page, self.support_page = -1, 0
         self.support_commands_visible = False
+        self.support_step = 0
         self.started, self.run_id, self.sequence = monotonic(), uuid.uuid4().hex, 0
         self.boot_id, self.last_touch = boot_identity(), self.started
         self.idle_timeout = getattr(args, 'idle_timeout', 300)
@@ -382,7 +384,7 @@ class Panel(object):
             set_changed(self.feedback_detail, 'Recent settings: ' + self.confirmed_light.replace(' input / level ', ' · level ') + suffix)
         card = getattr(self, 'light_feedback_card', None)
         if card is not None and card.winfo_exists():
-            edge = ('#b88036' if self.theme == 'light' else '#bdbdbd') if self.light_state == 'failed' else self.accent if self.pending or self.queued_intent else self.border
+            edge = self.warning if self.light_state == 'failed' else self.accent if self.pending or self.queued_intent else self.border
             if getattr(card, '_edge', None) != edge:
                 card.config(highlightbackground=edge)
                 card._edge = edge
@@ -1095,16 +1097,16 @@ class Panel(object):
         hint.pack(fill='x', pady=(12, 0))
         row = tk.Frame(self.body, bg=self.bg)
         row.pack(fill='both', expand=True, padx=48, pady=(32, 16))
-        row.columnconfigure(0, weight=1, uniform='idle')
-        row.columnconfigure(1, weight=1, uniform='idle')
+        row.columnconfigure(0, weight=46, uniform='idle')
+        row.columnconfigure(1, weight=54, uniform='idle')
         left = tk.Frame(row, bg=self.bg)
-        left.grid(row=0, column=0, sticky='nsew', padx=(0, 36))
+        left.grid(row=0, column=0, sticky='nsew', padx=(18, 28))
         right = tk.Frame(row, bg=self.bg)
-        right.grid(row=0, column=1, sticky='nsew', padx=(36, 0))
+        right.grid(row=0, column=1, sticky='nsew', padx=(28, 18))
         self.label(left, 'LOCAL TIME', 16, True).pack(anchor='w', pady=(28, 0))
         clock = self.label(left, size=76)
         clock.config(textvariable=self.visitor_time)
-        clock.pack(anchor='w', pady=(8, 4))
+        clock.pack(anchor='w', padx=(8, 0), pady=(8, 4))
         date = self.label(left, size=21)
         date.config(textvariable=self.visitor_date)
         self.wrap_label(date).pack(fill='x')
@@ -1479,7 +1481,8 @@ class Panel(object):
 
     def system_contents(self):
         self.label(self.body, 'System & help', 27).pack(anchor='w', pady=(0, 8))
-        self.label(self.body, 'Read-only checks. Available services may not be producing sensor data.', 15, True).pack(anchor='w', pady=(0, 10))
+        if not self.support_commands_visible:
+            self.label(self.body, 'Read-only checks. Available services may not be producing sensor data.', 15, True).pack(anchor='w', pady=(0, 10))
         overview = tk.Frame(self.body, bg=self.bg)
         overview.pack(fill='x', pady=(0, 12))
         overview.columnconfigure(0, weight=1, uniform='system')
@@ -1527,18 +1530,27 @@ class Panel(object):
         card = tk.Frame(self.body, bg=self.bg, highlightbackground=self.border, highlightthickness=1)
         card.pack(fill='x', pady=(6, 0))
         content = tk.Frame(card, bg=self.bg)
-        content.pack(fill='x', padx=14, pady=10)
+        content.pack(fill='x', padx=20, pady=14)
         show_commands = commands and self.support_commands_visible
         if not show_commands:
             for index, paragraph in enumerate(text.split('\n\n')):
                 self.wrap_label(self.label(content, paragraph, 15)).pack(fill='x', pady=(4 if index else 0, 0))
         else:
             overview.pack_forget()
-            self.label(content, 'Room host · reference commands', 12, True).pack(anchor='w', pady=(8, 4))
+            guide = reference(title)
+            steps = guide['steps']
+            self.support_step = max(0, min(self.support_step, len(steps)-1))
+            step = steps[self.support_step]
+            commands = step['commands']
+            context = self.label(content, guide['machine'] + ' · ' + guide['effect'], 14, True)
+            if title in ('Start services', 'Restart computer'):context.config(fg=self.warning)
+            context.pack(anchor='w', pady=(4, 8))
+            self.label(content, step['title'], 22).pack(anchor='w', pady=(0, 8))
+            self.wrap_label(self.label(content, step['why'], 16)).pack(fill='x', pady=(0, 12))
             mono = 'Consolas' if sys.platform == 'win32' else 'DejaVu Sans Mono'
             code = tk.Text(content, font=(mono, 13), height=len(commands.splitlines()), width=1,
                            bg=self.control, fg=self.ink, bd=0, highlightthickness=0,
-                           padx=10, pady=8, wrap='none', takefocus=False, cursor='arrow')
+                           padx=16, pady=12, wrap='none', takefocus=False, cursor='arrow')
             for kind, colour, style in (('command', self.ink, 'bold'), ('option', self.muted, 'normal'),
                                         ('path', self.accent, 'normal'), ('string', self.accent, 'normal'),
                                         ('number', self.muted, 'normal'), ('comment', self.muted, 'italic'),
@@ -1548,9 +1560,20 @@ class Panel(object):
                 code.insert('end', token['text'], token['kind'])
             code.config(state='disabled')
             code.pack(fill='x')
-            self.label(content, 'Reference only. This panel does not execute these commands.', 14, True).pack(anchor='w', pady=(8, 0))
-        if commands:
-            self.row_buttons(content, [('Back to guidance' if show_commands else 'Room host reference',
+            self.label(content, 'What to expect', 16).pack(anchor='w', pady=(12, 4))
+            self.wrap_label(self.label(content, step['expect'], 15, True)).pack(fill='x', pady=(0, 8))
+            if len(steps)>1:
+                self.label(content, 'Step %d of %d · use the same Terminal' % (self.support_step+1,len(steps)), 14, True).pack(anchor='w')
+            self.label(content, 'Reference only · nothing is executed by this panel', 14, True).pack(anchor='w', pady=(4, 0))
+            if len(steps)>1:
+                nav = self.row_buttons(content, [('Back to guidance', self.toggle_support_commands, False),
+                                                 ('Previous step', lambda:self.change_support_step(-1), False),
+                                                 ('Next step', lambda:self.change_support_step(1), False)], height=54)
+                for button in nav:button.config(font=(FONT, 17), pady=8)
+                nav[1].config(state='normal' if self.support_step else 'disabled')
+                nav[2].config(state='normal' if self.support_step<len(steps)-1 else 'disabled')
+        if commands and (not show_commands or len(steps)==1):
+            self.row_buttons(content, [('Back to guidance' if show_commands else 'View command steps',
                                         self.toggle_support_commands, False)], height=60)
         self.update_health()
 
@@ -1636,12 +1659,18 @@ class Panel(object):
     def choose_support(self, index):
         if index != self.support_page:
             self.support_page = index
+            self.support_step = 0
             self.support_commands_visible = False
-            self.render()
+            self.rebuild_advanced_detail() if self.advanced_page=='system' else self.render()
 
     def toggle_support_commands(self):
         self.support_commands_visible = not self.support_commands_visible
-        self.render()
+        self.rebuild_advanced_detail() if self.advanced_page=='system' else self.render()
+
+    def change_support_step(self, delta):
+        steps = reference(SUPPORT[self.support_page][0])['steps']
+        self.support_step = max(0, min(len(steps)-1, self.support_step+delta))
+        self.rebuild_advanced_detail()
 
     def refresh_resources(self):
         now = monotonic()
