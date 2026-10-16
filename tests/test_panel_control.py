@@ -86,10 +86,12 @@ def test_blind_permission_is_strict_and_independent_of_visibility_and_connection
     for name in ('lift','open','close'):
         assert command(envelope('blind', {'name':name}))
         assert not state.blind_command(name)
-    assert state.blind_state()['detail']=='Disabled in settings'
+    assert state.blind_state()['detail']=='Disabled'
+    assert state.blind_state()['reason']=='Controls locked in settings'
     state.blinds_enabled=True
     assert not state.blind_command('open')
-    assert state.blind_state()['detail']=='Controller not connected'
+    assert state.blind_state()['detail']=='Disabled'
+    assert state.blind_state()['reason']=='Controller not connected'
     state.blind_controller=SimpleNamespace(connected=True,submit=calls.append)
     for field, value in [('pending',{}),('queued_intent',True),('release_target','original'),('closing',True),('running',True),('mode','original')]:
         previous=getattr(state,field);setattr(state,field,value or True)

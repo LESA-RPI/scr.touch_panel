@@ -119,6 +119,10 @@ readback, no pending/queued/held touch and no running instructions. Legacy and
 uncertain states block lighting. Panel and browser use these same study guards.
 Acceptance is not lighting confirmation, annotation persistence or recording.
 
+Blind readiness separates the short user-facing `detail` (Disabled, Busy or Ready)
+from a diagnostic `reason`. The saved `blinds_enabled` permission and controller
+connection remain independent; unlocking never connects a controller or moves blinds.
+
 `blinds_enabled` accepts a boolean `value`; `blind` accepts only a `name` of
 `lift`, `open` or `close`. The owner rechecks the saved permission, controller
 connection and busy/Legacy/experiment guards at dispatch. Visibility does not

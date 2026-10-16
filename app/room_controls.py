@@ -16,7 +16,7 @@ BLIND_ACTIONS = (('lift','Lift blinds'),('open','Open slats'),('close','Close & 
 
 
 def blind_readiness(enabled, connected, busy=False):
-    if not enabled:return {'enabled':False,'connected':bool(connected),'available':False,'detail':'Disabled in settings'}
-    if not connected:return {'enabled':True,'connected':False,'available':False,'detail':'Controller not connected'}
-    if busy:return {'enabled':True,'connected':True,'available':False,'detail':'Room controls busy'}
-    return {'enabled':True,'connected':True,'available':True,'detail':'Ready'}
+    if not enabled:return {'enabled':False,'connected':bool(connected),'available':False,'detail':'Disabled','reason':'Controls locked in settings'}
+    if not connected:return {'enabled':True,'connected':False,'available':False,'detail':'Disabled','reason':'Controller not connected'}
+    if busy:return {'enabled':True,'connected':True,'available':False,'detail':'Busy','reason':'Room controls busy'}
+    return {'enabled':True,'connected':True,'available':True,'detail':'Ready','reason':'Controls unlocked'}

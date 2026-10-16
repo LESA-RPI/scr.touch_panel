@@ -1229,8 +1229,8 @@ class Panel(object):
         group = tk.Frame(parent, bg=self.surface, highlightbackground=self.border, highlightthickness=1)
         group.pack(fill='x', pady=(0, 8))
         if not compact:self.label(group, title, 18).pack(anchor='w', padx=20, pady=(6, 0))
-        row = tk.Frame(group, bg=self.surface, height=62)
-        row.pack(fill='x', padx=20, pady=(4, 0))
+        row = tk.Frame(group, bg=self.surface, height=56)
+        row.pack(fill='x', padx=20, pady=(14, 0) if compact else (8, 0))
         row.pack_propagate(False)
         minus_area, plus_area = tk.Frame(row, width=64), tk.Frame(row, width=64)
         plus_area.pack(side='right', fill='y')
@@ -1239,6 +1239,7 @@ class Panel(object):
         plus_area.pack_propagate(False)
         minus = self.button(minus_area, '-', lambda: self.step_slider(variable, low, high, -step))
         plus = self.button(plus_area, '+', lambda: self.step_slider(variable, low, high, step))
+        for button in (minus, plus):button.config(pady=8)
         minus.pack(fill='both', expand=True)
         plus.pack(fill='both', expand=True)
         if compact:self.label(row, title, 18).pack(side='left', padx=(0, 20))
@@ -1251,7 +1252,7 @@ class Panel(object):
                             accent=self.accent, border=self.border, ink=self.ink)
         scale.pack(fill='x', padx=20, pady=(4, 0))
         limits = tk.Frame(group, bg=self.surface)
-        limits.pack(fill='x', padx=20, pady=(4, 4))
+        limits.pack(fill='x', padx=20, pady=(4, 8))
         self.label(limits, 'Min {:,} {}'.format(low, unit), 13, True).pack(side='left')
         self.label(limits, 'Max {:,} {}'.format(high, unit), 13, True).pack(side='right')
         self.bind_slider(scale, 'cct')
@@ -1835,10 +1836,10 @@ class Panel(object):
             self.row_buttons(content, [('Blank screen', lambda: self.show('black'), False),
                                        ('Clock & weather', lambda: self.show('visitor'), False)], height=50)
             self.label(content, 'Blank keeps the backlight on. Hold 2 seconds to return.', 14, True).pack(anchor='w', pady=(0, 6))
-            self.label(content, 'Blind movement', 19).pack(anchor='w')
-            self.row_buttons(content, [('Disabled', lambda: self.choose_blinds_enabled(False), not self.blinds_enabled),
-                                       ('Enabled', lambda: self.choose_blinds_enabled(True), self.blinds_enabled)], height=50)
-            self.label(content, 'Changing this setting does not move the blinds. A controller is required.', 14, True).pack(anchor='w', pady=(0, 6))
+            self.label(content, 'Blind controls', 19).pack(anchor='w')
+            self.row_buttons(content, [('Locked', lambda: self.choose_blinds_enabled(False), not self.blinds_enabled),
+                                       ('Unlocked', lambda: self.choose_blinds_enabled(True), self.blinds_enabled)], height=50)
+            self.label(content, self.blind_state()['reason'] + ' · changing the lock does not move blinds', 14, True).pack(anchor='w', pady=(0, 6))
             self.label(content, 'Blinds on Home', 19).pack(anchor='w')
             self.row_buttons(content, [('Show', lambda: self.choose_blinds_display('disabled'), self.blinds_display == 'disabled'),
                                        ('Hide', lambda: self.choose_blinds_display('hidden'), self.blinds_display == 'hidden')], height=50)

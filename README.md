@@ -27,8 +27,9 @@ available for the original implementations. Empty Dynamic CCT, Dynamic Intensity
 and Auto placeholders and the old Enable Sliders gate are omitted.
 
 Home includes Lift blinds, Open slats and Close & lower. Room tools → Screen &
-controls saves a separate **Blind movement** setting, disabled by default, and
-can show or hide the Home controls. Enabling the setting does not move blinds
+controls saves a separate **Blind controls** lock, locked by default, and
+can show or hide the Home controls. Home shows **Disabled** while movement is
+unavailable; the settings page explains the lock or missing connection. Unlocking does not move blinds
 or connect a controller. No blind adapter is installed in Beta; actions remain
 unavailable until one is connected and qualified. Room tools keeps the tools available
 away from everyday on/off controls. Home returns directly from these pages.
