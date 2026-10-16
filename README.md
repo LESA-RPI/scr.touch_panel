@@ -19,6 +19,9 @@ uncertain or disconnected states clear that selection. Running instructions bloc
 lighting from both interfaces. Blinds remain disabled; Experiment mode does not
 start a recorder. Service-start/restart references are monospace text with Copy,
 never executable buttons.
+The website bundles the same Cantarell family used by the panel, so its layout
+does not depend on a visitor's installed fonts. Unmodified font files retain
+their [SIL Open Font License](browser/fonts/LICENSE).
 
 Run `python -m pytest tests`. HTTP tests use loopback mock services and cover Host,
 Origin, nonce, subnet, bounded command bodies, static allowlists and read-only

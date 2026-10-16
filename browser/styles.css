@@ -122,3 +122,4 @@ main { padding-block: 26px; }
 
 body{background:var(--bg,#fff)}
 [data-theme=dark] .warm{color:var(--ink)}
+.beta{background:var(--soft);color:var(--muted)}

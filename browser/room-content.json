@@ -620,7 +620,9 @@
       "selected_ink": "#ffffff",
       "accent_pressed": "#10575e",
       "pressed": "#dde8e8",
-      "icon_colour": "#386a73"
+      "icon_colour": "#386a73",
+      "good": "#23794c",
+      "warning": "#875709"
     },
     "dark": {
       "bg": "#171717",
@@ -633,7 +635,9 @@
       "selected_ink": "#171717",
       "accent_pressed": "#c5c5c5",
       "pressed": "#414141",
-      "icon_colour": "#c5c5c5"
+      "icon_colour": "#c5c5c5",
+      "good": "#f2f2f2",
+      "warning": "#f2f2f2"
     }
   },
   "guide": [

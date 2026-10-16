@@ -40,6 +40,9 @@ ASSETS = {'/': ('index.html', 'text/html'), '/styles.css': ('styles.css', 'text/
 
 # Explicit static artwork allowlist; never resolve request paths from the filesystem.
 ASSETS.update({
+    '/fonts.css': ('fonts.css','text/css'),
+    '/fonts/Cantarell-Regular.otf': ('fonts/Cantarell-Regular.otf','font/otf'),
+    '/fonts/Cantarell-Bold.otf': ('fonts/Cantarell-Bold.otf','font/otf'),
     '/icons/book-open.svg': ('icons/book-open.svg', 'image/svg+xml'),
     '/icons/circle-question-mark-light.png': ('icons/circle-question-mark-light.png', 'image/png'),
     '/icons/cloud-fog-light.png': ('icons/cloud-fog-light.png', 'image/png'),

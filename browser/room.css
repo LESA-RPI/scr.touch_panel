@@ -12,3 +12,4 @@ pre code{font-family:ui-monospace,'DejaVu Sans Mono',Consolas,monospace}
 .syntax-option,.syntax-number{color:var(--muted)}
 .syntax-path,.syntax-string{color:var(--accent)}
 .syntax-comment{color:var(--muted);font-style:italic}
+button.selected:disabled,button.primary:disabled{color:var(--selected-ink)}
