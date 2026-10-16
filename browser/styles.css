@@ -123,3 +123,7 @@ main { padding-block: 26px; }
 body{background:var(--bg,#fff)}
 [data-theme=dark] .warm{color:var(--ink)}
 .beta{background:var(--soft);color:var(--muted)}
+.brand{width:116px;height:66px;aspect-ratio:auto}
+.brand img{width:124.14%;margin-left:-7.59%;margin-top:-22.07%}
+.header,.title-line{align-items:flex-end}.heading{padding-top:0}.beta{border-radius:0}
+@media(max-width:600px){.header{grid-template-columns:88px minmax(0,1fr)}.brand{width:88px;height:50px;align-self:start}}
