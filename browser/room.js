@@ -144,14 +144,25 @@ function system(parent){
 function renderHelp(){if(!$('help-detail'))return;const topic=(state?.help||content.help)[chosenHelp];$('help-detail').replaceChildren();if(!topic)return;
   const card=el('section',undefined,'card');for(const p of topic.text.split('\n\n'))card.append(el('p',p));$('help-detail').append(card);
   if(topic.commands){$('help-detail').append(el('p','Room host reference · copy only. These commands are never run by this website.','subtle'));
-    const block=el('div',undefined,'command'),head=el('div',undefined,'command-head'),pre=el('pre'),code=el('code');
-    for(const token of topic.command_tokens||[{text:topic.commands,kind:'text'}])code.append(el('span',token.text,'syntax-'+token.kind));
-    pre.append(code);head.append(el('span',topic.title+' · commands'),button('Copy commands',async event=>{
-      const b=event.currentTarget;try{await copy(topic.commands);b.textContent='Copied';}catch(_){b.textContent='Select text to copy';}setTimeout(()=>{b.textContent='Copy commands';},1800);
-    }));block.append(head,pre);$('help-detail').append(block);
+    const reference=topic.reference,steps=reference?.steps?.length?reference.steps:[{title:topic.title,commands:topic.commands,command_tokens:topic.command_tokens}];
+    const head=el('div',undefined,'reference-head');head.append(el('div',reference?reference.machine+' · '+reference.effect:'Reference commands',['Start services','Restart computer'].includes(topic.title)?'reference-warning':'muted'),copyButton('Copy commands',topic.commands));$('help-detail').append(head);
+    for(const [index,step] of steps.entries()){
+      const block=el('article',undefined,'command command-step'),bar=el('div',undefined,'command-head'),pre=el('pre'),code=el('code');
+      bar.append(el('h3',(steps.length>1?(index+1)+'. ':'')+step.title),copyButton('Copy command',step.commands));block.append(bar);
+      if(step.why)block.append(el('p',step.why,'command-why'));
+      for(const token of step.command_tokens||[{text:step.commands,kind:'text'}])code.append(el('span',token.text,'syntax-'+token.kind));
+      pre.append(code);block.append(pre);
+      if(step.expect){const expected=el('div',undefined,'command-expect');expected.append(el('strong','What to expect'),el('p',step.expect));block.append(expected);}
+      $('help-detail').append(block);
+    }
+    if(reference?.documentation){const a=el('a',reference.documentation.label,'documentation-link');a.href=reference.documentation.url;a.target='_blank';a.rel='noopener noreferrer';$('help-detail').append(a);}
   }
 }
-async function copy(value){if(navigator.clipboard&&window.isSecureContext)return navigator.clipboard.writeText(value);const input=el('textarea');input.value=value;input.className='visually-hidden';document.body.append(input);input.select();const ok=document.execCommand('copy');input.remove();if(!ok)throw Error('Copy unavailable');}
+function copyButton(label,value){return button(label,async event=>{const b=event.currentTarget;try{await copy(value);b.textContent='Copied';}catch(_){b.textContent='Select text to copy';}setTimeout(()=>{if(b.isConnected)b.textContent=label;},1800);});}
+async function copy(value){
+  if(navigator.clipboard&&window.isSecureContext){try{await navigator.clipboard.writeText(value);return;}catch(_){}}
+  const active=document.activeElement,input=el('textarea');input.value=value;input.className='visually-hidden';document.body.append(input);input.select();const ok=document.execCommand('copy');input.remove();active?.focus({preventScroll:true});if(!ok)throw Error('Copy unavailable');
+}
 function legacy(root){root.append(el('h2','Legacy view'),el('p','Legacy is the original application on the touch panel. Its device controls remain on that panel.','muted'));
   const preview=el('div',undefined,'legacy-preview'),head=el('div',undefined,'legacy-header');head.append(el('strong','Smart Conference Room'),el('span','Legacy view','badge'),button('Home',()=>command('home').then(ok=>{if(ok)location.hash='home';}),{icon:'home',action:'home'}));preview.append(head,el('p','The matching panel header stays visible above the original controls. Use Home to return to everyday lighting.'));root.append(preview);
   root.append(button('Open Legacy on touch panel',()=>command('legacy'),{action:'legacy'}),el('p','Opening Legacy restores the starting Beta light settings before handing over. Blind commands stay disabled in Beta; do not operate the original blind controls.','subtle'));
@@ -186,7 +197,7 @@ function weather(){
   const stats=[];if(!old){if(Number.isFinite(value.feels_like_f))stats.push('Feels like '+degree(value.feels_like_f));if(Number.isFinite(value.high_f))stats.push('High '+degree(value.high_f));if(Number.isFinite(value.low_f))stats.push('Low '+degree(value.low_f));if(Number.isFinite(value.rain_chance))stats.push('Rain today '+value.rain_chance+'%');}update('weather-stats',old?'Earlier reading: '+value.model_time.replace('T',' '):stats.join(' · '));
   update('weather-source','Open-Meteo · model '+value.model_time.replace('T',' ')+' · Outdoor weather is separate from room sensors.');
   let name=value.code===0?(night?'moon':'sun'):[1,2].includes(value.code)?(night?'cloud-moon':'cloud-sun'):value.code===3?'cloud':[45,48].includes(value.code)?'cloud-fog':[71,73,75,77,85,86].includes(value.code)?'cloud-snow':[95,96,99].includes(value.code)?'cloud-lightning':[51,53,55,56,57,61,63,65,66,67,80,81,82].includes(value.code)?'cloud-rain':'circle-question-mark';if(!current&&[0,1,2].includes(value.code))name='circle-question-mark';
-  if($('weather-art')){if($('weather-art').dataset.symbol!==name){$('weather-art').replaceChildren(icon('weather-'+name));$('weather-art').dataset.symbol=name;}}
+  if($('weather-art')){$('weather-art').style.color=state?.palette?.[content.weather_accents?.[name]||'icon_colour']||'var(--icon-colour)';if($('weather-art').dataset.symbol!==name){$('weather-art').replaceChildren(icon('weather-'+name));$('weather-art').dataset.symbol=name;}}
   if($('daylight')){$('daylight').hidden=old;if(!old){const minute=s=>Number(s.slice(11,13))*60+Number(s.slice(14,16)),rise=minute(value.sunrise),set=minute(value.sunset),time=Number(parts.hour)*60+Number(parts.minute);$('daylight-fill').style.width=(Math.max(0,Math.min(1,(time-rise)/(set-rise)))*100)+'%';const remaining=(time<rise?rise:set)-time;update('daylight-label',time>=set?'After sunset · night':`Sun ${time<rise?'rises':'sets'} in ${Math.floor(remaining/60)} h ${remaining%60} min`);update('sunrise','Sunrise '+value.sunrise.slice(11,16));update('sunset','Sunset '+value.sunset.slice(11,16));}}
 }
 let fetching=false;

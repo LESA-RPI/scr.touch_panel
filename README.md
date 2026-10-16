@@ -23,7 +23,10 @@ controller. None is installed in Beta. Gradient, Sun and Circ remain visible wit
 disconnected Apply/Start controls until their adapters are integrated. Empty Legacy
 placeholders and the redundant Enable Sliders gate are omitted. Experiment mode does not
 start a recorder. Service-start/restart references are monospace text with Copy,
-never executable buttons.
+never executable buttons. Each documented step explains the computer, purpose
+and expected result, with its own Copy button and a Copy all option for the topic.
+Dark backgrounds stay neutral gray; controls, weather and status use restrained
+teal, warm and green/amber accents shared with the panel.
 The website bundles the same Cantarell family used by the panel, so its layout
 does not depend on a visitor's installed fonts. Unmodified font files retain
 their [SIL Open Font License](browser/fonts/LICENSE).

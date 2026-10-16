@@ -22,3 +22,15 @@ button.selected:disabled,button.primary:disabled{color:var(--selected-ink)}
 #blind-group button{min-height:65px;font-size:20px}
 .essential-group button{font-size:22px}
 @media(max-width:1000px){.lighting-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}.scene-grid{grid-template-columns:1fr}}
+.reference-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:20px 0 12px}
+.command-step{background:var(--surface);margin:16px 0 24px}
+.command-step .command-head{padding:12px 20px;gap:16px;background:var(--surface)}
+.command-head h3{font-size:20px}
+.command-step pre{background:var(--control);padding:18px 20px}
+.command-why{padding:16px 20px}
+.command-expect{padding:16px 20px;color:var(--muted);font-size:16px}
+.command-expect strong{display:block;font-weight:500;color:var(--ink);margin-bottom:6px}
+.documentation-link{display:inline-flex;align-items:center;min-height:48px;padding:8px 0}
+.reference-warning{color:var(--warning)}
+.card>h3+p{margin-top:12px}.scene-grid .card{padding:20px;gap:12px}.scene-grid .card>h3+p{margin-top:0}.scene-grid button{margin-top:auto}
+@media(max-width:650px){.reference-head,.command-head{flex-wrap:wrap}.reference-head button{flex-shrink:0}.command-step .command-head,.command-why,.command-expect{padding:14px 16px}.command-step pre{padding:16px}.command-head h3{flex:1;min-width:160px}.room-layout{gap:32px}}

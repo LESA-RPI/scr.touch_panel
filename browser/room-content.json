@@ -642,7 +642,9 @@
       "pressed": "#dde8e8",
       "icon_colour": "#386a73",
       "good": "#23794c",
-      "warning": "#875709"
+      "warning": "#875709",
+      "weather_warm": "#a16a24",
+      "weather_cool": "#3b7590"
     },
     "dark": {
       "bg": "#171717",
@@ -651,14 +653,25 @@
       "muted": "#bdbdbd",
       "control": "#292929",
       "border": "#454545",
-      "accent": "#dedede",
-      "selected_ink": "#171717",
-      "accent_pressed": "#c5c5c5",
+      "accent": "#76cfc5",
+      "selected_ink": "#172624",
+      "accent_pressed": "#a2dfd8",
       "pressed": "#414141",
-      "icon_colour": "#c5c5c5",
-      "good": "#f2f2f2",
-      "warning": "#f2f2f2"
+      "icon_colour": "#8ccfc8",
+      "good": "#89caa2",
+      "warning": "#e8b86a",
+      "weather_warm": "#e5b874",
+      "weather_cool": "#8cb8db"
     }
+  },
+  "weather_accents": {
+    "sun": "weather_warm",
+    "moon": "weather_warm",
+    "cloud-sun": "weather_warm",
+    "cloud-moon": "weather_warm",
+    "cloud-rain": "weather_cool",
+    "cloud-snow": "weather_cool",
+    "cloud-lightning": "weather_cool"
   },
   "lighting_tabs": [
     [
@@ -755,11 +768,17 @@
       "title": "Lighting",
       "text": "Ready means the lighting adapter is available. Sending means a request is awaiting readback.\n\nIf Uncertain appears, stop changing lights and ask the room host. A failed response can leave the result unknown.\n\nIf Offline appears, check the panel network cable and the room computer. Legacy also needs the room services.",
       "commands": "",
-      "command_tokens": []
+      "command_tokens": [],
+      "reference": {
+        "machine": "",
+        "effect": "",
+        "documentation": null,
+        "steps": []
+      }
     },
     {
       "title": "Power",
-      "text": "An undervoltage warning means the Pi supply voltage is too low. This can slow the panel and affect storage reliability.\n\nCheck the supply, cable and connector. A separately powered LCD does not rule out a Pi power problem.\n\nDo not hide the warning or keep power-cycling to clear it. Shut down normally before changing power.",
+      "text": "Low supply voltage can slow the Pi and affect storage reliability. Check its supply, cable and connector; a separately powered LCD does not rule out a Pi power problem.\n\nOpen the reference to distinguish current warnings from earlier ones. Do not hide warnings or repeatedly power-cycle. Shut down normally before changing power.",
       "commands": "vcgencmd get_throttled",
       "command_tokens": [
         {
@@ -774,12 +793,42 @@
           "text": "get_throttled",
           "kind": "text"
         }
-      ]
+      ],
+      "reference": {
+        "machine": "Raspberry Pi",
+        "effect": "Read only",
+        "documentation": {
+          "label": "Raspberry Pi power flags",
+          "url": "https://github.com/raspberrypi/documentation/blob/master/documentation/asciidoc/computers/os/graphics-utilities.adoc#get_throttled"
+        },
+        "steps": [
+          {
+            "title": "Check power warnings",
+            "commands": "vcgencmd get_throttled",
+            "why": "Read the Pi firmware flags when the panel is slow or reports a power warning.",
+            "expect": "0x0 means no flags. Nonzero can include earlier warnings; it does not always mean a fault is active now.",
+            "command_tokens": [
+              {
+                "text": "vcgencmd",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "get_throttled",
+                "kind": "text"
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "title": "Ubuntu checks",
       "text": "Use a Terminal on the Ubuntu room computer. These commands inspect state; they do not start devices.\n\nROS owns room controls. Status owns the TV display and its clients. Session presence alone does not prove health.",
-      "commands": "hostname\nuptime\nfree -m\ndf -h /\ntmux list-sessions\nsource /opt/ros/indigo/setup.bash\nsource ~/catkin_ws/devel/setup.bash\ntimeout 10 rosservice list",
+      "commands": "hostname\n\nuptime\n\nfree -m\n\ndf -h /\n\ntmux list-sessions\n\nsource /opt/ros/indigo/setup.bash\n\nsource ~/catkin_ws/devel/setup.bash\n\ntimeout 10 rosservice list",
       "command_tokens": [
         {
           "text": "hostname",
@@ -790,8 +839,16 @@
           "kind": "text"
         },
         {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
           "text": "uptime",
           "kind": "command"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
         },
         {
           "text": "\n",
@@ -808,6 +865,10 @@
         {
           "text": "-m",
           "kind": "option"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
         },
         {
           "text": "\n",
@@ -838,6 +899,10 @@
           "kind": "text"
         },
         {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
           "text": "tmux",
           "kind": "command"
         },
@@ -847,6 +912,10 @@
         },
         {
           "text": "list-sessions",
+          "kind": "text"
+        },
+        {
+          "text": "\n",
           "kind": "text"
         },
         {
@@ -870,6 +939,10 @@
           "kind": "text"
         },
         {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
           "text": "source",
           "kind": "command"
         },
@@ -880,6 +953,10 @@
         {
           "text": "~/catkin_ws/devel/setup.bash",
           "kind": "path"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
         },
         {
           "text": "\n",
@@ -913,12 +990,190 @@
           "text": "list",
           "kind": "text"
         }
-      ]
+      ],
+      "reference": {
+        "machine": "Ubuntu room computer",
+        "effect": "Check in this order",
+        "documentation": {
+          "label": "How the time limit works",
+          "url": "https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html"
+        },
+        "steps": [
+          {
+            "title": "Confirm the computer",
+            "commands": "hostname",
+            "why": "Check which computer this Terminal is connected to.",
+            "expect": "A host name. Confirm it is the room computer before continuing.",
+            "command_tokens": [
+              {
+                "text": "hostname",
+                "kind": "command"
+              }
+            ]
+          },
+          {
+            "title": "Check running time and load",
+            "commands": "uptime",
+            "why": "See time since boot and recent system load.",
+            "expect": "Uptime and load averages. Load is not a CPU percentage.",
+            "command_tokens": [
+              {
+                "text": "uptime",
+                "kind": "command"
+              }
+            ]
+          },
+          {
+            "title": "Check memory",
+            "commands": "free -m",
+            "why": "Inspect memory in MiB when the room computer feels slow.",
+            "expect": "Memory totals and available/free space. Cached memory is not automatically a problem.",
+            "command_tokens": [
+              {
+                "text": "free",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "-m",
+                "kind": "option"
+              }
+            ]
+          },
+          {
+            "title": "Check storage",
+            "commands": "df -h /",
+            "why": "Check space on the root filesystem before collecting more data.",
+            "expect": "Filesystem size, used space, available space and use percentage.",
+            "command_tokens": [
+              {
+                "text": "df",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "-h",
+                "kind": "option"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "/",
+                "kind": "path"
+              }
+            ]
+          },
+          {
+            "title": "Inspect existing sessions",
+            "commands": "tmux list-sessions",
+            "why": "Look for existing sessions before considering a service start.",
+            "expect": "Session names, or no server. A session name alone does not prove the service is healthy.",
+            "command_tokens": [
+              {
+                "text": "tmux",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "list-sessions",
+                "kind": "text"
+              }
+            ]
+          },
+          {
+            "title": "Load the ROS environment",
+            "commands": "source /opt/ros/indigo/setup.bash",
+            "why": "Make the installed ROS tools available in this Terminal. This does not start ROS.",
+            "expect": "Usually no output. If the file is missing, stop and check the installed setup with staff.",
+            "command_tokens": [
+              {
+                "text": "source",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "/opt/ros/indigo/setup.bash",
+                "kind": "path"
+              }
+            ]
+          },
+          {
+            "title": "Load the room workspace",
+            "commands": "source ~/catkin_ws/devel/setup.bash",
+            "why": "Add the installed room packages to this Terminal after loading ROS.",
+            "expect": "Usually no output. Keep using the same Terminal for the next check.",
+            "command_tokens": [
+              {
+                "text": "source",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "~/catkin_ws/devel/setup.bash",
+                "kind": "path"
+              }
+            ]
+          },
+          {
+            "title": "List advertised services",
+            "commands": "timeout 10 rosservice list",
+            "why": "Ask the configured ROS master for service names, with a ten-second time limit.",
+            "expect": "Service names, an error or a timeout. Names show registration, not working sensors or devices.",
+            "command_tokens": [
+              {
+                "text": "timeout",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "10",
+                "kind": "number"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "rosservice",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "list",
+                "kind": "text"
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "title": "Start services",
       "text": "Room host only: stop experiments and check tmux sessions first. startROS.py replaces the ROS session; startStatus.py replaces Status. Do not use them as a quick connection fix.\n\nInstalled paths below are instructions only, not automatic recovery.",
-      "commands": "cd ~/catkin_ws/src/scr_control\npython startROS.py\n\ncd ~/scr.status_display\npython startStatus.py",
+      "commands": "cd ~/catkin_ws/src/scr_control && python startROS.py\n\ncd ~/scr.status_display && python startStatus.py",
       "command_tokens": [
         {
           "text": "cd",
@@ -933,7 +1188,15 @@
           "kind": "path"
         },
         {
-          "text": "\n",
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "&&",
+          "kind": "operator"
+        },
+        {
+          "text": " ",
           "kind": "text"
         },
         {
@@ -969,7 +1232,15 @@
           "kind": "path"
         },
         {
-          "text": "\n",
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "&&",
+          "kind": "operator"
+        },
+        {
+          "text": " ",
           "kind": "text"
         },
         {
@@ -984,7 +1255,105 @@
           "text": "startStatus.py",
           "kind": "path"
         }
-      ]
+      ],
+      "reference": {
+        "machine": "Ubuntu room computer",
+        "effect": "Room host only · replaces sessions",
+        "documentation": {
+          "label": "Room operating guide",
+          "url": "https://github.com/LESA-RPI/scr.touch_panel/blob/experiment/fresh-pi-setup-20261013/WORKFLOWS.md#before-connected-control"
+        },
+        "steps": [
+          {
+            "title": "Start the ROS session",
+            "commands": "cd ~/catkin_ws/src/scr_control && python startROS.py",
+            "why": "Only after studies are stopped, ownership is checked and the existing sessions are understood.",
+            "expect": "The launcher replaces the ROS session. Inspect its output and check services before using controls.",
+            "command_tokens": [
+              {
+                "text": "cd",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "~/catkin_ws/src/scr_control",
+                "kind": "path"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "&&",
+                "kind": "operator"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "python",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "startROS.py",
+                "kind": "path"
+              }
+            ]
+          },
+          {
+            "title": "Start the Status session",
+            "commands": "cd ~/scr.status_display && python startStatus.py",
+            "why": "Use only when the room host has decided the shared TV/Status session must be started.",
+            "expect": "The launcher replaces Status. Check the TV and required feeds; a session name is not a health check.",
+            "command_tokens": [
+              {
+                "text": "cd",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "~/scr.status_display",
+                "kind": "path"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "&&",
+                "kind": "operator"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "python",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "startStatus.py",
+                "kind": "path"
+              }
+            ]
+          }
+        ]
+      }
     },
     {
       "title": "Restart computer",
@@ -1003,7 +1372,37 @@
           "text": "reboot",
           "kind": "command"
         }
-      ]
+      ],
+      "reference": {
+        "machine": "Ubuntu room computer",
+        "effect": "Room host only · interrupts shared work",
+        "documentation": {
+          "label": "Room recovery guide",
+          "url": "https://github.com/LESA-RPI/scr.touch_panel/blob/experiment/fresh-pi-setup-20261013/WORKFLOWS.md#switching-and-recovery"
+        },
+        "steps": [
+          {
+            "title": "Restart the room computer",
+            "commands": "sudo reboot",
+            "why": "Use after recordings have stopped and room users have coordinated the interruption.",
+            "expect": "The connection ends. Wait for the desktop/network, then check ROS and Status; autostart is not assured.",
+            "command_tokens": [
+              {
+                "text": "sudo",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "reboot",
+                "kind": "command"
+              }
+            ]
+          }
+        ]
+      }
     }
   ]
 }
