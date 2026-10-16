@@ -103,7 +103,7 @@ def command(value):
         valid = (
             args["which"] in ("light_at", "dark_at")
             and type(args["delta"]) is int
-            and args["delta"] in (-30, 30)
+            and args["delta"] in (-60, 60)  # same one-hour step as the panel buttons
         )
     if not valid:
         raise ValueError("Command values are out of range")

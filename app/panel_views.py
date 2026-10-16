@@ -515,7 +515,7 @@ class PanelViews:
                     for name in ("light", "dark", "auto")
                 ],
             )
-            self.label(content, "Automatic schedule", 21).pack(anchor="w", pady=(10, 8))
+            self.label(content, "Automatic schedule", 21).pack(anchor="w", pady=(18, 4))
             schedule = "Light from %02d:%02d · Dark from %02d:%02d" % (
                 divmod(self.args.light_at, 60) + divmod(self.args.dark_at, 60)
             )
@@ -545,7 +545,7 @@ class PanelViews:
                 True,
             )
             self.wrap_label(note).pack(fill="x", pady=(8, 0))
-            self.label(content, "Touch explanations", 21).pack(anchor="w", pady=(14, 4))
+            self.label(content, "Touch explanations", 21).pack(anchor="w", pady=(18, 4))
             self.row_buttons(
                 content,
                 [
@@ -572,7 +572,7 @@ class PanelViews:
                     for name in ("12", "24")
                 ],
             )
-            self.label(content, "Weather temperature", 21).pack(anchor="w", pady=(6, 4))
+            self.label(content, "Weather temperature", 21).pack(anchor="w", pady=(18, 4))
             self.row_buttons(
                 content,
                 [
@@ -615,7 +615,7 @@ class PanelViews:
             self.wrap_label(note).pack(fill="x", pady=(12, 8))
         elif key == "screen":
             self.label(content, "Screen & controls", 25).pack(anchor="w", pady=(0, 4))
-            self.label(content, "Screen saver", 19).pack(anchor="w")
+            self.label(content, "Screen saver", 19).pack(anchor="w", pady=(10, 2))
             self.row_buttons(
                 content,
                 [
@@ -639,7 +639,7 @@ class PanelViews:
                 14,
                 True,
             ).pack(anchor="w", pady=(0, 6))
-            self.label(content, "Display", 19).pack(anchor="w")
+            self.label(content, "Display", 19).pack(anchor="w", pady=(18, 2))
             self.row_buttons(
                 content,
                 [
@@ -654,7 +654,7 @@ class PanelViews:
                 14,
                 True,
             ).pack(anchor="w", pady=(0, 6))
-            self.label(content, "Blind controls", 19).pack(anchor="w")
+            self.label(content, "Blind controls", 19).pack(anchor="w", pady=(18, 2))
             if self.blind_state()["connected"]:
                 self.row_buttons(
                     content,
@@ -684,7 +684,7 @@ class PanelViews:
                     True,
                 )
             ).pack(fill="x", pady=(0, 6))
-            self.label(content, "Blinds on Home", 19).pack(anchor="w")
+            self.label(content, "Blinds on Home", 19).pack(anchor="w", pady=(18, 2))
             self.row_buttons(
                 content,
                 [

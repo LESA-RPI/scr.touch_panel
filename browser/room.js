@@ -439,8 +439,8 @@ function tools(root, page) {
       control.previousElementSibling.querySelector('p').id = 'schedule-' + which;
       const group = el('div', undefined, 'segmented');
       group.append(
-        button('−30 min', () => command('schedule', { which, delta: -30 }), { action: 'schedule' }),
-        button('+30 min', () => command('schedule', { which, delta: 30 }), { action: 'schedule' }),
+        button('−1 h', () => command('schedule', { which, delta: -60 }), { action: 'schedule' }),
+        button('+1 h', () => command('schedule', { which, delta: 60 }), { action: 'schedule' }),
       );
       control.append(group);
     }
@@ -454,8 +454,8 @@ function tools(root, page) {
       ['24-hour', 'clock', '24'],
     ]);
     choices(setting(detail, 'Temperature', 'Used for outdoor weather.'), [
-      ['°C', 'temperature', 'c'],
-      ['°F', 'temperature', 'f'],
+      ['Celsius (°C)', 'temperature', 'c'],
+      ['Fahrenheit (°F)', 'temperature', 'f'],
     ]);
     const source = el('p', undefined, 'subtle');
     source.id = 'weather-source';
