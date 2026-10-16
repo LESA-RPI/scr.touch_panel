@@ -398,25 +398,6 @@ svg {
   font-size: 15px;
   color: var(--muted);
 }
-.footer-tools {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 28px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border);
-}
-.footer-tools a {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  min-width: 224px;
-  padding: 12px 22px;
-  text-decoration: none;
-  background: var(--control);
-  border: 1px solid var(--border);
-}
 
 /* Room tools and lighting */
 .tools-layout {
@@ -1056,16 +1037,6 @@ summary {
   }
   .weather-metric dd {
     font-size: 17px;
-  }
-  .footer-tools {
-    justify-content: stretch;
-  }
-  .footer-tools a {
-    flex: 1;
-    text-align: center;
-    min-width: 0;
-    padding: 12px;
-    gap: 10px;
   }
   .tools-layout {
     grid-template-columns: 1fr;

@@ -323,9 +323,6 @@ function home(root) {
   right.append(details);
   row.append(left, right);
   root.append(row);
-  const nav = el('nav', undefined, 'footer-tools');
-  nav.append(link('Room tools', 'tools-lighting', 'tools'), link('Demo & guide', 'guide', 'guide'));
-  root.append(nav);
 }
 const pages = [
   ['Lighting', 'lighting'],
