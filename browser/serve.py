@@ -39,10 +39,11 @@ ASSETS = {
     "/theme.js": ("theme.js", "text/javascript"),
     "/room.js": ("room.js", "text/javascript"),
     "/room.css": ("room.css", "text/css"),
-    "/tools": ("tools.html", "text/html"),
+    # Home, Room tools and Guide are one page; room.js picks the view from the path.
+    "/tools": ("index.html", "text/html"),
     "/room-content.json": ("room-content.json", "application/json"),
     "/diagnostics": ("diagnostics.html", "text/html"),
-    "/guide": ("guide.html", "text/html"),
+    "/guide": ("index.html", "text/html"),
     "/logo.jpg": ("lesa-logo.jpeg", "image/jpeg"),
 }
 
@@ -372,6 +373,15 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *_):
         pass
 
+    def log_problem(self, status):
+        # One line per refused or failed request so the room host can see why.
+        print(
+            "%s %s %s %s -> %d"
+            % (utc(), self.client_address[0], self.command, self.path[:200], status),
+            file=sys.stderr,
+            flush=True,
+        )
+
     def respond(self, status, data=b"", content_type="text/plain"):
         # Closing with an unread body can reset the connection before the client
         # receives its rejection. Discard only a bounded, explicitly sized body.
@@ -385,6 +395,8 @@ class Handler(BaseHTTPRequestHandler):
                     self.rfile.read(length)
             except (ValueError, OSError):
                 pass
+        if status >= 400:
+            self.log_problem(status)
         self.send_response(status)
         self.send_header(
             "Content-Type",
@@ -392,7 +404,11 @@ class Handler(BaseHTTPRequestHandler):
             + ("" if content_type.startswith("image/") else "; charset=utf-8"),
         )
         self.send_header("Content-Length", str(len(data)))
-        self.send_header("Cache-Control", "no-store")
+        # Fonts and artwork rarely change; everything else reflects the live room.
+        cacheable = status == 200 and self.path.startswith(
+            ("/fonts/", "/icons/", "/logo.jpg")
+        )
+        self.send_header("Cache-Control", "max-age=86400" if cacheable else "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
         self.send_header(
@@ -438,7 +454,12 @@ class Handler(BaseHTTPRequestHandler):
             )
         elif path in ASSETS:
             filename, content_type = ASSETS[path]
-            self.respond(200, (ROOT / filename).read_bytes(), content_type)
+            try:
+                data = (ROOT / filename).read_bytes()
+            except OSError:
+                self.respond(500, b"Website file missing. Ask the room host to reinstall it.")
+                return
+            self.respond(200, data, content_type)
         else:
             self.respond(404)
 
@@ -473,19 +494,22 @@ class Handler(BaseHTTPRequestHandler):
             value = json.loads(self.rfile.read(length))
             if not isinstance(value, dict):
                 raise ValueError("Invalid command")
-            reply = gateway.exchange(value)
-            status = int(reply.get("code", 503))
-            if status not in (202, 400, 408, 409, 503):
-                status = 503
-            self.respond(
-                status, json.dumps(reply, allow_nan=False).encode(), "application/json"
-            )
         except ValueError:
             self.respond(400, b"Invalid command")
+            return
         except OSError:
-            self.respond(
-                503, b"Command receipt unknown. Check the panel; do not retry."
-            )
+            self.respond(503, b"Command receipt unknown. Check the panel; do not retry.")
+            return
+        # Once the command may have reached the panel, any failure leaves its result unknown.
+        try:
+            reply = gateway.exchange(value)
+            status = int(reply.get("code", 503))
+        except (OSError, ValueError, TypeError, AttributeError):
+            self.respond(503, b"Command receipt unknown. Check the panel; do not retry.")
+            return
+        if status not in (202, 400, 408, 409, 503):
+            status = 503
+        self.respond(status, json.dumps(reply, allow_nan=False).encode(), "application/json")
 
     def unsupported(self):
         self.respond(405)
