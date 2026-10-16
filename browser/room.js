@@ -205,7 +205,6 @@ function update(id,text){if($(id)&&$(id).textContent!==String(text))$(id).textCo
 function sync(){
   const p=state?.preferences||{},s=state?.lights||{},available=state?.available===true;
   const version=String(state?.app_version||content.app_version||'').match(/^\d+\.\d+\.\d+/)?.[0]||'';
-  for(const badge of document.querySelectorAll('.version-badge')){badge.textContent=version;badge.hidden=!version;}
   update('app-version',version?'Version '+version:'');
   if($('app-build')){const build=state?.build_commit;$('app-build').hidden=!/^[0-9a-f]{7,40}$/.test(build||'');update('app-build',build?'Build '+build.slice(0,7):'');}
   if(state?.palette)window.SCRDesign.apply(state.palette,p.resolved_theme);

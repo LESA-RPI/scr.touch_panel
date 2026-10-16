@@ -22,7 +22,7 @@ a:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
 .brand { width: 140px; max-width: 100%; background: #fff; aspect-ratio: 5/4; overflow: hidden; flex-shrink: 0; }
 .brand img { display: block; width: 120%; height: auto; margin-left: -6%; margin-top: -20%; }
 .title-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.version-badge { color: var(--accent); background: #edf1f4; border-radius: 4px; padding: 3px 9px; font-size: .95rem; }
+.beta { color: var(--accent); background: #edf1f4; border-radius: 4px; padding: 3px 9px; font-size: .95rem; }
 .weather-details summary { color: var(--accent); font-size: .8rem; cursor: pointer; min-height: 44px; padding-block: 10px; }
 .heading { flex: 1; min-width: 0; padding-top: 18px; }
 .heading p { margin-top: 7px; color: var(--muted); }
@@ -122,8 +122,8 @@ main { padding-block: 26px; }
 
 body{background:var(--bg,#fff)}
 [data-theme=dark] .warm{color:var(--ink)}
-.version-badge{background:var(--soft);color:var(--muted)}
+.beta{background:var(--soft);color:var(--muted)}
 .brand{width:116px;height:66px;aspect-ratio:auto}
 .brand img{width:124.14%;margin-left:-7.59%;margin-top:-22.07%}
-.header,.title-line{align-items:flex-end}.heading{padding-top:0}.version-badge{border-radius:0}
+.header,.title-line{align-items:flex-end}.heading{padding-top:0}.beta{border-radius:0}
 @media(max-width:600px){.header{grid-template-columns:88px minmax(0,1fr)}.brand{width:88px;height:50px;align-self:start}}
