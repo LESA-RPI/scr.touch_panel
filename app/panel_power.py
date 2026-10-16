@@ -3,8 +3,16 @@
 import subprocess
 import threading
 
-SYSTEMCTL = "/usr/bin/systemctl"
-VERBS = {"reboot": "reboot", "shutdown": "poweroff"}
+BUSCTL = "/usr/bin/busctl"
+LOGIN1 = (
+    "org.freedesktop.login1",
+    "/org/freedesktop/login1",
+    "org.freedesktop.login1.Manager",
+)
+METHODS = {"reboot": "RebootWithFlags", "shutdown": "PowerOffWithFlags"}
+# systemd v252: flag1 enforces active block inhibitors even for root.
+# https://github.com/systemd/systemd/blob/v252/man/org.freedesktop.login1.xml
+ROOT_CHECK_INHIBITORS = "1"
 
 
 def run(arguments):
@@ -45,38 +53,32 @@ class PowerActions:
 
     def _probe(self):
         try:
-            help_text = self.runner([SYSTEMCTL, "--help"]).stdout
-            if "--check-inhibitors" not in help_text:
+            reply = self.runner([
+                BUSCTL, "--system", "--no-pager",
+                "--allow-interactive-authorization=no", "introspect", *LOGIN1,
+            ])
+            signatures = {
+                fields[0].lstrip("."): fields[2]
+                for line in reply.stdout.splitlines()
+                for fields in [line.split()]
+                if len(fields) >= 3 and fields[1] == "method"
+            }
+            if reply.returncode or any(signatures.get(method) != "t" for method in METHODS.values()):
                 raise RuntimeError(
                     "Safe power controls are unavailable on this system."
                 )
             commands = {}
-            for operation, verb in VERBS.items():
+            for operation, method in METHODS.items():
+                # Bypass systemctl's separate other-user-session veto while login1
+                # still checks real inhibitors, including this user's other apps.
                 command = [
-                    SYSTEMCTL,
-                    "--check-inhibitors=yes",
-                    "--no-ask-password",
-                    verb,
+                    BUSCTL, "--system", "--allow-interactive-authorization=no",
+                    "call", *LOGIN1, method, "t", ROOT_CHECK_INHIBITORS,
                 ]
-                method = "CanReboot" if operation == "reboot" else "CanPowerOff"
-                reply = self.runner(
-                    [
-                        "/usr/bin/busctl",
-                        "call",
-                        "org.freedesktop.login1",
-                        "/org/freedesktop/login1",
-                        "org.freedesktop.login1.Manager",
-                        method,
-                    ]
-                )
-                if reply.returncode == 0 and reply.stdout.strip() == 's "yes"':
-                    commands[operation] = command
-                else:
-                    # Use an existing noninteractive grant only; never install sudoers
-                    # rules, prompt for a password or accept arbitrary commands.
-                    reply = self.runner(["/usr/bin/sudo", "-n", "-l", "--"] + command)
-                    if reply.returncode == 0:
-                        commands[operation] = ["/usr/bin/sudo", "-n", "--"] + command
+                # List existing permission only; no new grant, prompt or power call.
+                reply = self.runner(["/usr/bin/sudo", "-n", "-l", "--"] + command)
+                if reply.returncode == 0:
+                    commands[operation] = ["/usr/bin/sudo", "-n", "--"] + command
             self.commands = commands
             self.phase = "ready" if commands else "unavailable"
             self.message = (

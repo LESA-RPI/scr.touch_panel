@@ -9,7 +9,7 @@ import threading
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
-from panel_power import PowerActions, SYSTEMCTL
+from panel_power import PowerActions, BUSCTL
 from panel_control import command
 from scr_touch_panel import Panel
 
@@ -18,26 +18,38 @@ def result(code=0, text=""):
     return SimpleNamespace(returncode=code, stdout=text)
 
 
+INTROSPECTION = ".RebootWithFlags method t - -\n.PowerOffWithFlags method t - -\n"
+
+
+def login1_command(method):
+    return [
+        BUSCTL, "--system", "--allow-interactive-authorization=no", "call",
+        "org.freedesktop.login1", "/org/freedesktop/login1",
+        "org.freedesktop.login1.Manager", method, "t", "1",
+    ]
+
+
 def test_capability_probe_never_runs_power_or_prompts_and_keeps_fixed_argv():
     calls = []
 
     def runner(argv):
         calls.append(argv)
-        if argv == [SYSTEMCTL, "--help"]:
-            return result(text="--check-inhibitors=MODE")
         if argv[0].endswith("busctl"):
-            return result(text='s "challenge"')
-        assert argv[:5] == ["/usr/bin/sudo", "-n", "-l", "--", SYSTEMCTL]
-        assert argv[5:] in (
-            ["--check-inhibitors=yes", "--no-ask-password", "reboot"],
-            ["--check-inhibitors=yes", "--no-ask-password", "poweroff"],
+            assert argv == [BUSCTL, "--system", "--no-pager",
+                "--allow-interactive-authorization=no", "introspect",
+                "org.freedesktop.login1", "/org/freedesktop/login1",
+                "org.freedesktop.login1.Manager"]
+            return result(text=INTROSPECTION)
+        assert argv[:4] == ["/usr/bin/sudo", "-n", "-l", "--"]
+        assert argv[4:] in (
+            login1_command("RebootWithFlags"), login1_command("PowerOffWithFlags"),
         )
         return result()
 
     power = PowerActions(True, runner)
     power.worker.join(2)
     assert power.phase == "ready" and set(power.commands) == {"reboot", "shutdown"}
-    assert all(argv[0] != SYSTEMCTL or argv == [SYSTEMCTL, "--help"] for argv in calls)
+    assert len(calls) == 3  # Introspection and two permission listings, no power calls.
     with pytest.raises(RuntimeError):
         power.prepare("arbitrary-command")
     power.prepare("reboot")
@@ -51,26 +63,18 @@ def test_capability_probe_never_runs_power_or_prompts_and_keeps_fixed_argv():
     power.worker.join(2)
     with pytest.raises(RuntimeError):
         power.execute()
-    assert actual == [
-        [
-            "/usr/bin/sudo",
-            "-n",
-            "--",
-            SYSTEMCTL,
-            "--check-inhibitors=yes",
-            "--no-ask-password",
-            "reboot",
-        ]
-    ]
+    assert actual == [["/usr/bin/sudo", "-n", "--"] + login1_command("RebootWithFlags")]
 
 
-@pytest.mark.parametrize("mode", ["unsupported", "denied", "timeout"])
+@pytest.mark.parametrize("mode", ["unsupported", "wrong-signature", "denied", "timeout"])
 def test_unavailable_permissions_never_offer_an_execution_path(mode):
     def runner(argv):
         if mode == "timeout":
             raise subprocess.TimeoutExpired(argv, 8)
-        if argv == [SYSTEMCTL, "--help"]:
-            return result(text="" if mode == "unsupported" else "--check-inhibitors")
+        if argv[0] == BUSCTL:
+            text = "" if mode == "unsupported" else INTROSPECTION
+            if mode == "wrong-signature":text = text.replace("method t", "method b")
+            return result(text=text)
         return result(1)
 
     power = PowerActions(True, runner)
@@ -78,6 +82,35 @@ def test_unavailable_permissions_never_offer_an_execution_path(mode):
     assert power.phase == "unavailable" and not power.commands
     with pytest.raises(RuntimeError):
         power.prepare("shutdown")
+
+
+@pytest.mark.parametrize("operation,method", [
+    ("reboot", "RebootWithFlags"), ("shutdown", "PowerOffWithFlags"),
+])
+def test_inhibitor_refusal_is_not_retried_or_replaced_with_weaker_power_call(operation, method):
+    calls = []
+    def refused(argv):
+        calls.append(argv)
+        # Flag1 asks login1 to reject an active block inhibitor even for root.
+        assert argv == ["/usr/bin/sudo", "-n", "--"] + login1_command(method)
+        return result(1, "Access denied to root due to active block inhibitor")
+    power = PowerActions(runner=refused)
+    power.commands = {operation: ["/usr/bin/sudo", "-n", "--"] + login1_command(method)}
+    power.phase = "ready";power.prepare(operation);power.phase = "saving"
+    power.execute();power.worker.join(2)
+    assert power.phase == "failed" and len(calls) == 1
+    with pytest.raises(RuntimeError):power.prepare(operation)
+    with pytest.raises(RuntimeError):power.execute()
+
+
+def test_probe_requires_existing_permission_for_each_fixed_root_call():
+    def runner(argv):
+        if argv[0] == BUSCTL:return result(text=INTROSPECTION)
+        assert argv[:4] == ["/usr/bin/sudo", "-n", "-l", "--"]
+        return result(0 if argv[-3] == "RebootWithFlags" else 1)
+    power = PowerActions(True, runner);power.worker.join(2)
+    assert power.phase == "ready" and set(power.commands) == {"reboot"}
+    with pytest.raises(RuntimeError):power.prepare("shutdown")
 
 
 def test_uncertain_os_response_is_not_retried():
