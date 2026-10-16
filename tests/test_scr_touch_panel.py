@@ -453,6 +453,9 @@ def test_weather_details_are_optional_convert_units_and_reject_invalid_forecasts
     assert weather.details(value, 'f') == 'Feels like 45° F\nHigh 59° · Low 32° · Rain today 80%'
     assert 'High 15° · Low 0°' in weather.details(value, 'c')
     assert weather.details(value, earlier=True) == 'Earlier weather: 2026-10-15 12:00'
+    assert dict(weather.measurements(value,'c'))=={'Feels like':'7°','Rain today':'80%','High':'15°','Low':'0°'}
+    assert weather.measurements(value,earlier=True)==[]
+    assert dict(weather.measurements({'rain_chance':0}))=={'Feels like':'—','Rain today':'0%','High':'—','Low':'—'}
     for invalid in ({'rain_chance': -1}, {'rain_chance': 101}, {'high_f': float('nan')},
                     {'feels_like_f': True}, {'low_f': 60}):
         with pytest.raises(ValueError):

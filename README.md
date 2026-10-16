@@ -42,6 +42,9 @@ its recorder is not connected.
 Home and the idle view show outdoor temperature, conditions, feels-like temperature,
 today's high/low and rain chance when available, plus daylight. Source/model
 details remain under Room tools → Date & weather. Earlier data is clearly dated.
+Forecast labels and values use an aligned grid; missing values show a dash.
+The screensaver gives the clock larger digits with a smaller AM/PM indicator,
+beside weather and the daylight bar. Touch anywhere opens Home.
 
 Light buttons queue immediately on release; sliders send after your touch settles.
 Large values show your selection; the feedback
@@ -89,6 +92,7 @@ If a result is uncertain, stop changing lights and ask the room host. **Room too
 System & help** shows checks and operator instructions; it does not execute
 commands. The visitor guide also operates no devices. A two-second stationary
 press leaves the black screen; black pixels do not turn off the backlight.
+A small gray hint at the bottom explains the two-second hold.
 
 ## Try Beta without room hardware
 

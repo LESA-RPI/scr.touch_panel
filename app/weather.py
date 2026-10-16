@@ -98,6 +98,18 @@ def details(value, unit='f', earlier=False):
     return '\n'.join(lines)
 
 
+def measurements(value, unit='f', earlier=False):
+    """Aligned forecast readings; missing values stay distinct from measured zero."""
+    if earlier:
+        return []
+    result=[]
+    for label,key in [('Feels like','feels_like_'+unit),('Rain today','rain_chance'),
+                      ('High','high_'+unit),('Low','low_'+unit)]:
+        number=value.get(key)
+        result.append((label, u'—' if number is None else (u'%.0f%%' if key=='rain_chance' else u'%.0f°') % number))
+    return result
+
+
 def daylight(value, now):
     rise, setting = local_time(value['sunrise']), local_time(value['sunset'])
     if now.date() != rise.date():

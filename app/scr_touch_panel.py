@@ -289,6 +289,8 @@ class Panel(object):
         self.light_text = tk.StringVar(value='Lighting not connected - controls are unavailable')
         self.connection_text = tk.StringVar()
         self.visitor_time, self.visitor_date = tk.StringVar(), tk.StringVar()
+        self.idle_digits,self.idle_period=tk.StringVar(),tk.StringVar()
+        self.visitor_time.trace_add('write',self.sync_idle_clock)
         self.preference_text = tk.StringVar(value=self.preference_summary())
         self.weather_text = tk.StringVar(value='Not configured. A location is needed.')
         self.home_weather_text = tk.StringVar(value='Weather not configured')
@@ -565,6 +567,7 @@ class Panel(object):
         for child in self.root.winfo_children():
             if child != self.dock:
                 child.destroy()
+        self.blank_hint=None
         self.root.configure(bg=self.bg)
         self.banner = tk.Frame(self.root, bg=self.bg, height=76)
         self.banner.pack(fill='x', padx=24, pady=(8, 6))
@@ -746,6 +749,7 @@ class Panel(object):
 
     def render(self):
         self.cancel_intent()
+        if getattr(self,'blank_hint',None) is not None:self.blank_hint.place_forget()
         self.light_buttons = []
         self.home_power_buttons = []
         self.scene_buttons = []
@@ -774,6 +778,10 @@ class Panel(object):
             for widget in (self.banner, self.nav, self.footer, self.body):
                 widget.pack_forget()
             self.root.configure(bg='black')
+            if getattr(self,'blank_hint',None) is None:
+                self.blank_hint=tk.Label(self.root,text='Hold anywhere for 2 seconds to return',
+                                         font=(FONT,13),fg='#808080',bg='black',bd=0,padx=0,pady=0)
+            self.blank_hint.place(relx=.5,rely=1,y=-18,anchor='s')
             self.root.bind('<ButtonPress-1>', self.begin_hold)
             self.root.bind('<ButtonRelease-1>', lambda event: self.cancel_hold())
             self.root.bind('<B1-Motion>', self.move_hold)
@@ -1081,6 +1089,11 @@ class Panel(object):
         self.row_buttons(left, [('Home · light controls', lambda: self.show('room'), True)], height=76)
         self.weather_contents(right)
 
+    def sync_idle_clock(self,*unused):
+        value=self.visitor_time.get()
+        digits,period=value.rsplit(' ',1) if value.endswith((' AM',' PM')) else (value,'')
+        set_changed(self.idle_digits,digits);set_changed(self.idle_period,period)
+
     def screensaver_view(self):
         top = tk.Frame(self.body, bg=self.bg, height=76)
         top.pack(fill='x', padx=28, pady=(28, 0))
@@ -1091,32 +1104,42 @@ class Panel(object):
         self.label(top, 'SCREEN SAVER', 17, True).pack(side='right')
         bottom = tk.Frame(self.body, bg=self.bg)
         bottom.pack(side='bottom', fill='x', padx=100, pady=(0, 44))
-        self.row_buttons(bottom, [('Touch anywhere for room controls', self.return_from_idle, True)], height=88)
-        hint = self.label(bottom, 'Opens Home with Lights on and Lights off', 17, True)
+        self.row_buttons(bottom, [('Touch anywhere to open controls', self.return_from_idle, True)], height=72)
+        hint = self.label(bottom, 'Home gives you Lights on and Lights off', 17, True)
         hint.config(anchor='center')
         hint.pack(fill='x', pady=(12, 0))
         row = tk.Frame(self.body, bg=self.bg)
-        row.pack(fill='both', expand=True, padx=48, pady=(32, 16))
+        row.pack(fill='both', expand=True, padx=48, pady=(44, 24))
         row.columnconfigure(0, weight=46, uniform='idle')
-        row.columnconfigure(1, weight=54, uniform='idle')
+        row.columnconfigure(1, minsize=1)
+        row.columnconfigure(2, weight=54, uniform='idle')
         left = tk.Frame(row, bg=self.bg)
-        left.grid(row=0, column=0, sticky='nsew', padx=(18, 28))
+        left.grid(row=0, column=0, sticky='nsew', padx=(18, 32))
+        tk.Frame(row, bg=self.border, width=1).grid(row=0, column=1, sticky='ns', pady=(0, 20))
         right = tk.Frame(row, bg=self.bg)
-        right.grid(row=0, column=1, sticky='nsew', padx=(28, 18))
-        self.label(left, 'LOCAL TIME', 16, True).pack(anchor='w', pady=(28, 0))
-        clock = self.label(left, size=76)
-        clock.config(textvariable=self.visitor_time)
-        clock.pack(anchor='w', padx=(8, 0), pady=(8, 4))
+        right.grid(row=0, column=2, sticky='nsew', padx=(32, 18))
+        self.label(left, 'LOCAL TIME', 16, True).pack(anchor='w')
+        time_row=tk.Frame(left,bg=self.bg)
+        time_row.pack(fill='x',pady=(20,12))
+        self.sync_idle_clock()
+        clock = self.label(time_row, size=104)
+        clock.config(textvariable=self.idle_digits)
+        clock.pack(side='left')
+        period=self.label(time_row,size=24,muted=True)
+        period.config(textvariable=self.idle_period)
+        period.pack(side='left',anchor='s',padx=(12,0),pady=(0,22))
         date = self.label(left, size=21)
         date.config(textvariable=self.visitor_date)
         self.wrap_label(date).pack(fill='x')
         self.weather_contents(right, compact=True, large=True)
 
     def weather_contents(self, right, compact=False, large=False):
-        self.label(right, 'OUTDOOR WEATHER' if compact else 'WEATHER · ' + getattr(self.args, 'weather_name', 'Local area'), 16, True).pack(anchor='w')
+        heading=tk.Frame(right,bg=right.cget('bg'));heading.pack(fill='x')
+        self.label(heading, 'OUTDOOR WEATHER' if compact else 'WEATHER · ' + getattr(self.args, 'weather_name', 'Local area'), 16, True).pack(side='left')
+        if large:self.label(heading,getattr(self.args,'weather_name','Local area'),14,True).pack(side='right')
         reading = tk.Frame(right, bg=right.cget('bg'))
-        reading.pack(fill='x', pady=(6, 2) if compact else (18, 6))
-        self.weather_symbol_size = 144 if large else 96
+        reading.pack(fill='x', pady=(12, 4) if large else (6, 2) if compact else (18, 6))
+        self.weather_symbol_size = 128 if large else 96
         self.weather_symbol = tk.Canvas(reading, width=self.weather_symbol_size, height=self.weather_symbol_size,
                                         bg=right.cget('bg'), highlightthickness=0)
         self.weather_symbol.pack(side='right', pady=0 if compact else 12)
@@ -1128,30 +1151,61 @@ class Panel(object):
         condition = self.label(right, size=26 if large else 23)
         condition.config(textvariable=self.weather_condition)
         self.wrap_label(condition).pack(fill='x')
-        status = self.label(right, size=16, muted=True)
-        status.config(textvariable=self.home_weather_text, height=2)
-        self.wrap_label(status).pack(fill='x', pady=(6, 0))
+        self.weather_measurements=tk.Frame(right,bg=right.cget('bg'))
+        self.weather_measurements.pack(fill='x',pady=(10 if large else 6,2))
+        self.weather_metric_cells=[];self.weather_metric_values=[]
+        for index,(title,unused) in enumerate(weather_data.measurements({})):
+            self.weather_measurements.columnconfigure(index%2,weight=1,uniform='forecast')
+            cell=tk.Frame(self.weather_measurements,bg=right.cget('bg'))
+            cell.grid(row=index//2,column=index%2,sticky='ew',padx=(0,18) if index%2==0 else (18,0),pady=4 if large else 2)
+            cell.columnconfigure(0,weight=1)
+            self.label(cell,title,17 if large else 16,True).grid(row=0,column=0,sticky='w')
+            value=self.label(cell,'—',17 if large else 16)
+            value.grid(row=0,column=1,sticky='e',padx=(12,0))
+            self.weather_metric_cells.append(cell);self.weather_metric_values.append(value)
+        self.weather_notice=self.label(self.weather_measurements,size=16,muted=True)
+        self.wrap_label(self.weather_notice)
         self.daylight_label = self.label(right, size=21)
         self.daylight_label.pack(anchor='w', pady=(8, 2) if compact else (18, 2))
-        self.daylight_canvas = tk.Canvas(right, height=70, bg=right.cget('bg'), highlightthickness=0)
+        self.daylight_canvas = tk.Canvas(right, height=60, bg=right.cget('bg'), highlightthickness=0)
         self.daylight_canvas.pack(fill='x')
         self.daylight_canvas.bind('<Configure>', lambda event: self.update_weather(force=True))
         self.update_weather(force=True)
         self.start_weather()
+
+    def weather_is_earlier(self):
+        data=self.weather_reading
+        return bool(data and (self.weather_good is None or monotonic()-self.weather_good>1800
+                    or any(data[key][:10]!=datetime.date.today().isoformat() for key in ('model_time','sunrise','sunset'))
+                    or self.weather_text.get().startswith('Last available')))
 
     def update_weather(self, force=False):
         if self.mode not in ('room', 'visitor') or self.mode == 'room' and self.section != 'basic':
             return
         now = datetime.datetime.now()
         minute = now.strftime('%Y-%m-%dT%H:%M')
-        if not force and minute == self.weather_rendered_minute:
+        earlier=self.weather_is_earlier()
+        render_key=(minute,earlier)
+        if not force and render_key == self.weather_rendered_minute:
             return
-        self.weather_rendered_minute = minute
+        self.weather_rendered_minute = render_key
         canvas = self.daylight_canvas
         canvas.delete('all')
         self.weather_symbol.delete('all')
         data = self.weather_reading
+        readings=weather_data.measurements(data or {},self.temperature_unit,earlier)
+        show=bool(data and not earlier)
+        for index,cell in enumerate(self.weather_metric_cells):
+            if show:
+                cell.grid();self.weather_metric_values[index].config(text=readings[index][1])
+            else:cell.grid_remove()
+        if show:self.weather_notice.grid_remove()
+        else:
+            notice=weather_data.details(data,self.temperature_unit,earlier=True) if data else 'Weather unavailable'
+            self.weather_notice.config(text=notice)
+            self.weather_notice.grid(row=0,column=0,columnspan=2,sticky='ew',pady=4)
         if not data:
+            self.weather_temperature.set('—');self.weather_condition.set('Weather unavailable')
             self.daylight_label.config(text='Daylight times unavailable')
             return
         primary = data['temperature_c'] if self.temperature_unit == 'c' else data['temperature_f']
@@ -1169,20 +1223,22 @@ class Panel(object):
         if key not in self.icon_cache:
             self.photo(key, panel_icons.weather(kind, self.theme, size))
         self.weather_symbol.create_image(size // 2, size // 2, image=self.icon_cache[key])
+        if earlier:
+            self.daylight_label.config(text='Daylight information is not current')
+            return
         day = weather_data.daylight(data, now)
         if day is None:
             self.daylight_label.config(text='Daylight times are from another date')
             return
         self.daylight_label.config(text=day['label'])
-        left, right, y = 12, max(24, canvas.winfo_width()-12), 36
+        left, right, y = 8, max(24, canvas.winfo_width()-8), 22
         position = left + (right-left) * day['fraction']
         canvas.create_line(left, y, right, y, fill=self.control, width=6, capstyle='round')
         if position > left:
             canvas.create_line(left, y, position, y, fill=self.icon_colour, width=6, capstyle='round')
         canvas.create_oval(position-7, y-7, position+7, y+7, fill=self.icon_colour, outline=self.surface, width=2)
-        canvas.create_text(min(right-28, max(left+28, position)), 12, text=day['now'], font=(FONT, 15), fill=self.ink)
-        canvas.create_text(left, 58, text='Sunrise ' + day['sunrise'], anchor='w', font=(FONT, 15), fill=self.muted)
-        canvas.create_text(right, 58, text='Sunset ' + day['sunset'], anchor='e', font=(FONT, 15), fill=self.muted)
+        canvas.create_text(left, 46, text='Sunrise ' + day['sunrise'], anchor='w', font=(FONT, 15), fill=self.muted)
+        canvas.create_text(right, 46, text='Sunset ' + day['sunset'], anchor='e', font=(FONT, 15), fill=self.muted)
 
     def start_weather(self):
         now = monotonic()
@@ -2164,9 +2220,7 @@ class Panel(object):
         self.refresh_confirmation_age()
         self.update_idle()
         if self.weather_reading:
-            old = (self.weather_good is None or monotonic() - self.weather_good > 1800
-                   or self.weather_reading['model_time'][:10] != datetime.date.today().isoformat()
-                   or self.weather_text.get().startswith('Last available'))
+            old = self.weather_is_earlier()
             caption = weather_data.details(self.weather_reading, self.temperature_unit, earlier=old)
         else:
             caption = 'Weather not configured' if self.args.weather_latitude is None else 'Weather unavailable'
