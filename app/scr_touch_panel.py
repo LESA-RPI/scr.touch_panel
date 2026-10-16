@@ -19,7 +19,7 @@ import sys
 import time
 import uuid
 from io import BytesIO
-from scr_touch_panel_lights import PRESETS
+from scr_touch_panel_lights import PRESETS, setter_words
 from event_journal import EventJournal
 from preferences import Preferences, load as load_preferences
 import weather as weather_data
@@ -179,6 +179,16 @@ def confirmed_power(response):
     return None
 
 
+def confirmed_scene(response):
+    """Match an admitted baseline or exact confirmed drive words, never a selection."""
+    if response.get('state') == 'ready' and response.get('baseline') in PRESETS:
+        return response['baseline']
+    if response.get('state') == 'completed' and confirmed_power(response) is not None:
+        values = tuple(response['words'])
+        return next((name for name, preset in PRESETS.items() if values == setter_words(preset)), None)
+    return None
+
+
 class Panel(object):
     def __init__(self, args):
         self.args, self.profile = args, profile(args.profile)
@@ -219,7 +229,9 @@ class Panel(object):
         self.confirmed_light = 'Not checked'
         self.confirmed_at, self.light_message = None, 'Lighting not connected'
         self.confirmed_power = None
+        self.confirmed_scene = None
         self.home_power_buttons = []
+        self.scene_buttons = []
         self.light_buttons = []
         self.last_heartbeat, self.request_seq = -10, 0
         self.journal = EventJournal(args.journal, sys.stdout)
@@ -330,8 +342,8 @@ class Panel(object):
         self.update_power_highlights()
 
     def update_power_highlights(self):
-        state = (getattr(self, 'confirmed_power', None) if self.light_state == 'ready' and
-                 not any((self.pending, self.queued_intent, self.release_target, self.closing)) else None)
+        certain = self.light_state == 'ready' and not any((self.pending, self.queued_intent, self.release_target, self.closing))
+        state = getattr(self, 'confirmed_power', None) if certain else None
         for button, power, label in getattr(self, 'home_power_buttons', []):
             if button.winfo_exists():
                 selected = state == power
@@ -340,6 +352,14 @@ class Panel(object):
                               activebackground=ACCENT if selected else self.control,
                               text=(u'✓ ' if selected else '') + label,
                               image=self.icon(power, 'white' if selected else self.icon_colour))
+        for button, name in getattr(self, 'scene_buttons', []):
+            if button.winfo_exists():
+                selected = certain and getattr(self, 'confirmed_scene', None) == name
+                button.config(bg=ACCENT if selected else self.control,
+                              fg='white' if selected else self.ink,
+                              activebackground=ACCENT if selected else self.control,
+                              activeforeground='white' if selected else self.ink,
+                              text=(u'✓ ' if selected else '') + name)
 
     def activity(self, pressed=None):
         self.last_touch = monotonic()
@@ -639,7 +659,7 @@ class Panel(object):
         self.advanced_page = advanced_page
         if self.light_state != 'failed' and not self.pending:
             messages = {'health': 'Live panel readings. No system settings change.',
-                        'room': 'Lights on selects standard white. Blinds are not enabled.',
+                        'room': '',
                         'advanced': 'Fine adjustments and room tools. Opening a page does not operate devices.',
                         'visitor': 'Visitor view does not change lighting. Recording status is unavailable here.',
                         'experiment': 'Experiment mode: instructions and annotations. Recorder not connected.',
@@ -656,6 +676,7 @@ class Panel(object):
         self.cancel_intent()
         self.light_buttons = []
         self.home_power_buttons = []
+        self.scene_buttons = []
         self.dock.withdraw()
         self.tips_button.config(text='Tips: ' + ('On' if self.help_on else 'Off'))
         selected_mode = {'guide': 'visitor', 'support': 'health'}.get(self.mode, self.mode)
@@ -750,7 +771,8 @@ class Panel(object):
                 else:
                     # Intentionally no callback, adapter or opt-in switch until qualified.
                     button.config(state='disabled')
-            self.label(group, 'Standard white' if index == 0 else 'Not enabled', 17, True).pack(anchor='w', pady=(8, 0))
+            caption = self.label(group, 'Turns on standard white' if index == 0 else 'Not enabled', 17, True)
+            self.wrap_label(caption).pack(fill='x', pady=(8, 0))
         state = self.label(left, size=16, muted=True)
         state.config(textvariable=self.light_text, height=5)
         self.wrap_label(state).pack(fill='x', pady=(8, 0))
@@ -1055,6 +1077,7 @@ class Panel(object):
         buttons = self.row_buttons(self.body, [(name, lambda name=name: self.preset(name), False)
                                                for name in ('Fid', 'Sat', 'Dul')], height=62)
         self.light_buttons.extend(buttons)
+        self.scene_buttons = list(zip(buttons, ('Fid', 'Sat', 'Dul')))
         editor = tk.Frame(self.body, bg=self.bg)
         editor.pack(fill='x', pady=14)
         for index, (name, value) in enumerate(zip(CHANNELS, self.channel_values)):
@@ -1566,6 +1589,7 @@ class Panel(object):
         self.confirmed_light = 'Not checked'
         self.confirmed_at = None
         self.confirmed_power = None
+        self.confirmed_scene = None
         self.lighting_feedback('Checking starting drive settings on 10 lights...')
         self.worker_buffer = ''
         self.worker_ready = False
@@ -1668,17 +1692,20 @@ class Panel(object):
                     self.confirmed_light = light_selection(action, completed_request['arguments'])
                     self.confirmed_at = monotonic()
                     self.confirmed_power = confirmed_power(response)
+                    self.confirmed_scene = confirmed_scene(response)
                     detail = 'Confirmed - ' + detail
                 elif state == 'ready':
                     self.confirmed_light = response.get('baseline', '?') + ' scene'
                     self.confirmed_at = monotonic()
                     self.confirmed_power = confirmed_power(response)
+                    self.confirmed_scene = confirmed_scene(response)
                 elif state == 'released':
                     self.confirmed_light = 'Session ended'
                     self.confirmed_at = None
                     self.confirmed_power = None
+                    self.confirmed_scene = None
                 self.lighting_feedback(detail)
-                self.status_text.set(detail)
+                self.status_text.set('' if state in ('ready', 'completed') else detail)
                 if action == 'release':
                     if state == 'failed':
                         self.release_target = None

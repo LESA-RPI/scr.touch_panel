@@ -38,7 +38,7 @@ percentages, which cannot reproduce arbitrary fractional drive settings.
 
 Home combines stacked Lights on/off with time and outdoor weather. The blind
 buttons are intentionally disabled and have no command callbacks. No blind
-adapter is added. Advanced → Light level & colour opens the existing sliders and
+adapter is added. Advanced → White light opens the existing sliders and
 scenes; Scenes & channels opens the channel editor. Home returns to everyday
 controls. All light controls share one latest selection queue. Wait for
 confirmation to distinguish a selection from a result.
@@ -71,7 +71,7 @@ are atomic and use one background worker with one pending snapshot. Invalid
 files fall back to defaults and show a warning; they cannot start recordings
 or restore light settings. Remove this private file to reset appearance.
 A direct preview saves preferences only when `--preferences PATH` is supplied.
-Settings → Date & weather selects Celsius or Fahrenheit. Old preference files
+Advanced → Date & weather selects Celsius or Fahrenheit. Old preference files
 default to Fahrenheit. Direct previews can use `--temperature-unit c` or `f`.
 Switching units converts cached data; it does not fetch again or change room controls.
 Screen settings save `idle_timeout` as 0, 60, 300 or 900 seconds. Old settings
@@ -111,7 +111,7 @@ condition/code and dated sunrise, sunset and model timestamps. The UI validates
 these fields before displaying them. Daylight progress is clamped before sunrise
 and after sunset; it is hidden when the timestamps refer to another date.
 After sunset, the card says night rather than calculating tomorrow from old data.
-Settings → About reports the rendered font. Cantarell is already installed on
+Advanced → About reports the rendered font. Cantarell is already installed on
 the qualified Raspberry Pi OS image; other hosts may select another family with
 `--font`. A requested font name alone does not establish what Tk rendered.
 
@@ -123,7 +123,7 @@ The fixed header badge reflects the existing lighting adapter state, with no ext
 network polling. Its icons and labels distinguish Ready, Sending, Checking,
 Uncertain and Offline. Preview never reports Ready; Legacy shows its own mode.
 
-System → Troubleshooting contains instructions, not remote command buttons.
+Advanced → System & help contains instructions, not remote command buttons.
 [app/panel_guides.py](app/panel_guides.py) owns the concise displayed guidance.
 The room's installed `startROS.py` and `startStatus.py` were inspected on
 2026-10-14: each destroys its existing named tmux session before rebuilding it.

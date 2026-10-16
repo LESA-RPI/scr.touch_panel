@@ -334,7 +334,8 @@ def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch
     state.root = SimpleNamespace(after=lambda *args: None)
     shown = []
     state.light_text = SimpleNamespace(set=shown.append)
-    state.status_text = SimpleNamespace(set=lambda value: None)
+    status = []
+    state.status_text = SimpleNamespace(set=status.append)
     monkeypatch.setattr(panel.select, 'select', lambda *args: ([], [], []))
     reply = {'version': 1, 'request_id': 'other', 'state': 'completed',
              'detail': 'Drive settings confirmed on 10 lights'}
@@ -345,6 +346,7 @@ def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch
     state.poll_worker()
     assert state.confirmed_light == '3500 K input / level 1000'
     assert state.pending is None and 'Last confirmed drive: 3500 K input / level 1000' in shown[-1]
+    assert status[-1] == ''
     confirmed_at = state.confirmed_at
     monkeypatch.setattr(panel, 'monotonic', lambda: confirmed_at + 61)
     raw = []
@@ -358,6 +360,7 @@ def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch
     assert state.confirmed_at == confirmed_at and '1 min ago' in shown[-1]
     assert raw[-1]['detail'] == failure['detail']
     assert len(shown[-1]) < 150 and 'Controls disabled' in shown[-1]
+    assert 'ask staff' in status[-1]
 
 
 def test_idle_guards_and_wake_do_not_dispatch_a_touch(monkeypatch):
@@ -444,6 +447,44 @@ def test_home_power_requires_confirmed_readback_and_clears_during_changes():
     state.light_state = 'failed'
     state.update_power_highlights()
     assert all(button.options['bg'] == 'neutral' for button in buttons)
+
+
+def test_scene_highlight_uses_exact_confirmed_words_and_clears_for_custom_or_uncertain():
+    state = panel.Panel.__new__(panel.Panel)
+    state.light_state = 'ready'
+    state.pending = state.queued_intent = state.release_target = state.closing = None
+    state.control, state.ink = 'neutral', 'ink'
+    buttons = []
+    for name in ('Fid', 'Sat', 'Dul'):
+        button = SimpleNamespace(winfo_exists=lambda: True)
+        button.config = lambda button=button, **kw: setattr(button, 'options', kw)
+        buttons.append((button, name))
+    state.scene_buttons = buttons
+    for name, preset in adapter.PRESETS.items():
+        assert panel.confirmed_scene({'state': 'ready', 'baseline': name}) == name
+        reply = {'state': 'completed', 'words': list(adapter.setter_words(preset))}
+        state.confirmed_scene = panel.confirmed_scene(reply)
+        assert state.confirmed_scene == name
+        state.update_power_highlights()
+        assert [label for button, label in buttons if button.options['bg'] == panel.ACCENT] == ([] if name == 'Off' else [name])
+    custom = list(adapter.setter_words(adapter.PRESETS['Fid']))
+    custom[0] += 1  # Even a one-word difference is not the known scene.
+    for reply in ({'state': 'completed', 'words': custom},
+                  {'state': 'completed', 'values': list(adapter.PRESETS['Fid'])},
+                  {'state': 'failed', 'words': list(adapter.setter_words(adapter.PRESETS['Fid']))}):
+        state.confirmed_scene = panel.confirmed_scene(reply)
+        assert state.confirmed_scene is None
+        state.update_power_highlights()
+        assert all(button.options['bg'] == 'neutral' for button, name in buttons)
+    state.confirmed_scene = 'Sat'
+    for field in ('pending', 'queued_intent', 'release_target', 'closing'):
+        setattr(state, field, True)
+        state.update_power_highlights()
+        assert all(button.options['bg'] == 'neutral' for button, name in buttons)
+        setattr(state, field, None)
+    state.light_state = 'failed'
+    state.update_power_highlights()
+    assert all(button.options['bg'] == 'neutral' for button, name in buttons)
 
 
 def test_advanced_navigation_and_wake_preserve_selected_tool():

@@ -31,6 +31,9 @@ area shows the last confirmed controller settings and their age. **Ready** means
 the lighting adapter is available. It does not confirm every room sensor is healthy
 or measure physical brightness. The selected Home button reflects the last
 confirmed On/Off readback; neither is selected while a request is pending or uncertain.
+Scenes & channels highlights the preset matching the confirmed drive words.
+A custom mix clears the preset highlight. Routine Ready confirmations stay in
+the feedback area; the footer is reserved for explanations, progress and problems.
 
 The clock/weather view appears after five idle minutes by default. Its first wake
 touch returns to the prior page without activating controls. **Advanced → Screen**
