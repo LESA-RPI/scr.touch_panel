@@ -49,6 +49,8 @@ slow reads do not hold up touches.
 White light shows the minimum and maximum beside each slider. System & help
 separates panel health, room connection and guidance. Reference commands are
 available through Room host reference and are never executed by the panel.
+Command references use a verified monospace font with restrained shell highlighting;
+the browser can copy the original text without formatting.
 
 The full-screen screensaver appears after five idle minutes by default. It has a
 large clock, weather and a prominent “Touch anywhere for room controls” prompt,

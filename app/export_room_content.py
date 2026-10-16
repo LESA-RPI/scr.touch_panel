@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from panel_guides import DEMO, SUPPORT
 from design_tokens import THEMES
+from command_reference import command_tokens
 import xml.etree.ElementTree as ET
 
 
@@ -18,7 +19,7 @@ def content():
         icons[key]=[{'tag':node.tag.split('}')[-1],'attributes':node.attrib} for node in svg]
     return {'version':1,'icons':icons,'themes':THEMES,
             'guide':[{'title':title,'icon':kind,'text':text} for title,kind,text in DEMO],
-            'help':[{'title':title,'text':text,'commands':commands} for title,kind,text,commands in SUPPORT]}
+            'help':[{'title':title,'text':text,'commands':commands,'command_tokens':command_tokens(commands)} for title,kind,text,commands in SUPPORT]}
 
 
 if __name__=='__main__':

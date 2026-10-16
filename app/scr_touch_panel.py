@@ -28,6 +28,7 @@ import panel_icons
 from design_tokens import THEMES
 from touch_slider import TouchSlider
 from panel_guides import DEMO, SUPPORT, connection
+from command_reference import command_tokens
 try:
     import Tkinter as tk
     from tkFont import Font
@@ -1474,9 +1475,19 @@ class Panel(object):
         else:
             overview.pack_forget()
             self.label(content, 'Room host · reference commands', 12, True).pack(anchor='w', pady=(8, 4))
-            code = self.label(content, commands, 13)
-            code.config(font=('DejaVu Sans Mono', 13), bg=self.control, padx=10, pady=6)
-            self.wrap_label(code).pack(fill='x')
+            mono = 'Consolas' if sys.platform == 'win32' else 'DejaVu Sans Mono'
+            code = tk.Text(content, font=(mono, 13), height=len(commands.splitlines()), width=1,
+                           bg=self.control, fg=self.ink, bd=0, highlightthickness=0,
+                           padx=10, pady=8, wrap='none', takefocus=False, cursor='arrow')
+            for kind, colour, style in (('command', self.ink, 'bold'), ('option', self.muted, 'normal'),
+                                        ('path', self.accent, 'normal'), ('string', self.accent, 'normal'),
+                                        ('number', self.muted, 'normal'), ('comment', self.muted, 'italic'),
+                                        ('operator', self.ink, 'bold')):
+                code.tag_configure(kind, foreground=colour, font=(mono, 13, style))
+            for token in command_tokens(commands):
+                code.insert('end', token['text'], token['kind'])
+            code.config(state='disabled')
+            code.pack(fill='x')
             self.label(content, 'Reference only. This panel does not execute these commands.', 14, True).pack(anchor='w', pady=(8, 0))
         if commands:
             self.row_buttons(content, [('Back to guidance' if show_commands else 'Room host reference',

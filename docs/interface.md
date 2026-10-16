@@ -1,7 +1,7 @@
 # Panel interfaces, version 1
 
 These contracts serve the existing Tk client and optional SCR light helper.
-They are deliberately small. No registry, plugin loader, network API or recorder
+They are deliberately small. No registry, plugin loader or recorder
 service is implemented.
 
 ## Study profile

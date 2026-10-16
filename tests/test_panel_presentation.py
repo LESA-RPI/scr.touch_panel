@@ -4,6 +4,18 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'app'))
 from panel_icons import weather_kind
 from touch_slider import selected_value
+from command_reference import command_tokens
+from panel_guides import SUPPORT
+
+
+def test_reference_highlighting_preserves_copy_text_and_shell_command_boundaries():
+    for title, kind, guidance, commands in SUPPORT:
+        assert ''.join(token['text'] for token in command_tokens(commands)) == commands
+    tokens = command_tokens('timeout 10 rosservice list\nsource ~/catkin_ws/devel/setup.bash\npython startROS.py')
+    assert [(t['text'], t['kind']) for t in tokens if t['kind'] != 'text'] == [
+        ('timeout', 'command'), ('10', 'number'), ('rosservice', 'command'),
+        ('source', 'command'), ('~/catkin_ws/devel/setup.bash', 'path'),
+        ('python', 'command'), ('startROS.py', 'path')]
 
 
 def test_weather_symbols_preserve_day_night_and_precipitation_meaning():
