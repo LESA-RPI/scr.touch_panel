@@ -136,7 +136,7 @@ function guide(root,index){
   const nav=el('nav',undefined,'row');nav.append(link('All topics','guide','guide'));if(index>0)nav.append(link('Previous','guide-'+(index-1)));if(index<topics.length-1)nav.append(link('Next','guide-'+(index+1)));root.append(nav);
 }
 function system(parent){
-  const cards=el('div',undefined,'health-grid');for(const [id,title] of [['panel-health','Panel health'],['room-health','Room connection']]){const card=el('section',undefined,'card'),text=el('p',undefined,'muted');text.id=id;card.append(el('h3',title),text);cards.append(card);}parent.append(cards);
+  const cards=el('div',undefined,'health-grid');for(const [id,title] of [['panel-health','Panel health'],['room-health','Room connection']]){const card=el('section',undefined,'card'),text=el(id==='panel-health'?'div':'p',undefined,'muted');text.id=id;if(id==='panel-health')for(const key of ['panel-memory','panel-storage','panel-power']){const line=el('p');line.id=key;text.append(line);}card.append(el('h3',title),text);cards.append(card);}parent.append(cards);
   const row=el('label',undefined,'help-select');row.append(el('span','Help topic'));const select=el('select');select.setAttribute('aria-label','Help topic');select.id='help-topic';row.append(select);parent.append(row);
   const topics=state?.help||content.help;for(const [i,t] of topics.entries()){const option=el('option',t.title);option.value=i;select.append(option);}select.value=chosenHelp;select.onchange=()=>{chosenHelp=Number(select.value);renderHelp();};const detail=el('div');detail.id='help-detail';parent.append(detail);renderHelp();
   const a=el('a','More diagnostics');a.href=window.SCR_DEMO?'#tools-system':'/diagnostics';parent.append(a);
@@ -183,7 +183,7 @@ function sync(){
     if($('marks')&&!$('marks').children.length)for(const label of e.profile.annotations){const b=button(label,()=>command('mark',{label}),{action:'mark'});b.disabled=posting||Boolean(unknown)||!available||!state.can_session;$('marks').append(b);}
   }
   update('schedule','Light from '+minutes(p.light_at??420)+' · Dark from '+minutes(p.dark_at??1140));
-  const h=state?.health;if(h)update('panel-health',h.error?'Resource reading unavailable':`Memory: ${h.ram_available??'—'} / ${h.ram_total??'—'} MiB free · CPU: ${h.temperature??'—'} °C · ${h.power??'Power unavailable'}`);update('room-health',state?.room_status||'No current room observation.');
+  const h=state?.health;if(h){update('panel-memory',h.error?'Resource reading unavailable':`Memory: ${h.ram_available??'—'} / ${h.ram_total??'—'} MiB free`);update('panel-storage',h.error?'':`Storage: ${h.disk_available??'—'} GiB free · CPU: ${h.temperature??'—'} °C`);update('panel-power',h.power?'Power: '+h.power:'Power reading unavailable');$('panel-power')?.classList.toggle('system-warning',h.power?.startsWith('Current')===true);}update('room-health',state?.room_status||'No current room observation.');
   weather();
 }
 function minutes(value){return Math.floor(value/60).toString().padStart(2,'0')+':'+(value%60).toString().padStart(2,'0');}

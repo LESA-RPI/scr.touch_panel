@@ -32,5 +32,8 @@ button.selected:disabled,button.primary:disabled{color:var(--selected-ink)}
 .command-expect strong{display:block;font-weight:500;color:var(--ink);margin-bottom:6px}
 .documentation-link{display:inline-flex;align-items:center;min-height:48px;padding:8px 0}
 .reference-warning{color:var(--warning)}
+.tools-layout{align-items:start}
+.sidebar{position:sticky;top:20px;align-self:start;height:540px;max-height:calc(100dvh - 40px);overflow-y:auto}
+.health-grid p+p{margin-top:8px}.health-grid .card>h3+div{margin-top:12px}.system-warning{color:var(--warning)}
 .card>h3+p{margin-top:12px}.scene-grid .card{padding:20px;gap:12px}.scene-grid .card>h3+p{margin-top:0}.scene-grid button{margin-top:auto}
-@media(max-width:650px){.reference-head,.command-head{flex-wrap:wrap}.reference-head button{flex-shrink:0}.command-step .command-head,.command-why,.command-expect{padding:14px 16px}.command-step pre{padding:16px}.command-head h3{flex:1;min-width:160px}.room-layout{gap:32px}}
+@media(max-width:650px){.sidebar{position:static;height:auto;max-height:none;overflow:visible}.reference-head,.command-head{flex-wrap:wrap}.reference-head button{flex-shrink:0}.command-step .command-head,.command-why,.command-expect{padding:14px 16px}.command-step pre{padding:16px}.command-head h3{flex:1;min-width:160px}.room-layout{gap:32px}}
