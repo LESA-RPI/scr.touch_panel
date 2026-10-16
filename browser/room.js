@@ -10,7 +10,9 @@ let state = null,
   rangeRevision = null,
   chosenHelp = 0;
 let powerChoice = null,
-  powerRequest = null;
+  powerRequest = null,
+  unknownSession = null, // panel session that was running when a receipt became unknown
+  reachable = true; // false when this website's own server does not answer
 const paths = {
   home: 'M3 10 12 3l9 7v11h-6v-7H9v7H3Z',
   white: 'M9 18h6m-5 3h4M8 13a6 6 0 1 1 8 0l-1 3H9Z',
@@ -67,7 +69,13 @@ function link(text, hash, kind) {
   return a;
 }
 function command(action, args = {}, revision = state?.revision) {
-  if (posting || unknown || !state?.available) return Promise.resolve(false);
+  if (posting || unknown || !state?.available) {
+    // Not sent: put sliders and number boxes back to the confirmed values.
+    dragging = false;
+    rangeRevision = null;
+    sync();
+    return Promise.resolve(false);
+  }
   const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
     b.toString(16).padStart(2, '0'),
   ).join('');
@@ -90,6 +98,7 @@ function command(action, args = {}, revision = state?.revision) {
       }
       if (!reply) {
         unknown = id;
+        unknownSession = state?.session;
         message(
           action === 'power'
             ? 'Power request status is unknown. Check the touch panel before trying again.'
@@ -117,11 +126,13 @@ function command(action, args = {}, revision = state?.revision) {
         action === 'on' || action === 'off' || ['cct', 'channels', 'preset'].includes(action)
           ? 'Sent. Waiting for controller confirmation.'
           : 'Accepted by the panel.',
+        true,
       );
       return true;
     })
     .catch(() => {
       unknown = id;
+      unknownSession = state?.session;
       message(
         action === 'power'
           ? 'Power request status is unknown. Check the touch panel before trying again.'
@@ -137,23 +148,28 @@ function command(action, args = {}, revision = state?.revision) {
       sync();
     });
 }
-function message(text) {
+// Routine confirmations fade after a few seconds; warnings stay until replaced.
+let messageTimer = null;
+function message(text, transient = false) {
+  clearTimeout(messageTimer);
+  messageTimer = null;
   $('message').textContent = text;
   $('message').hidden = !text;
+  if (text && transient) messageTimer = setTimeout(() => message(''), 6000);
 }
 function route() {
-  return (
-    location.hash.slice(1) ||
-    (location.pathname === '/guide'
-      ? 'guide'
-      : location.pathname === '/tools'
-        ? 'tools-lighting'
-        : 'home')
-  );
+  const hash = location.hash.slice(1);
+  if (/^(home|legacy|guide(-\d+)?|tools-[a-z-]+)$/.test(hash)) return hash;
+  return location.pathname === '/guide'
+    ? 'guide'
+    : location.pathname === '/tools'
+      ? 'tools-lighting'
+      : 'home';
 }
 function layout() {
   const next = route();
   if (next === view) return;
+  const navigating = view !== '';
   view = next;
   dragging = false;
   rangeRevision = null;
@@ -163,7 +179,9 @@ function layout() {
   for (const a of document.querySelectorAll('.header a'))
     a.setAttribute(
       'aria-current',
-      a.hash.slice(1) === view || (a.hash === '#tools-lighting' && view.startsWith('tools-'))
+      a.hash.slice(1) === view ||
+        (a.hash === '#tools-lighting' && view.startsWith('tools-')) ||
+        (a.hash === '#guide' && view.startsWith('guide'))
         ? 'page'
         : 'false',
     );
@@ -172,12 +190,22 @@ function layout() {
     guide(root, view === 'guide' ? -1 : Number(view.split('-')[1]));
   else if (view === 'legacy') legacy(root);
   else home(root);
+  if (messageTimer) message('');
+  // Keep the tab title and keyboard focus with the page the visitor just opened.
+  const heading = root.querySelector('.tools-layout > section > h2') || root.querySelector('h2');
+  document.title =
+    (view === 'home' ? '' : (heading?.textContent || '') + ' · ') + 'Smart Conference Room';
+  if (navigating && heading) {
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+  }
   sync();
 }
 function feedback(parent) {
   const box = el('div', undefined, 'feedback');
   const current = el('p');
   current.id = 'light-message';
+  current.setAttribute('role', 'status');
   const recent = el('p', undefined, 'muted');
   recent.id = 'light-recent';
   box.append(current, recent);
@@ -199,6 +227,10 @@ function home(root) {
     if (isBlind) {
       group.open = !matchMedia('(max-width:650px)').matches;
       const summary = el('summary');
+      // Blinds fold away only on phones; on wider screens the heading is not a toggle.
+      summary.onclick = (event) => {
+        if (!matchMedia('(max-width:650px)').matches) event.preventDefault();
+      };
       summary.append(el('h2', title));
       const note = el('span', 'Disabled', 'muted');
       note.id = 'blind-status';
@@ -534,28 +566,31 @@ function lighting(detail, tab) {
   } else if (tab === 'programmes') {
     detail.append(el('p', 'Choose a finite light cycle from Legacy.', 'muted'));
     const row = el('div', undefined, 'row'),
-      items = content.programmes || [];
+      items = content.programmes || [],
+      card = el('section', undefined, 'card');
+    // Choosing a programme only changes this description; it sends nothing to the room.
+    function choose(id) {
+      selectedProgramme = id;
+      for (const b of row.children) {
+        b.setAttribute('aria-pressed', String(b.dataset.programme === id));
+        b.classList.toggle('selected', b.dataset.programme === id);
+      }
+      const item = items.find((p) => p.id === id);
+      card.hidden = !item;
+      if (item)
+        card.replaceChildren(
+          el('h3', item.subtitle),
+          el('p', item.detail),
+          el('p', 'These are light demonstrations, independent of the clock and weather.', 'muted'),
+        );
+    }
     for (const item of items) {
-      const b = button(item.label + ' · ' + item.subtitle, () => {
-        selectedProgramme = item.id;
-        view = '';
-        layout();
-      });
-      b.setAttribute('aria-pressed', String(item.id === selectedProgramme));
-      b.classList.toggle('selected', item.id === selectedProgramme);
+      const b = button(item.label + ' · ' + item.subtitle, () => choose(item.id));
+      b.dataset.programme = item.id;
       row.append(b);
     }
-    detail.append(row);
-    const item = items.find((p) => p.id === selectedProgramme);
-    if (item) {
-      const card = el('section', undefined, 'card');
-      card.append(
-        el('h3', item.subtitle),
-        el('p', item.detail),
-        el('p', 'These are light demonstrations, independent of the clock and weather.', 'muted'),
-      );
-      detail.append(card);
-    }
+    detail.append(row, card);
+    choose(selectedProgramme);
     const status = el('p', 'Programme control not connected', 'subtle');
     status.id = 'programme-status';
     detail.append(status);
@@ -638,11 +673,13 @@ function range(parent, title, key, low, high, step, unit) {
   input.max = high;
   input.step = step;
   input.dataset.range = key;
+  input.dataset.unit = unit;
   input.setAttribute('aria-label', title);
   function selected() {
     dragging = true;
     rangeRevision ??= state?.revision;
     output.value = input.value;
+    input.setAttribute('aria-valuetext', input.value + ' ' + unit);
   }
   input.oninput = selected;
   input.onchange = () => {
@@ -703,7 +740,9 @@ function range(parent, title, key, low, high, step, unit) {
     b.setAttribute('aria-label', (delta < 0 ? 'Decrease ' : 'Increase ') + title.toLowerCase());
     steps.append(b);
   }
-  row.append(output, units, steps);
+  const value = el('span', undefined, 'value-group');
+  value.append(output, units);
+  row.append(value, steps);
   const limits = el('div', undefined, 'limits');
   limits.append(
     el('span', 'Min ' + low.toLocaleString() + ' ' + unit),
@@ -810,7 +849,7 @@ function system(parent) {
   detail.id = 'help-detail';
   parent.append(detail);
   renderHelp();
-  const a = el('a', 'More diagnostics');
+  const a = el('a', 'More diagnostics', 'help-diagnostics');
   a.href = window.SCR_DEMO ? '#tools-system' : '/diagnostics';
   parent.append(a);
 }
@@ -1082,12 +1121,16 @@ function sync() {
   if (state?.palette) window.SCRDesign.apply(state.palette, p.resolved_theme);
   update(
     'connection',
-    !available && powerRequest?.accepted
-      ? powerRequest.operation === 'reboot'
-        ? 'Restarting panel'
-        : 'Shutting down panel'
-      : !available
-        ? 'Panel unavailable'
+    state === null && reachable
+      ? 'Connecting…'
+      : !available && powerRequest?.accepted
+        ? powerRequest.operation === 'reboot'
+          ? 'Restarting panel'
+          : 'Shutting down panel'
+        : !reachable
+          ? 'Website offline'
+          : !available
+            ? 'Panel unavailable'
         : state.mode === 'original'
           ? 'Legacy'
           : state.busy
@@ -1098,6 +1141,15 @@ function sync() {
                 ? 'Uncertain'
                 : 'Controls unavailable',
   );
+  // Colour the header status: ready, waiting (connecting/sending/Legacy) or problem.
+  $('connection').dataset.state =
+    state === null && reachable
+      ? 'waiting'
+      : !available || s.state === 'failed'
+        ? 'problem'
+        : state.can_control
+          ? 'ready'
+          : 'waiting';
   if ($('blind-group')) {
     $('blind-group').hidden = p.blinds_display === 'hidden';
     $('essentials').classList.toggle('single', p.blinds_display === 'hidden');
@@ -1133,9 +1185,10 @@ function sync() {
     if (!dragging) {
       const k = input.dataset.range,
         value = k.startsWith('channel') ? s.channels?.[Number(k.split('-')[1])] : s[k];
-      if (value !== undefined) {
+      if (value !== undefined && value !== null) {
         input.value = value;
         number.value = value;
+        input.setAttribute('aria-valuetext', value + ' ' + input.dataset.unit);
       }
     }
   }
@@ -1178,7 +1231,9 @@ function sync() {
   update(
     'light-message',
     !available
-      ? 'Panel unavailable. Controls are disabled.'
+      ? !reachable
+        ? 'This website is not answering. Check the network, then reload the page.'
+        : state?.detail || 'Panel unavailable. Controls are disabled.'
       : state.experiment?.running
         ? 'Instructions are running. Pause Experiment mode before using lighting.'
         : state.mode === 'original'
@@ -1395,7 +1450,8 @@ function weather() {
     }
   }
 }
-let fetching = false;
+let fetching = false,
+  failures = 0;
 async function refresh() {
   if (fetching || document.hidden) return;
   fetching = true;
@@ -1406,6 +1462,14 @@ async function refresh() {
     });
     if (!response.ok) throw Error();
     state = await response.json();
+    reachable = true;
+    failures = 0;
+    if (unknown && state.session && unknownSession && state.session !== unknownSession) {
+      // The panel restarted, so the old receipt can no longer be found. The panel now owns
+      // the current light state; show it rather than locking this page indefinitely.
+      unknown = null;
+      message('The panel restarted. Check the current settings before trying again.');
+    }
     const receipt = unknown && state.receipts?.find((r) => r.id === unknown);
     if (receipt) {
       if (powerRequest?.id === unknown) {
@@ -1450,6 +1514,8 @@ async function refresh() {
     }
     sync();
   } catch (_) {
+    reachable = false;
+    failures++;
     if (state) state.available = false;
     if (powerRequest?.accepted)
       message(
@@ -1464,7 +1530,8 @@ async function refresh() {
 }
 document.addEventListener('click', (event) => {
   const a = event.target.closest('a[href="#home"]');
-  if (a && state?.available && state.mode !== 'room') {
+  const plainClick = event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey;
+  if (a && plainClick && state?.available && state.mode !== 'room') {
     event.preventDefault();
     command('home').then((ok) => {
       if (ok) location.hash = 'home';
@@ -1486,7 +1553,10 @@ window.addEventListener('scr-preview-change', () => {
     content = await (await fetch('/room-content.json')).json();
   } catch (_) {}
   layout();
-  await refresh();
-  setInterval(refresh, 1000);
-  setInterval(weather, 1000);
+  // Poll every second; slow to every 5 s while the website is not answering.
+  for (;;) {
+    await refresh();
+    await new Promise((done) => setTimeout(done, failures > 2 ? 5000 : 1000));
+  }
 })();
+setInterval(weather, 1000);

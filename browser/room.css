@@ -68,8 +68,9 @@ button.selected:hover:not(:disabled),
   background: var(--accent-pressed);
 }
 button:disabled {
-  cursor: default;
+  cursor: not-allowed;
   color: var(--muted);
+  opacity: 0.6;
 }
 button:focus-visible,
 a:focus-visible,
@@ -130,6 +131,7 @@ small,
   object-fit: cover;
   object-position: top;
   background: white;
+  border-radius: 4px;
   flex-shrink: 0;
 }
 .identity {
@@ -161,10 +163,38 @@ small,
 }
 .header nav a[aria-current='page'] {
   background: var(--control);
+  box-shadow: inset 0 -3px 0 var(--accent);
+  font-weight: 600;
 }
+/* Header connection status: a small pill with a coloured dot (see sync() in room.js). */
 .status {
   font-size: 15px;
   max-width: 280px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  align-self: center;
+  white-space: nowrap;
+}
+.status::before {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.status[data-state='ready']::before {
+  background: var(--good, #23794c);
+}
+.status[data-state='problem'] {
+  border-color: var(--warning, #875709);
+}
+.status[data-state='problem']::before {
+  background: var(--warning, #875709);
 }
 .room-layout {
   display: grid;
@@ -340,6 +370,11 @@ small,
 }
 .range-value small {
   font-size: 17px;
+}
+.value-group {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
 }
 .range-value .steps {
   margin-left: auto;
@@ -651,7 +686,6 @@ a {
   }
   .status {
     max-width: none;
-    width: 100%;
   }
   .room-layout,
   .tools-layout,
@@ -971,14 +1005,26 @@ button.primary:disabled {
   align-items: center;
   justify-content: space-between;
 }
-#blind-group > summary h2:after {
-  content: '⌄';
-  font-size: 24px;
-  font-weight: 400;
-  color: var(--muted);
+#blind-group > summary {
+  cursor: default;
 }
-#blind-group[open] > summary h2:after {
-  transform: rotate(180deg);
+@media (max-width: 650px) {
+  #blind-group > summary {
+    cursor: pointer;
+  }
+  #blind-group > summary h2:after {
+    content: '';
+    width: 10px;
+    height: 10px;
+    margin-right: 6px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(45deg);
+    transition: transform 0.15s;
+  }
+  #blind-group[open] > summary h2:after {
+    transform: rotate(-135deg);
+  }
 }
 #programme-progress {
   width: 100%;
@@ -1232,5 +1278,34 @@ button.primary:disabled {
   .white-grid .steps {
     grid-column: 2;
     grid-row: 1;
+  }
+}
+
+/* Small spacing fixes. */
+.help-diagnostics {
+  display: inline-block;
+  margin-top: 14px;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+  button:active:not(:disabled) {
+    transform: none;
+  }
+}
+/* Page headings receive focus after navigation for screen readers; no visible ring needed. */
+h2[tabindex='-1']:focus {
+  outline: none;
+}
+.value-group small {
+  white-space: nowrap;
+}
+@media (max-width: 650px) {
+  .identity {
+    flex: 1 1 200px;
+  }
+  .status {
+    margin-left: 0;
   }
 }
