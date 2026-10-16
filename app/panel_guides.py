@@ -8,14 +8,14 @@ DEMO = (
      'A highlighted button shows the last confirmed setting. If a result is uncertain, stop and ask the room host.'),
     ('Room controls', 'home',
      'Home always returns to everyday lighting controls. Opening a page does not change the lights.\n\n'
-     'Legacy opens the original interface after restoring Beta’s starting lighting scene. Use Home in the Legacy bar to return.\n\n'
+     'Legacy opens the original interface after restoring the starting lighting scene. Use Home in the Legacy bar to return.\n\n'
      'Lift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller.'),
     ('Sensors and experiments', 'experiment',
      'Experiment mode guides a repeatable sequence of instructions and saves panel annotations.\n\n'
      'It does not start a recorder. Arrange recording separately and coordinate the study with the room host.\n\n'
      'Room tools → System & help shows room service availability. Availability alone does not prove usable sensor data.'),
     ('How it connects', 'health',
-     'The touch panel and trusted-network website share Beta controls. Legacy’s original controls remain on the touch panel.\n\n'
+     'The touch panel and trusted-network website share the same room controls. Legacy’s original controls remain on the touch panel.\n\n'
      'The lighting badge shows this panel’s connection: Ready, Sending, Offline or Uncertain. Tap it for System & help.\n\n'
      'Weather is an outdoor model estimate, separate from indoor measurements. Source details are under Room tools → Date & weather.'),
 )

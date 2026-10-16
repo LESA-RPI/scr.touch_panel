@@ -1,14 +1,19 @@
 # SCR room touch panel
 
 Touch controls and room guidance for the LESA Smart Conference Room. **Legacy**
-is the original room application. **Beta** adds a newer interface and touch access
-to Legacy. Beta does not yet cover every Legacy feature.
+is the original room application. The current touch interface adds direct room controls and touch access
+to Legacy. It does not yet cover every Legacy feature.
 
-The fresh Raspberry Pi OS setup and current Beta improvements are under review
+The fresh Raspberry Pi OS setup and current touch-interface improvements are under review
 in [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1), on
 `experiment/fresh-pi-setup-20261013`. `main` remains the earlier baseline until
 promotion. An installed cabinet may run a different commit; check its release
 identity before maintenance.
+
+The current version is **0.2.0**. Keep it in
+[app/panel_version.py](app/panel_version.py); small fixes can use `0.2.1`.
+The Git commit still identifies exactly what is deployed. No automatic tags or
+separate release process are required.
 
 ## For room users
 
@@ -22,7 +27,7 @@ Home is the default screen. Room tools → Lighting groups **White light, Scenes
 Programmes and Channels**. Fid, Sat and Dul retain their original mixtures.
 Gradient is the original spatial pattern; Sun is a travelling light cycle and
 Circ cycles the room together. Their fixture/programme adapters are not connected
-in Beta yet, so their Apply/Start controls remain unavailable. Legacy remains
+in this interface yet, so their Apply/Start controls remain unavailable. Legacy remains
 available for the original implementations. Empty Dynamic CCT, Dynamic Intensity
 and Auto placeholders and the old Enable Sliders gate are omitted.
 
@@ -30,10 +35,10 @@ Home includes Lift blinds, Open slats and Close & lower. Room tools → Screen &
 controls saves a separate **Blind controls** lock, locked by default, and
 can show or hide the Home controls. Home shows **Disabled** while movement is
 unavailable; the settings page explains the lock or missing connection. Unlocking does not move blinds
-or connect a controller. No blind adapter is installed in Beta; actions remain
+or connect a controller. No blind adapter is installed in this interface; actions remain
 unavailable until one is connected and qualified. Room tools keeps the tools available
 away from everyday on/off controls. Home returns directly from these pages.
-The header shows Beta and provides a direct Legacy shortcut with its existing
+The header shows the version and provides a direct Legacy shortcut with its existing
 restoration handover. In Legacy, the matching top bar identifies Legacy view;
 Home returns to the main controls. Room tools opens each tool directly beside the sidebar and
 remembers the last tool. Experiment mode runs instructions and panel annotations;
@@ -92,14 +97,14 @@ offers Off, 1, 5 or 15 minutes. Idle does not interrupt Experiment mode, Legacy,
 touches, pending commands or uncertain lighting. Preferences save appearance and
 idle choices, not light settings or recording state.
 
-Opening Legacy restores Beta's starting light scene before handing over control.
+Opening Legacy restores the panel's starting light scene before handing over control.
 If a result is uncertain, stop changing lights and ask the room host. **Room tools →
 System & help** shows checks and operator instructions; it does not execute
 commands. The visitor guide also operates no devices. A two-second stationary
 press leaves the black screen; black pixels do not turn off the backlight.
 A small gray hint at the bottom explains the two-second hold.
 
-## Try Beta without room hardware
+## Try the panel without room hardware
 
 Use Python 3.11 or newer with Tk. `python -m tkinter` checks Tk availability.
 On Linux, install the distribution's Tk and virtual-environment packages if
@@ -135,16 +140,16 @@ the optional trusted-network gateway is enabled.
 
 The fresh Pi 3 deployment uses Raspberry Pi OS Legacy 32-bit Bookworm with
 distribution Python 3.11, Tk 8.6 and Pillow 9.4. Desktop preview dependencies are
-separate; do not install them over system packages. Beta defaults to
+separate; do not install them over system packages. The touch panel defaults to
 `/usr/bin/python3` and checks for Python 3.11+, Tk and Pillow before startup.
 `SCR_PANEL_PYTHON` selects another supported interpreter. Legacy and the ROS
 adapter retain their separate interpreter settings: the older Ubuntu installation
 used Python 2.7, while the fresh setup explicitly selects Python 3 for each.
 
-Legacy starts from [main.py](main.py); Beta starts from
+Legacy starts from [main.py](main.py); the new interface starts from
 [app/scr_touch_panel.py](app/scr_touch_panel.py). The installed
 [launcher](app/start_panel.sh) reads private deployment settings and starts one
-Legacy application plus Beta. The compatibility wrapper preserves the original
+Legacy application plus the new interface. The compatibility wrapper preserves the original
 source. Existing room ROS services and custom bindings are required for control;
 a local ROS master on the panel is not required.
 
@@ -172,7 +177,7 @@ come from the panel. Legacy’s original controls remain on the touch panel.
 Technical contracts remain available to maintainers and agents through the links
 above. Private configuration, captures and incident history stay outside Git.
 
-Beta: **Diyanko Bhowmik**, with Codex assistance. Original contributors remain in
+Touch interface: **Diyanko Bhowmik**, with Codex assistance. Original contributors remain in
 Git history. The supplied LESA logo is retained unchanged.
 
 Control and weather artwork is adapted from [Lucide](https://lucide.dev/). Its licence
