@@ -159,7 +159,7 @@ function message(text, transient = false) {
 }
 function route() {
   const hash = location.hash.slice(1);
-  if (/^(home|legacy|guide(-\d+)?|tools-[a-z-]+)$/.test(hash)) return hash;
+  if (/^(home|guide(-\d+)?|tools-[a-z-]+)$/.test(hash)) return hash;
   return location.pathname === '/guide'
     ? 'guide'
     : location.pathname === '/tools'
@@ -188,7 +188,6 @@ function layout() {
   if (view.startsWith('tools-')) tools(root, view.slice(6));
   else if (view.startsWith('guide'))
     guide(root, view === 'guide' ? -1 : Number(view.split('-')[1]));
-  else if (view === 'legacy') legacy(root);
   else home(root);
   if (messageTimer) message('');
   // Keep the tab title and keyboard focus with the page the visitor just opened.
@@ -333,13 +332,25 @@ const pages = [
   ['System & help', 'system'],
   ['About', 'about'],
 ];
+// One settings row: title and explanation on the left, its control on the right.
+function setting(parent, title, note) {
+  const row = el('section', undefined, 'setting'),
+    text = el('div', undefined, 'setting-text'),
+    control = el('div', undefined, 'setting-control');
+  text.append(el('h3', title), el('p', note, 'muted'));
+  row.append(text, control);
+  parent.append(row);
+  return control;
+}
+// A segmented choice; sync() marks the saved value as selected.
 function choices(parent, items) {
-  const row = el('div', undefined, 'row');
+  const group = el('div', undefined, 'segmented');
+  group.setAttribute('role', 'group');
   for (const [label, action, value] of items)
-    row.append(
+    group.append(
       button(label, () => command(action, { value }), { action, choice: [action, value] }),
     );
-  parent.append(row);
+  parent.append(group);
 }
 function tools(root, page) {
   let tab = page.startsWith('lighting-') ? page.slice(9) : page === 'scenes' ? 'channels' : 'white';
@@ -408,97 +419,81 @@ function tools(root, page) {
     note.id = 'annotation';
     detail.append(note);
   } else if (page === 'appearance') {
-    choices(detail, [
-      ['Light', 'theme', 'light'],
-      ['Dark', 'theme', 'dark'],
-      ['Auto', 'theme', 'auto'],
-    ]);
-    detail.append(el('h3', 'Automatic schedule'));
-    const note = el('p');
-    note.id = 'schedule';
-    detail.append(note);
-    for (const [title, which] of [
-      ['Light starts', 'light_at'],
-      ['Dark starts', 'dark_at'],
-    ]) {
-      const row = el('div', undefined, 'row');
-      row.append(
-        button(title + ' −30 min', () => command('schedule', { which, delta: -30 }), {
-          action: 'schedule',
-        }),
-        button(title + ' +30 min', () => command('schedule', { which, delta: 30 }), {
-          action: 'schedule',
-        }),
-      );
-      detail.append(row);
-    }
-    detail.append(
-      el(
-        'p',
-        'Automatic theme changes wait while the panel is in use or instructions are running.',
-        'muted',
+    choices(
+      setting(
+        detail,
+        'Theme',
+        'Auto switches at the times below, waiting while the panel is in use.',
       ),
+      [
+        ['Light', 'theme', 'light'],
+        ['Dark', 'theme', 'dark'],
+        ['Auto', 'theme', 'auto'],
+      ],
     );
-    detail.append(el('h3', 'Touch explanations'));
-    choices(detail, [
-      ['Tips on', 'tips', true],
-      ['Tips off', 'tips', false],
+    for (const [title, which] of [
+      ['Light theme starts', 'light_at'],
+      ['Dark theme starts', 'dark_at'],
+    ]) {
+      const control = setting(detail, title, '');
+      control.previousElementSibling.querySelector('p').id = 'schedule-' + which;
+      const group = el('div', undefined, 'segmented');
+      group.append(
+        button('−30 min', () => command('schedule', { which, delta: -30 }), { action: 'schedule' }),
+        button('+30 min', () => command('schedule', { which, delta: 30 }), { action: 'schedule' }),
+      );
+      control.append(group);
+    }
+    choices(setting(detail, 'Touch tips', 'Short explanations on the touch panel.'), [
+      ['On', 'tips', true],
+      ['Off', 'tips', false],
     ]);
   } else if (page === 'clock') {
-    detail.append(el('p', 'America/New_York', 'muted'));
-    choices(detail, [
+    choices(setting(detail, 'Clock', 'Time zone: America/New_York'), [
       ['12-hour', 'clock', '12'],
       ['24-hour', 'clock', '24'],
     ]);
-    detail.append(el('h3', 'Weather temperature'));
-    choices(detail, [
-      ['Celsius (°C)', 'temperature', 'c'],
-      ['Fahrenheit (°F)', 'temperature', 'f'],
+    choices(setting(detail, 'Temperature', 'Used for outdoor weather.'), [
+      ['°C', 'temperature', 'c'],
+      ['°F', 'temperature', 'f'],
     ]);
     const source = el('p', undefined, 'subtle');
     source.id = 'weather-source';
     detail.append(source);
   } else if (page === 'screen') {
-    detail.append(el('h3', 'Screen saver'));
-    choices(detail, [
-      ['Off', 'idle', 0],
-      ['1 min', 'idle', 60],
-      ['5 min', 'idle', 300],
-      ['15 min', 'idle', 900],
-    ]);
-    detail.append(
-      el(
-        'p',
-        'A first touch on the screen saver opens Home without activating a control. The preview uses the same screen as the idle timer.',
-        'muted',
+    choices(
+      setting(
+        detail,
+        'Screen saver',
+        'A first touch on the screen saver opens Home without pressing anything.',
       ),
+      [
+        ['Off', 'idle', 0],
+        ['1 min', 'idle', 60],
+        ['5 min', 'idle', 300],
+        ['15 min', 'idle', 900],
+      ],
     );
-    detail.append(el('h3', 'Touch panel display'));
-    const row = el('div', undefined, 'row');
-    row.append(
+    const display = setting(
+      detail,
+      'Touch panel screen',
+      'Blank shows black pixels; hold one spot for two seconds to return.',
+    );
+    const actions = el('div', undefined, 'actions');
+    actions.append(
       button('Preview screen saver', () => command('clock_view'), { action: 'clock_view' }),
-      button('Blank touch panel', () => command('blank'), { action: 'blank' }),
+      button('Blank', () => command('blank'), { action: 'blank' }),
       button('Wake to Home', () => command('home'), { action: 'home' }),
     );
-    detail.append(row);
-    detail.append(
-      el(
-        'p',
-        'Blank shows black pixels; the backlight stays on. Hold one spot on the panel for two seconds to return.',
-        'muted',
-      ),
-    );
-    detail.append(el('h3', 'Blind controls'));
+    display.append(actions);
+    const blinds = setting(detail, 'Blind controls', '');
+    blinds.previousElementSibling.querySelector('p').id = 'blind-reason';
     if (state?.blinds?.connected)
-      choices(detail, [
+      choices(blinds, [
         ['Locked', 'blinds_enabled', false],
         ['Unlocked', 'blinds_enabled', true],
       ]);
-    const reason = el('p', undefined, 'muted');
-    reason.id = 'blind-reason';
-    detail.append(reason);
-    detail.append(el('h3', 'Blinds on Home'));
-    choices(detail, [
+    choices(setting(detail, 'Blinds on Home', 'Show the blind buttons on Home.'), [
       ['Show', 'blinds_display', 'disabled'],
       ['Hide', 'blinds_display', 'hidden'],
     ]);
@@ -990,46 +985,6 @@ async function copy(value) {
   active?.focus({ preventScroll: true });
   if (!ok) throw Error('Copy unavailable');
 }
-function legacy(root) {
-  root.append(
-    el('h2', 'Legacy view'),
-    el(
-      'p',
-      'Legacy is the original application on the touch panel. Its device controls remain on that panel.',
-      'muted',
-    ),
-  );
-  const preview = el('div', undefined, 'legacy-preview'),
-    head = el('div', undefined, 'legacy-header');
-  head.append(
-    el('strong', 'Smart Conference Room'),
-    el('span', 'Legacy view', 'badge'),
-    button(
-      'Home',
-      () =>
-        command('home').then((ok) => {
-          if (ok) location.hash = 'home';
-        }),
-      { icon: 'home', action: 'home' },
-    ),
-  );
-  preview.append(
-    head,
-    el(
-      'p',
-      'The matching panel header stays visible above the original controls. Use Home to return to everyday lighting.',
-    ),
-  );
-  root.append(preview);
-  root.append(
-    button('Open Legacy on touch panel', () => command('legacy'), { action: 'legacy' }),
-    el(
-      'p',
-      'Opening Legacy restores the starting light settings before handing over. Blind controls remain disabled here; do not operate the original blind controls.',
-      'subtle',
-    ),
-  );
-}
 function update(id, text) {
   if ($(id) && $(id).textContent !== String(text)) $(id).textContent = text;
 }
@@ -1077,6 +1032,7 @@ function sync() {
         : state.can_control
           ? 'ready'
           : 'waiting';
+  $('legacy-banner').hidden = !(available && state.mode === 'original');
   if ($('blind-group')) {
     $('blind-group').hidden = p.blinds_display === 'hidden';
     $('essentials').classList.toggle('single', p.blinds_display === 'hidden');
@@ -1118,8 +1074,11 @@ function sync() {
       }
     }
   }
-  for (const b of document.querySelectorAll('[data-choice]'))
-    b.classList.toggle('selected', String(p[b.dataset.choice]) === b.dataset.value);
+  for (const b of document.querySelectorAll('[data-choice]')) {
+    const chosen = String(p[b.dataset.choice]) === b.dataset.value;
+    b.classList.toggle('selected', chosen);
+    b.setAttribute('aria-pressed', String(chosen));
+  }
   for (const b of document.querySelectorAll('[data-action=on],[data-action=off]'))
     b.classList.toggle(
       'selected',
@@ -1180,10 +1139,8 @@ function sync() {
         $('marks').append(b);
       }
   }
-  update(
-    'schedule',
-    'Light from ' + minutes(p.light_at ?? 420) + ' · Dark from ' + minutes(p.dark_at ?? 1140),
-  );
+  update('schedule-light_at', minutes(p.light_at ?? 420));
+  update('schedule-dark_at', minutes(p.dark_at ?? 1140));
   const h = state?.health;
   if (h) {
     update(
@@ -1430,16 +1387,8 @@ async function refresh() {
     fetching = false;
   }
 }
-document.addEventListener('click', (event) => {
-  const a = event.target.closest('a[href="#home"]');
-  const plainClick = event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey;
-  if (a && plainClick && state?.available && state.mode !== 'room') {
-    event.preventDefault();
-    command('home').then((ok) => {
-      if (ok) location.hash = 'home';
-    });
-  }
-});
+// Only explicit buttons change the panel; moving around this website never does.
+$('legacy-return').onclick = () => command('home');
 window.addEventListener('hashchange', layout);
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) refresh();

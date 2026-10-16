@@ -175,7 +175,9 @@ General panel code belongs here. Project-X owns its optional recorder integratio
 The browser and touch interface share one command owner and experiment ownership.
 The optional gateway permits controls from the configured trusted subnet; it has
 no separate staff sign-in. Guide/help content, appearance roles and common actions
-come from the panel. Legacy’s original controls remain on the touch panel.
+come from the panel. Legacy is opened only on the touch panel; if the panel is in Legacy,
+the website pauses its controls and offers Return panel to Home. Browsing the website
+never wakes or switches the panel; only its explicit buttons do.
 Technical contracts remain available to maintainers and agents through the links
 above. Private configuration, captures and incident history stay outside Git.
 

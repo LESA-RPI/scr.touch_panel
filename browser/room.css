@@ -311,8 +311,8 @@ svg {
 .weather-art {
   display: block;
   color: var(--icon-colour);
-  width: 112px;
-  height: 112px;
+  width: 92px;
+  height: 92px;
   object-fit: contain;
 }
 .weather-art.gray {
@@ -321,7 +321,7 @@ svg {
 .weather-art svg {
   width: 100%;
   height: 100%;
-  stroke-width: 0.9;
+  stroke-width: 1.4;
 }
 .condition {
   font-size: 27px;
@@ -369,28 +369,31 @@ svg {
   font-size: 23px;
 }
 .track {
-  height: 6px;
-  border-radius: 5px;
+  height: 8px;
+  border-radius: 4px;
   background: var(--control);
-  margin: 14px 5px;
+  border: 1px solid var(--border);
+  margin: 14px 8px 10px;
 }
 .track > div {
-  height: 6px;
+  height: 100%;
   max-width: 100%;
-  border-radius: 5px;
-  background: var(--icon-colour);
+  border-radius: 4px;
+  background: var(--accent);
   position: relative;
 }
 .track > div:after {
   content: '';
   position: absolute;
-  right: -5px;
-  top: -3px;
-  width: 12px;
-  height: 12px;
-  border: 2px solid var(--bg);
+  right: -9px;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translateY(-50%);
+  border: 3px solid var(--bg);
   border-radius: 50%;
-  background: var(--icon-colour);
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--border);
 }
 .daylight-times {
   display: flex;
@@ -846,7 +849,7 @@ pre code {
   color: var(--warning);
 }
 
-/* Utilities, legacy view and demo bar */
+/* Utilities and demo bar */
 .notice {
   border: 1px solid var(--border);
   padding: 12px 16px;
@@ -855,22 +858,6 @@ pre code {
 }
 .notice[hidden] {
   display: none;
-}
-.legacy-preview {
-  border: 1px solid var(--border);
-  padding: 24px;
-  margin: 18px 0;
-}
-.legacy-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 12px;
-  background: var(--control);
-  margin-bottom: 18px;
-}
-.legacy-header button {
-  margin-left: auto;
 }
 .session-stage {
   font-size: 30px;
@@ -997,7 +984,7 @@ summary {
   }
   .header nav {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, 1fr);
     gap: 8px;
     width: 100%;
   }
@@ -1183,12 +1170,6 @@ summary {
   .health-grid {
     grid-template-columns: 1fr;
   }
-  .legacy-header {
-    flex-wrap: wrap;
-  }
-  .legacy-header button {
-    margin-left: 0;
-  }
 }
 
 /* Reduced motion */
@@ -1198,5 +1179,101 @@ summary {
   }
   button:active:not(:disabled) {
     transform: none;
+  }
+}
+
+/* Settings rows: title and note on the left, control on the right. */
+.setting {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px 32px;
+  padding: 20px 0;
+  border-top: 1px solid var(--border);
+}
+.tools-layout > section > h2 + .setting {
+  border-top: 0;
+  padding-top: 4px;
+}
+.setting-text p {
+  margin-top: 4px;
+  font-size: 16px;
+}
+.setting-text p:empty {
+  display: none;
+}
+.setting-control {
+  display: flex;
+  justify-content: flex-end;
+}
+/* Segmented control: one bordered group, the saved choice filled. */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--control);
+}
+.segmented button {
+  border: 0;
+  border-radius: 0;
+  min-width: 92px;
+  padding: 10px 18px;
+  background: transparent;
+}
+.segmented button + button {
+  border-left: 1px solid var(--border);
+}
+.segmented button.selected {
+  background: var(--accent);
+  color: var(--selected-ink);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.legacy-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-color: var(--warning, #875709);
+}
+.legacy-banner[hidden] {
+  display: none;
+}
+@media (max-width: 900px) {
+  .setting {
+    grid-template-columns: 1fr;
+  }
+  .setting-control,
+  .actions {
+    justify-content: stretch;
+  }
+  .segmented,
+  .actions {
+    width: 100%;
+  }
+  .segmented button {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 6px;
+  }
+  .actions {
+    flex-direction: column;
+  }
+  .legacy-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 650px) {
+  .header nav a {
+    white-space: nowrap;
+    font-size: 15px;
+    padding: 8px 6px;
   }
 }
