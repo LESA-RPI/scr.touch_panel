@@ -1,22 +1,22 @@
 """Short display-only room guides. No command execution or hardware access."""
 
 DEMO = (
-    ('Lighting', 'room',
-     'White-light colour changes from warm to cool. Light level controls the drive input.\n\n'
-     'Fid, Sat and Dul recall existing eight-channel mixtures. The panel confirms fixture drive settings; it does not measure brightness.\n\n'
-     'Home has Lights on and Lights off. Open Advanced for colour and light-level adjustments with the room host.'),
-    ('Room controls', 'on',
-     'Beta provides everyday lighting, weather, help and panel status. Legacy opens the original room controls.\n\n'
-     'Changing pages does not change the lights. Opening Legacy ends the Beta lighting session and restores its starting scene.\n\n'
-     'Blinds are disabled in Beta. Advanced → Screen can show or hide their Home section. Ask the host before demonstrations.'),
+    ('Lighting', 'on',
+     'Use Lights on and Lights off on Home for everyday lighting.\n\n'
+     'Room tools → White light adjusts warmth and level. Scenes & channels offers the room’s saved lighting mixtures.\n\n'
+     'A highlighted button shows the last confirmed setting. If a result is uncertain, stop and ask the room host.'),
+    ('Room controls', 'home',
+     'Home always returns to everyday lighting controls. Opening a page does not change the lights.\n\n'
+     'Legacy opens the original interface after restoring Beta’s starting lighting scene. Use Home in the Legacy bar to return.\n\n'
+     'Blinds are currently disabled. Room tools → Screen can hide their Home section.'),
     ('Sensors and experiments', 'experiment',
-     'The room brings together lighting, environmental readings and sensing systems.\n\n'
-     'System lists advertised services. A listed service does not prove that a sensor is producing valid data.\n\n'
-     'Experiment mode runs instructions and panel annotations only. Sensor recording belongs to a separate experiment system.'),
+     'Experiment mode guides a repeatable sequence of instructions and saves panel annotations.\n\n'
+     'It does not start a recorder. Arrange recording separately and coordinate the study with the room host.\n\n'
+     'Room tools → System & help shows room service availability. Availability alone does not prove usable sensor data.'),
     ('How it connects', 'health',
-     'This cabinet panel is a client. The Ubuntu room computer hosts the existing ROS services.\n\n'
-     'The connection badge describes this panel\'s lighting adapter. Tap it for System and troubleshooting.\n\n'
-     'Home and clock-view weather comes from Open-Meteo model data. It is separate from indoor sensors and room controls.'),
+     'Use the cabinet panel for room controls. The website shows read-only room information.\n\n'
+     'The lighting badge shows this panel’s connection: Ready, Sending, Offline or Uncertain. Tap it for System & help.\n\n'
+     'Weather is an outdoor model estimate, separate from indoor measurements. Source details are under Room tools → Date & weather.'),
 )
 
 SUPPORT = (

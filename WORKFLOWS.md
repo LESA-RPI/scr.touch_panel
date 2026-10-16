@@ -38,14 +38,15 @@ percentages, which cannot reproduce arbitrary fractional drive settings.
 
 Home combines stacked Lights on/off with time and outdoor weather. The blind
 buttons are intentionally disabled and have no command callbacks. No blind
-adapter is added. Advanced → White light opens the colour and level sliders;
+adapter is added. Room tools → White light opens the colour and level sliders;
 Scenes & channels opens the preset buttons and channel editor. Home returns to everyday
 controls. All light controls share one latest selection queue. Wait for
 confirmation to distinguish a selection from a result.
 
 Legacy waits for confirmed restoration and helper exit before showing
-the legacy program. Its matching navigation strip supports touch-only return.
-That strip covers the legacy banner, not its actuator buttons.
+the legacy program. Its matching header marks Legacy view; Home returns to the
+main controls. Room tools and Demo & guide remain directly available. The strip
+keeps the existing banner footprint and does not cover actuator buttons.
 
 The helper has a ten-second parent lease and 30-second operation budget, with
 individual service calls bounded to at most twelve seconds. Parent loss triggers
@@ -71,7 +72,7 @@ are atomic and use one background worker with one pending snapshot. Invalid
 files fall back to defaults and show a warning; they cannot start recordings
 or restore light settings. Remove this private file to reset appearance.
 A direct preview saves preferences only when `--preferences PATH` is supplied.
-Advanced → Date & weather selects Celsius or Fahrenheit. Old preference files
+Room tools → Date & weather selects Celsius or Fahrenheit. Old preference files
 default to Fahrenheit. Direct previews can use `--temperature-unit c` or `f`.
 Switching units converts cached data; it does not fetch again or change room controls.
 Screen settings save `idle_timeout` as 0, 60, 300 or 900 seconds, defaulting to
@@ -116,7 +117,7 @@ condition/code and dated sunrise, sunset and model timestamps. The UI validates
 these fields before displaying them. Daylight progress is clamped before sunrise
 and after sunset; it is hidden when the timestamps refer to another date.
 After sunset, the card says night rather than calculating tomorrow from old data.
-Advanced → About reports the rendered font. Cantarell is already installed on
+Cantarell is already installed on
 the qualified Raspberry Pi OS image; other hosts may select another family with
 `--font`. A requested font name alone does not establish what Tk rendered.
 
@@ -128,7 +129,7 @@ The fixed header badge reflects the existing lighting adapter state, with no ext
 network polling. Its icons and labels distinguish Ready, Sending, Checking,
 Uncertain and Offline. Preview never reports Ready; Legacy shows its own mode.
 
-Advanced → System & help contains instructions, not remote command buttons.
+Room tools → System & help contains instructions, not remote command buttons.
 [app/panel_guides.py](app/panel_guides.py) owns the concise displayed guidance.
 The room's installed `startROS.py` and `startStatus.py` were inspected on
 2026-10-14: each destroys its existing named tmux session before rebuilding it.

@@ -15,33 +15,34 @@ identity before maintenance.
 | Screen | Purpose |
 |---|---|
 | Home | Stacked Lights on/off beside clock/weather; disabled blinds can be shown or hidden |
-| Advanced | One sidebar: white light, scenes/channels, Experiment mode, system/help and device preferences |
-| Demo & guide | Room introduction; no equipment or recording starts |
+| Room tools | One sidebar: white light, scenes/channels, Experiment mode, system/help and device preferences |
+| Demo & guide | Four directly selectable topics, with Previous/Next and All topics; no equipment or recording starts |
 
-Home is the default screen. Advanced → Screen can show or hide disabled blinds;
+Home is the default screen. Room tools → Screen can show or hide disabled blinds;
 this display preference cannot enable movement. Its blind buttons have no command callbacks while
-blind operation awaits qualification. Advanced keeps the existing tools available
+blind operation awaits qualification. Room tools keeps the existing tools available
 away from everyday on/off controls. Home returns directly from these pages.
 The header shows Beta and provides a direct Legacy shortcut with its existing
-restoration handover. Advanced opens each tool directly beside the sidebar and
+restoration handover. In Legacy, the matching top bar identifies Legacy view;
+Home returns to the main controls. Room tools opens each tool directly beside the sidebar and
 remembers the last tool. Experiment mode runs instructions and panel annotations;
 its recorder is not connected.
 
 Home and the idle view show outdoor temperature, conditions, feels-like temperature,
 today's high/low and rain chance when available, plus daylight. Source/model
-details remain under Advanced → Date & weather. Earlier data is clearly dated.
+details remain under Room tools → Date & weather. Earlier data is clearly dated.
 
 Light buttons queue immediately on release; sliders send after your touch settles.
 Large values show your selection; the feedback
 area shows the last confirmed controller settings and their age. **Ready** means
 the lighting adapter is available. It does not confirm every room sensor is healthy
 or measure physical brightness. The selected Home button reflects the last
-confirmed On/Off readback through a blue highlight; neither is selected while a
+confirmed On/Off readback through a coloured highlight; neither is selected while a
 request is pending or uncertain.
 Scenes & channels highlights the preset matching the confirmed drive words.
 A custom mix clears the preset highlight. Routine Ready confirmations stay in
 the feedback area; the footer is reserved for explanations, progress and problems.
-Advanced keeps its sidebar in place while changing tools. Unchanged clock/status
+Room tools keeps its sidebar in place while changing tools. Unchanged clock/status
 values do not trigger another redraw. Resource checks run in the background so
 slow reads do not hold up touches.
 
@@ -52,16 +53,20 @@ available through Room host reference and are never executed by the panel.
 The full-screen screensaver appears after five idle minutes by default. It has a
 large clock, weather and a prominent “Touch anywhere for room controls” prompt,
 without the normal control-page navigation. Its first wake touch always opens
-Home without activating controls. The original LESA logo is consistent
-in both themes. Related buttons share widths and spacing; lighting results appear
+Home without activating controls. Control icons use a consistent Lucide outline
+family; weather uses thin, coordinated variants. The original LESA logo stays
+consistent in both themes. Room tools uses the sidebar height and hides its footer
+shortcut while open.
+Flat sliders share a 48-pixel touch area, a visible grip and pressed/focus feedback.
+Related buttons share widths and spacing; lighting results appear
 in a compact outlined card with the historical readback kept separate.
-**Advanced → Screen**
+**Room tools → Screen**
 offers Off, 1, 5 or 15 minutes. Idle does not interrupt Experiment mode, Legacy, held
 touches, pending commands or uncertain lighting. Preferences save appearance and
 idle choices, not light settings or recording state.
 
 Opening Legacy restores Beta's starting light scene before handing over control.
-If a result is uncertain, stop changing lights and ask the room host. **Advanced →
+If a result is uncertain, stop changing lights and ask the room host. **Room tools →
 System & help** shows checks and operator instructions; it does not execute
 commands. The visitor guide also operates no devices. A two-second stationary
 press leaves the black screen; black pixels do not turn off the backlight.
@@ -135,3 +140,6 @@ above. Private configuration, captures and incident history stay outside Git.
 
 Beta: **Diyanko Bhowmik**, with Codex assistance. Original contributors remain in
 Git history. The supplied LESA logo is retained unchanged.
+
+Control and weather artwork is adapted from [Lucide](https://lucide.dev/). Its licence
+and original notices are retained in [assets/icons/LICENSE](assets/icons/LICENSE).
