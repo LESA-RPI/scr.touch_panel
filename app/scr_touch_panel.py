@@ -1706,7 +1706,7 @@ class Panel(object):
         self.wrap_label(note).pack(fill='x')
         acknowledged = tk.BooleanVar(value=False)
         acknowledgement = tk.Checkbutton(content, text='I have stopped any recording or experiment', variable=acknowledged,
-            font=(FONT, 18), bg=self.bg, fg=self.ink, selectcolor=self.control,
+            font=(FONT, 18), bg=self.bg, fg=self.ink, disabledforeground=self.muted, selectcolor=self.control,
             activebackground=self.bg, activeforeground=self.ink, highlightthickness=0, anchor='w', pady=14)
         acknowledgement.pack(fill='x', pady=(12, 0))
         message = self.label(content, size=17, muted=True)
