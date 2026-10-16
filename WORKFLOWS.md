@@ -74,8 +74,10 @@ A direct preview saves preferences only when `--preferences PATH` is supplied.
 Advanced → Date & weather selects Celsius or Fahrenheit. Old preference files
 default to Fahrenheit. Direct previews can use `--temperature-unit c` or `f`.
 Switching units converts cached data; it does not fetch again or change room controls.
-Screen settings save `idle_timeout` as 0, 60, 300 or 900 seconds. Old settings
-default to 300 seconds; `--idle-timeout` selects the preview default. Idle reuses
+Screen settings save `idle_timeout` as 0, 60, 300 or 900 seconds, defaulting to
+300 seconds. `blinds_display` defaults to `disabled`; `hidden` removes the blind section
+from Home. This is a display choice only and cannot enable blind commands.
+`--idle-timeout` selects the preview default. Idle reuses
 Visitor and its existing weather cache/cadence. Every wake opens Home so visitors
 can find Lights on/off. The first wake touch is intercepted before button bindings;
 controls need a subsequent touch. Experiment mode, Legacy, blank screen, active touches,

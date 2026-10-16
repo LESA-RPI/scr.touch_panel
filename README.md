@@ -14,11 +14,12 @@ identity before maintenance.
 
 | Screen | Purpose |
 |---|---|
-| Home | Stacked Lights on/off beside clock/weather; blind buttons are visible but not enabled |
+| Home | Stacked Lights on/off beside clock/weather; disabled blinds can be shown or hidden |
 | Advanced | One sidebar: white light, scenes/channels, Experiment mode, system/help and device preferences |
 | Demo & guide | Room introduction; no equipment or recording starts |
 
-Home is the default screen. Its blind buttons have no command callbacks while
+Home is the default screen. Advanced → Screen can show or hide disabled blinds;
+this display preference cannot enable movement. Its blind buttons have no command callbacks while
 blind operation awaits qualification. Advanced keeps the existing tools available
 away from everyday on/off controls. Home returns directly from these pages.
 The header shows Beta and provides a direct Legacy shortcut with its existing
@@ -44,8 +45,12 @@ Advanced keeps its sidebar in place while changing tools. Unchanged clock/status
 values do not trigger another redraw. Resource checks run in the background so
 slow reads do not hold up touches.
 
+White light shows the minimum and maximum beside each slider. System & help
+separates panel health, room connection and guidance. Reference commands are
+available through Room host reference and are never executed by the panel.
+
 The full-screen screensaver appears after five idle minutes by default. It has a
-large clock, weather and a prominent “Touch anywhere to open controls” prompt,
+large clock, weather and a prominent “Touch anywhere for room controls” prompt,
 without the normal control-page navigation. Its first wake touch always opens
 Home without activating controls. The original LESA logo is consistent
 in both themes. Related buttons share widths and spacing; lighting results appear

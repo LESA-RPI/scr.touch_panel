@@ -9,7 +9,8 @@ def validated(value):
     if not isinstance(value, dict):
         raise ValueError('Expected an appearance settings object')
     allowed = {'theme': ('auto', 'light', 'dark'), 'clock_format': ('12', '24'),
-               'tips': ('on', 'off'), 'temperature_unit': ('c', 'f')}
+               'tips': ('on', 'off'), 'temperature_unit': ('c', 'f'),
+               'blinds_display': ('disabled', 'hidden')}
     result = {}
     for key, choices in allowed.items():
         if key in value:

@@ -211,9 +211,11 @@ class Panel(object):
         self.settings_category = 'appearance'
         self.advanced_page, self.last_advanced_page = None, 'white'
         self.guide_page, self.support_page = 0, 0
+        self.support_commands_visible = False
         self.started, self.run_id, self.sequence = monotonic(), uuid.uuid4().hex, 0
         self.boot_id, self.last_touch = boot_identity(), self.started
         self.idle_timeout = getattr(args, 'idle_timeout', 300)
+        self.blinds_display = getattr(args, 'blinds_display', 'disabled')
         self.idle_active, self.press_active = False, False
         self.clock_24 = getattr(args, 'clock_format', '24') == '24'
         self.temperature_unit = getattr(args, 'temperature_unit', 'f')
@@ -275,6 +277,7 @@ class Panel(object):
         self.channel_values = [tk.IntVar(value=value) for value in PRESETS['Fid']]
         self.status_text = tk.StringVar(value='Use Lights on or Lights off. Fine adjustments are in Advanced.')
         self.light_text = tk.StringVar(value='Lighting not connected - controls are unavailable')
+        self.connection_text = tk.StringVar()
         self.visitor_time, self.visitor_date = tk.StringVar(), tk.StringVar()
         self.preference_text = tk.StringVar(value=self.preference_summary())
         self.weather_text = tk.StringVar(value='Not configured. A location is needed.')
@@ -575,33 +578,39 @@ class Panel(object):
             if child != self.dock:
                 child.destroy()
         self.root.configure(bg=self.bg)
-        self.banner = tk.Frame(self.root, bg=self.bg, height=70)
+        self.banner = tk.Frame(self.root, bg=self.bg, height=76)
         self.banner.pack(fill='x', padx=24, pady=(8, 6))
         self.banner.pack_propagate(False)
         if self.artwork:
-            tk.Label(self.banner, image=self.artwork, bg='white', bd=0, padx=8).pack(side='left', anchor='s', padx=(0, 18))
+            tk.Label(self.banner, image=self.artwork, bg='white', bd=0, padx=8).pack(side='left', anchor='n', padx=(0, 18))
         else:
             brand = self.label(self.banner, 'LESA', 30)
             brand.config(fg=ACCENT)
             brand.pack(side='left', padx=(0, 18))
         identity = tk.Frame(self.banner, bg=self.bg)
         identity.pack(side='left', anchor='s')
-        self.label(identity, 'Smart Conference Room', 28).pack(side='left', anchor='s')
+        self.label(identity, 'Smart Conference Room', 32).pack(side='left', anchor='s')
         beta = self.label(identity, 'Beta', 16)
         beta.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
         beta.pack(side='left', anchor='s', padx=(12, 0), pady=(0, 4))
         self.clock = self.label(self.banner, size=17, muted=True)
-        legacy = self.button(self.banner, 'Legacy', lambda: self.show('original'))
-        legacy.config(width=6)
-        legacy.pack(side='right', padx=(12, 0))
-        self.home_button = self.button(self.banner, 'Home', lambda: self.show('room'))
-        self.home_button.config(width=6)
-        self.home_button.pack(side='right', padx=12)
+        navigation = tk.Frame(self.banner, bg=self.bg, width=444, height=64)
+        navigation.pack(side='right')
+        navigation.pack_propagate(False)
+        for column, text, action in [(0, 'Home', self.open_home),
+                                     (2, 'Legacy', lambda: self.show('original'))]:
+            slot = tk.Frame(navigation, bg=self.bg, width=140, height=64)
+            slot.grid(row=0, column=column, padx=(0, 12) if column == 0 else 0)
+            slot.pack_propagate(False)
+            button = self.button(slot, text, action)
+            button.pack(fill='both', expand=True)
+            if column == 0:
+                self.home_button = button
         self.tips_button = self.button(self.banner, 'Tips: ' + ('On' if self.help_on else 'Off'), self.toggle_tips)
-        self.add_connection_badge(self.banner)
+        self.add_connection_badge(navigation, column=1)
         self.nav = tk.Frame(self.root, bg=self.bg)
         self.nav_buttons = {}
-        self.footer = tk.Frame(self.root, bg=self.bg, height=88)
+        self.footer = tk.Frame(self.root, bg=self.bg, height=80)
         self.footer.pack_propagate(False)
         for text, mode, gap in (('Demo & guide', 'guide', 0), ('Advanced', 'advanced', 12)):
             button = self.button(self.footer, text, lambda mode=mode: self.show(mode))
@@ -647,9 +656,12 @@ class Panel(object):
             button.grid(row=0, column=index, sticky='nsew', padx=(0, 10 if index < 4 else 0))
         nav.rowconfigure(0, weight=1)
 
-    def add_connection_badge(self, parent, legacy=False):
+    def add_connection_badge(self, parent, legacy=False, column=None):
         frame = tk.Frame(parent, bg=self.bg, width=140, height=64)
-        frame.pack(side='right', padx=(8, 0))
+        if column is None:
+            frame.pack(side='right', padx=(8, 0))
+        else:
+            frame.grid(row=0, column=column, padx=(0, 12))
         frame.pack_propagate(False)
         button = self.button(frame, '', lambda: self.open_advanced('system'))
         button.config(font=(FONT, 15), padx=6, compound='left')
@@ -659,6 +671,8 @@ class Panel(object):
 
     def update_connection_badges(self):
         text, kind, colour = connection(self.light_state, self.args.live_lights)
+        if hasattr(self, 'connection_text'):
+            set_changed(self.connection_text, text)
         colours = {'good': '#23794c' if self.theme == 'light' else '#87c6a1',
                    'waiting': self.icon_colour, 'warning': '#9a650b' if self.theme == 'light' else '#e6ba66',
                    'neutral': self.muted}
@@ -764,12 +778,7 @@ class Panel(object):
             return
         if not self.banner.winfo_manager():
             self.banner.pack(fill='x', padx=24, pady=(8, 6))
-        if self.mode == 'room' and self.section == 'basic':
-            self.home_button.pack_forget()
-            self.clock.pack_forget()
-        else:
-            self.home_button.pack(side='right', padx=12)
-            self.clock.pack_forget()
+        self.clock.pack_forget()
         if not self.footer.winfo_manager():
             self.footer.pack(side='bottom', fill='x', padx=24, pady=(8, 10))
         if (getattr(self, 'advanced_page', None) and
@@ -811,7 +820,8 @@ class Panel(object):
         controls = tk.Frame(left, bg=self.bg)
         controls.pack(fill='x', pady=(20, 12))
         controls.columnconfigure(1, minsize=16)
-        for index, title in enumerate(('Lights', 'Blinds')):
+        groups = ('Lights', 'Blinds') if self.blinds_display == 'disabled' else ('Lights',)
+        for index, title in enumerate(groups):
             controls.columnconfigure(index * 2, weight=1, uniform='essentials')
             group = tk.Frame(controls, bg=self.bg)
             group.grid(row=0, column=index * 2, sticky='nsew')
@@ -831,7 +841,7 @@ class Panel(object):
                 else:
                     # Intentionally no callback, adapter or opt-in switch until qualified.
                     button.config(state='disabled')
-            caption = self.label(group, 'Turns on standard white' if index == 0 else 'Not enabled', 17, True)
+            caption = self.label(group, 'Standard room lighting' if index == 0 else 'Disabled', 17, True)
             self.wrap_label(caption).pack(fill='x', pady=(8, 0))
         self.feedback_card(left)
         self.label(right, getattr(self.args, 'weather_name', 'Local time'), 18, True).pack(anchor='w')
@@ -878,9 +888,9 @@ class Panel(object):
             page = self.advanced_page
             if page == 'white':
                 self.label(detail, 'White light', 27).pack(anchor='w', pady=(0, 6))
-                self.label(detail, 'Selected inputs send after your touch settles.', 17, True).pack(anchor='w', pady=(0, 18))
-                self.slider_group(detail, 'White-light colour · selected', self.cct, 1600, 10000, 100, 'K')
-                self.slider_group(detail, 'Light level · selected', self.intensity, 0, 1900, 25, 'controller units')
+                self.label(detail, 'Selected values apply after your touch settles.', 17, True).pack(anchor='w', pady=(0, 6))
+                self.slider_group(detail, 'Colour temperature', self.cct, 1600, 10000, 100, 'K')
+                self.slider_group(detail, 'Light level', self.intensity, 0, 1900, 25, 'controller units')
                 self.feedback_card(detail)
                 self.update_light_buttons()
             elif page == 'scenes':
@@ -918,6 +928,10 @@ class Panel(object):
             return
         self.last_advanced_page = page
         self.show(target, advanced_page=page)
+
+    def open_home(self):
+        if self.mode != 'room' or getattr(self, 'advanced_page', None):
+            self.show('room')
 
     def open_lighting(self):
         self.open_advanced('white')
@@ -984,47 +998,50 @@ class Panel(object):
         self.weather_contents(right)
 
     def screensaver_view(self):
-        top = tk.Frame(self.body, bg=self.bg)
+        top = tk.Frame(self.body, bg=self.bg, height=76)
         top.pack(fill='x', padx=28, pady=(28, 0))
+        top.pack_propagate(False)
         if self.artwork:
-            tk.Label(top, image=self.artwork, bg='white', bd=0).pack(side='left', anchor='s', padx=(0, 20))
-        self.label(top, 'Smart Conference Room', 26).pack(side='left', anchor='s')
-        self.label(top, 'SCREENSAVER', 17, True).pack(side='right')
+            tk.Label(top, image=self.artwork, bg='white', bd=0).pack(side='left', anchor='n', padx=(0, 20))
+        self.label(top, 'Smart Conference Room', 28).pack(side='left', anchor='s')
+        self.label(top, 'SCREEN SAVER', 17, True).pack(side='right')
         bottom = tk.Frame(self.body, bg=self.bg)
         bottom.pack(side='bottom', fill='x', padx=100, pady=(0, 44))
-        self.row_buttons(bottom, [('Touch anywhere to open controls', self.return_from_idle, True)], height=88)
-        hint = self.label(bottom, 'Lights on / off on Home · Your first touch only opens the controls', 17, True)
+        self.row_buttons(bottom, [('Touch anywhere for room controls', self.return_from_idle, True)], height=88)
+        hint = self.label(bottom, 'Opens Home with Lights on and Lights off', 17, True)
         hint.config(anchor='center')
         hint.pack(fill='x', pady=(12, 0))
         row = tk.Frame(self.body, bg=self.bg)
-        row.pack(fill='both', expand=True, padx=48, pady=(48, 28))
-        row.columnconfigure(0, weight=56, uniform='idle')
-        row.columnconfigure(1, weight=44, uniform='idle')
+        row.pack(fill='both', expand=True, padx=48, pady=(32, 16))
+        row.columnconfigure(0, weight=1, uniform='idle')
+        row.columnconfigure(1, weight=1, uniform='idle')
         left = tk.Frame(row, bg=self.bg)
         left.grid(row=0, column=0, sticky='nsew', padx=(0, 36))
         right = tk.Frame(row, bg=self.bg)
         right.grid(row=0, column=1, sticky='nsew', padx=(36, 0))
         self.label(left, 'LOCAL TIME', 16, True).pack(anchor='w', pady=(28, 0))
-        clock = self.label(left, size=86)
+        clock = self.label(left, size=76)
         clock.config(textvariable=self.visitor_time)
         clock.pack(anchor='w', pady=(8, 4))
         date = self.label(left, size=21)
         date.config(textvariable=self.visitor_date)
         self.wrap_label(date).pack(fill='x')
-        self.weather_contents(right, compact=True)
+        self.weather_contents(right, compact=True, large=True)
 
-    def weather_contents(self, right, compact=False):
+    def weather_contents(self, right, compact=False, large=False):
         self.label(right, 'OUTDOOR WEATHER' if compact else 'WEATHER · ' + getattr(self.args, 'weather_name', 'Local area'), 16, True).pack(anchor='w')
         reading = tk.Frame(right, bg=right.cget('bg'))
         reading.pack(fill='x', pady=(6, 2) if compact else (18, 6))
-        self.weather_symbol = tk.Canvas(reading, width=82, height=74, bg=right.cget('bg'), highlightthickness=0)
+        self.weather_symbol_scale = 1.2 if large else 1
+        self.weather_symbol = tk.Canvas(reading, width=98 if large else 82, height=90 if large else 74,
+                                        bg=right.cget('bg'), highlightthickness=0)
         self.weather_symbol.pack(side='right', pady=0 if compact else 12)
-        size = 50 if compact else 68
+        size = 72 if large else 50 if compact else 68
         temperature = self.label(reading, size=size)
         temperature.config(textvariable=self.weather_temperature)
         temperature.pack(side='left')
         self.label(reading, self.temperature_unit.upper(), 24, True).pack(side='left', anchor='s', pady=18, padx=4)
-        condition = self.label(right, size=23)
+        condition = self.label(right, size=26 if large else 23)
         condition.config(textvariable=self.weather_condition)
         self.wrap_label(condition).pack(fill='x')
         status = self.label(right, size=16, muted=True)
@@ -1070,6 +1087,8 @@ class Panel(object):
                 for x in (27, 42, 57):
                     self.weather_symbol.create_line(x, 60, x-4, 68, fill=colour, width=2)
         day = weather_data.daylight(data, now)
+        scale = getattr(self, 'weather_symbol_scale', 1)
+        self.weather_symbol.scale('all', 0, 0, scale, scale)
         if day is None:
             self.daylight_label.config(text='Daylight times are from another date')
             return
@@ -1126,11 +1145,11 @@ class Panel(object):
             self.weather_worker = None
 
     def slider_group(self, parent, title, variable, low, high, step, unit):
-        group = tk.Frame(parent, bg=self.surface, height=184, highlightbackground=self.border, highlightthickness=1)
+        group = tk.Frame(parent, bg=self.surface, height=190, highlightbackground=self.border, highlightthickness=1)
         group.pack(fill='x', pady=(0, 12))
         group.pack_propagate(False)
-        self.label(group, title, 19).pack(anchor='w', padx=20, pady=(12, 0))
-        row = tk.Frame(group, bg=self.surface, height=66)
+        self.label(group, title, 18).pack(anchor='w', padx=20, pady=(8, 0))
+        row = tk.Frame(group, bg=self.surface, height=62)
         row.pack(fill='x', padx=20, pady=(4, 0))
         row.pack_propagate(False)
         minus_area, plus_area = tk.Frame(row, width=64), tk.Frame(row, width=64)
@@ -1150,7 +1169,11 @@ class Panel(object):
                          bg=self.surface, troughcolor=self.control, activebackground=ACCENT,
                          highlightthickness=0, bd=0, relief='flat', sliderrelief='raised',
                          width=44, sliderlength=64, showvalue=False)
-        scale.pack(fill='x', padx=20, pady=(4, 12))
+        scale.pack(fill='x', padx=20, pady=(4, 0))
+        limits = tk.Frame(group, bg=self.surface)
+        limits.pack(fill='x', padx=20, pady=(4, 4))
+        self.label(limits, 'Min {:,} {}'.format(low, unit), 13, True).pack(side='left')
+        self.label(limits, 'Max {:,} {}'.format(high, unit), 13, True).pack(side='right')
         self.bind_slider(scale, 'cct')
         self.light_buttons.extend([minus, plus, scale])
 
@@ -1374,16 +1397,39 @@ class Panel(object):
 
     def system_contents(self):
         self.label(self.body, 'System & help', 27).pack(anchor='w', pady=(0, 8))
-        self.health_details = self.label(self.body, size=16)
-        self.wrap_label(self.health_details).pack(fill='x', pady=(0, 4))
-        self.power_label = self.label(self.body, size=16)
-        self.wrap_label(self.power_label).pack(fill='x', pady=(0, 4))
-        self.services_label = self.label(self.body, size=16, muted=True)
-        self.wrap_label(self.services_label).pack(fill='x', pady=(0, 10))
+        self.label(self.body, 'Read-only checks. Available services may not be producing sensor data.', 15, True).pack(anchor='w', pady=(0, 10))
+        overview = tk.Frame(self.body, bg=self.bg, height=184)
+        overview.pack(fill='x', pady=(0, 12))
+        overview.grid_propagate(False)
+        overview.columnconfigure(0, weight=1, uniform='system')
+        overview.columnconfigure(1, minsize=12)
+        overview.columnconfigure(2, weight=1, uniform='system')
+        overview.rowconfigure(0, weight=1)
+        cards = []
+        for column, title in ((0, 'Panel health'), (2, 'Room connection')):
+            card = tk.Frame(overview, bg=self.bg, highlightbackground=self.border, highlightthickness=1)
+            card.grid(row=0, column=column, sticky='nsew')
+            content = tk.Frame(card, bg=self.bg)
+            content.pack(fill='both', expand=True, padx=14, pady=10)
+            self.label(content, title, 17).pack(anchor='w', pady=(0, 6))
+            cards.append(content)
+        self.health_details = self.label(cards[0], size=15)
+        self.wrap_label(self.health_details).pack(fill='x', pady=(0, 6))
+        self.power_label = self.label(cards[0], size=15, muted=True)
+        self.wrap_label(self.power_label).pack(fill='x')
+        row = tk.Frame(cards[1], bg=self.bg)
+        row.pack(fill='x', pady=(0, 4))
+        self.label(row, 'Lighting', 15, True).pack(side='left', padx=(0, 12))
+        state = self.label(row, size=20)
+        state.config(textvariable=self.connection_text)
+        state.pack(side='left')
+        self.label(row, 'Blinds · Disabled', 14, True).pack(side='right')
+        self.services_label = self.label(cards[1], size=13, muted=True)
+        self.wrap_label(self.services_label).pack(fill='x')
         topic = tk.Frame(self.body, bg=self.bg, height=58)
         topic.pack(fill='x', pady=(0, 4))
         topic.pack_propagate(False)
-        self.label(topic, 'Help topic', 18).pack(side='left', padx=(0, 20))
+        self.label(topic, 'Help with', 18).pack(side='left', padx=(0, 20))
         selected = tk.StringVar(value=SUPPORT[self.support_page][0])
         menu = tk.OptionMenu(topic, selected, *[item[0] for item in SUPPORT],
                              command=lambda name: self.choose_support([item[0] for item in SUPPORT].index(name)))
@@ -1391,16 +1437,29 @@ class Panel(object):
         menu['menu'].config(font=(FONT, 18))
         menu.pack(side='left', fill='y')
         title, kind, text, commands = SUPPORT[self.support_page]
-        self.wrap_label(self.label(self.body, text, 16)).pack(fill='x', pady=(0, 8))
-        if commands:
-            code = self.label(self.body, commands, 14)
-            code.config(font=('monospace', 14), bg=self.control, padx=10, pady=8)
+        card = tk.Frame(self.body, bg=self.bg, highlightbackground=self.border, highlightthickness=1)
+        card.pack(fill='x', pady=(6, 0))
+        content = tk.Frame(card, bg=self.bg)
+        content.pack(fill='x', padx=14, pady=12)
+        show_commands = commands and self.support_commands_visible
+        if not show_commands:
+            for index, paragraph in enumerate(text.split('\n\n')):
+                self.wrap_label(self.label(content, paragraph, 15)).pack(fill='x', pady=(4 if index else 0, 0))
+        else:
+            overview.pack_forget()
+            self.label(content, 'Room host · reference commands', 12, True).pack(anchor='w', pady=(8, 4))
+            code = self.label(content, commands, 13)
+            code.config(font=('monospace', 13), bg=self.control, padx=10, pady=6)
             self.wrap_label(code).pack(fill='x')
+            self.label(content, 'Reference only. This panel does not execute these commands.', 14, True).pack(anchor='w', pady=(8, 0))
+        if commands:
+            self.row_buttons(content, [('Back to guidance' if show_commands else 'Room host reference',
+                                        self.toggle_support_commands, False)], height=60)
         self.update_health()
 
     def guide_view(self):
         title, kind, text = DEMO[self.guide_page]
-        self.label(self.body, 'Explore the Smart Conference Room', 27).pack(anchor='w', pady=(0, 10))
+        self.label(self.body, 'Room guide', 27).pack(anchor='w', pady=(0, 10))
         card = tk.Frame(self.body, bg=self.surface, highlightbackground=self.border, highlightthickness=1)
         card.pack(fill='both', expand=True)
         content = tk.Frame(card, bg=self.surface)
@@ -1413,7 +1472,7 @@ class Panel(object):
         self.wrap_label(self.label(content, text, 21)).pack(fill='x')
         buttons = self.row_buttons(self.body, [('Previous', lambda: self.change_guide(-1), False),
                                                ('Next', lambda: self.change_guide(1), True),
-                                               ('Room controls', lambda: self.show('room'), False)])
+                                               ('Home', self.open_home, False)])
         buttons[0].config(state='normal' if self.guide_page else 'disabled')
         buttons[1].config(state='normal' if self.guide_page < len(DEMO)-1 else 'disabled')
 
@@ -1446,7 +1505,12 @@ class Panel(object):
     def choose_support(self, index):
         if index != self.support_page:
             self.support_page = index
+            self.support_commands_visible = False
             self.render()
+
+    def toggle_support_commands(self):
+        self.support_commands_visible = not self.support_commands_visible
+        self.render()
 
     def update_health(self):
         if self.mode != 'health':
@@ -1472,17 +1536,16 @@ class Panel(object):
         h = self.health_cache
         if not h:
             self.health_details.config(text='Checking panel resources…')
-            self.services_label.config(text=self.room_status + '\nService presence is not sensor health.')
+            self.services_label.config(text=self.room_status)
             return
         if 'error' in h:
             self.health_details.config(text='Resource reading unavailable: ' + h['error'])
             return
         if getattr(self, 'advanced_page', None) == 'system':
-            self.health_details.config(text='Memory: %d / %d MiB available    Storage: %.1f GiB free\n'
-                                            'CPU: %.1f C    Uptime: %.1f days' %
-                (h['ram_available'], h['ram_total'], h['disk_available'], h['temperature'], h['uptime']))
+            self.health_details.config(text='Memory: %d / %d MiB free\nStorage: %.1f GiB free · CPU: %.1f C' %
+                (h['ram_available'], h['ram_total'], h['disk_available'], h['temperature']))
             self.power_label.config(text='Power: ' + h['power'])
-            self.services_label.config(text=self.room_status + '\nService presence is not sensor health.')
+            self.services_label.config(text=self.room_status)
             return
         self.health_rows['ram'][0].config(text='%d / %d MiB available' % (h['ram_available'], h['ram_total']))
         self.health_rows['disk'][0].config(text='%.1f GiB available  /  %.0f%% used' % (h['disk_available'], h['disk_used']))
@@ -1598,17 +1661,20 @@ class Panel(object):
                 'Last confirmed drive shows the latest successful readback.', 18)
             self.wrap_label(note).pack(fill='x', pady=(12, 8))
         elif key == 'screen':
-            self.label(content, 'Idle clock & weather', 25).pack(anchor='w', pady=(0, 8))
+            self.label(content, 'Screen saver', 25).pack(anchor='w', pady=(0, 8))
             self.row_buttons(content, [(label, lambda seconds=seconds: self.choose_idle(seconds),
                                        self.idle_timeout == seconds)
                                       for label, seconds in [('Off', 0), ('1 min', 60), ('5 min', 300), ('15 min', 900)]])
-            note = self.label(content, 'One touch returns to the previous page.\nIdle stays off in Experiment mode, Legacy and during light commands.', 17, True)
+            note = self.label(content, 'Touch once for Home and lighting controls.\nPauses during experiments, Legacy and light commands.', 17, True)
             self.wrap_label(note).pack(fill='x', pady=(8, 12))
             self.label(content, 'Blank screen', 21).pack(anchor='w', pady=(0, 6))
             note = self.label(content, 'Black pixels only; the backlight stays on.\nHold one spot for 2 seconds to return.', 18)
             self.wrap_label(note).pack(fill='x', pady=(0, 8))
-            self.row_buttons(content, [('Blank screen', lambda: self.show('black'), False)])
-            self.row_buttons(content, [('Clock & weather', lambda: self.show('visitor'), False)])
+            self.row_buttons(content, [('Blank screen', lambda: self.show('black'), False),
+                                       ('Clock & weather', lambda: self.show('visitor'), False)])
+            self.label(content, 'Blinds on Home', 21).pack(anchor='w', pady=(12, 4))
+            self.row_buttons(content, [('Show disabled', lambda: self.choose_blinds_display('disabled'), self.blinds_display == 'disabled'),
+                                       ('Hide', lambda: self.choose_blinds_display('hidden'), self.blinds_display == 'hidden')])
         else:
             self.about_contents(content)
 
@@ -1620,6 +1686,14 @@ class Panel(object):
             return
         self.settings_category = category
         self.render()
+
+    def choose_blinds_display(self, choice):
+        if choice not in ('disabled', 'hidden') or choice == self.blinds_display:
+            return
+        self.blinds_display = choice
+        self.save_preferences()
+        self.render()
+        self.emit('blinds_display_selected', choice=choice)
 
     def choose_clock(self, format):
         if self.clock_24 == (format == '24'):
@@ -1707,6 +1781,7 @@ class Panel(object):
             self.preferences.save({'theme': self.theme_choice, 'clock_format': '24' if self.clock_24 else '12',
                                    'temperature_unit': self.temperature_unit,
                                    'idle_timeout': self.idle_timeout,
+                                   'blinds_display': self.blinds_display,
                                    'tips': 'on' if self.help_on else 'off',
                                    'light_at': self.args.light_at, 'dark_at': self.args.dark_at})
 

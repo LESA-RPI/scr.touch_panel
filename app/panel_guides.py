@@ -8,7 +8,7 @@ DEMO = (
     ('Room controls', 'on',
      'Beta provides everyday lighting, weather, help and panel status. Legacy opens the original room controls.\n\n'
      'Changing pages does not change the lights. Opening Legacy ends the Beta lighting session and restores its starting scene.\n\n'
-     'Home shows blinds, but their buttons are not enabled. Ask the host before demonstrations.'),
+     'Blinds are disabled in Beta. Advanced → Screen can show or hide their Home section. Ask the host before demonstrations.'),
     ('Sensors and experiments', 'experiment',
      'The room brings together lighting, environmental readings and sensing systems.\n\n'
      'System lists advertised services. A listed service does not prove that a sensor is producing valid data.\n\n'

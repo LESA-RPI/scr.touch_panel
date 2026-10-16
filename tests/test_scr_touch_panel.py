@@ -146,6 +146,10 @@ def test_preferences_restore_appearance_only_and_survive_invalid_input(tmp_path,
     path.write_text('{"theme":"invalid"}')
     assert preferences.load(str(path))[0] == {}
     assert preferences.load(str(path))[1]
+    for display in ('disabled', 'hidden'):
+        assert preferences.validated({'blinds_display': display}) == {'blinds_display': display}
+    with pytest.raises(ValueError):
+        preferences.validated({'blinds_display': 'enabled'})
     path.write_text('{"temperature_unit":"kelvin"}')
     assert preferences.load(str(path))[1]
     for invalid in (True, 61, -1, '300'):
