@@ -57,15 +57,20 @@ function website(respond, snapshot = () => ({available:true, session:'owner-one'
   assert.match(restarted.run("$('message').textContent"), /restarted/);
 
   const display = website(() => {throw Error('Presentation must not send commands');});
-  for (const mode of ['guide', 'settings', 'health', 'about', 'experiment']) {
+  for (const mode of ['guide', 'settings', 'health', 'about', 'experiment', 'classic']) {
     display.run(`state = {available:true, mode:${JSON.stringify(mode)}, can_control:true, lights:{message:'Light settings confirmed.'}}; shippedSync();`);
     assert.equal(display.run("$('legacy-banner').hidden"), true);
     assert.equal(display.run("$('light-message').textContent"), 'Light settings confirmed.');
+    if (mode === 'classic') assert.equal(display.run("$('connection').textContent"), 'Legacy');
   }
   for (const mode of ['original', 'black']) {
     display.run(`state = {available:true, mode:${JSON.stringify(mode)}, can_control:false, lights:{}}; shippedSync();`);
     assert.equal(display.run("$('legacy-banner').hidden"), false);
     assert.match(display.run("$('light-message').textContent"), /Return the touch panel to Home/);
+    if (mode === 'original') {
+      assert.equal(display.run("$('connection').textContent"), 'Original fallback');
+      assert.match(display.run("$('panel-mode-message').textContent"), /separate original application/);
+    }
   }
   display.run("state = {available:true, mode:'room', can_control:true, lights:{}, blinds:{connected:true}}; shippedSync();");
   assert.equal(display.run("$('blind-permission').hidden"), false, 'Connected blind settings appear without rebuilding the page');
@@ -95,6 +100,16 @@ function website(respond, snapshot = () => ({available:true, session:'owner-one'
     assert.equal(programme.commands[0].arguments.name, name);
     assert.match(programme.run("$('message').textContent"), /requested.*not confirmed/);
   }
+  const original = website(request => ({status:202,ok:true,json:async () => ({ok:true,code:202,id:request.id})}));
+  assert.equal(await original.run("command('original_fallback')"), true);
+  assert.equal(original.commands[0].action, 'original_fallback');
+  assert.deepEqual(original.commands[0].arguments, {});
+  const legacyView = {dataset:{action:'legacy'}},
+    originalFallback = {dataset:{action:'original_fallback'}};
+  display.actionButtons.push(legacyView, originalFallback);
+  display.run("state = {available:true, mode:'experiment', can_control:false, lights:{}, experiment:{running:true, profile:{title:'Practice', stages:['Instruction'], annotations:[]},stage:0,elapsed_s:0}}; shippedSync();");
+  assert.equal(legacyView.disabled, false, 'Shared Legacy navigation remains presentation-only during instructions');
+  assert.equal(originalFallback.disabled, true, 'Separate Original fallback is blocked during instructions');
   assert.equal(display.commands.length, 0);
   console.log('Browser receipt ambiguity, rejection, recovery and restart checks passed');
 })().catch(error => {console.error(error);process.exitCode=1;});

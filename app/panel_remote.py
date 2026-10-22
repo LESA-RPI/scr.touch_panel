@@ -179,14 +179,14 @@ def execute(panel, request):
             panel.next_stage()
         else:
             panel.mark(args["label"])
-    elif action in ("home", "legacy", "blank", "clock_view"):
-        if panel.running and action != "home":
+    elif action in ("home", "legacy", "original_fallback", "blank", "clock_view"):
+        if panel.running and action not in ("home", "legacy"):
             raise RuntimeError("Pause the instructions before switching the panel.")
         if action == "home":
             panel.open_home()
         else:
             panel.show(
-                {"legacy": "original", "blank": "black", "clock_view": "visitor"}[
+                {"legacy": "classic", "original_fallback": "original", "blank": "black", "clock_view": "visitor"}[
                     action
                 ]
             )

@@ -73,9 +73,10 @@ from panel_common import (
 from panel_views import PanelViews
 from panel_screensaver import PanelScreensaver
 from panel_guidance import PanelGuidance
+from panel_classic import PanelClassic
 
 
-class Panel(PanelViews, PanelScreensaver, PanelGuidance):
+class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
     def __init__(self, args):
         self.args, self.profile = args, profile(args.profile)
         saved, preference_error = load_preferences(
@@ -654,7 +655,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         navigation.pack_propagate(False)
         for column, text, action in [
             (0, "Home", self.open_home),
-            (2, "Legacy", lambda: self.show("original")),
+            (2, "Legacy", lambda: self.show("classic")),
         ]:
             slot = tk.Frame(navigation, bg=self.bg, width=140, height=64)
             slot.grid(row=0, column=column, padx=(0, 12) if column == 0 else 0)
@@ -750,7 +751,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         self.navigation_buttons.append(home)
         mode = tk.Label(
             navigation,
-            text="Legacy view",
+            text="Original fallback",
             font=(FONT, 20),
             bg=self.control,
             fg=self.ink,
@@ -779,7 +780,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             button.pack(fill="both", expand=True)
             self.navigation_buttons.append(button)
         self.label(
-            row, "Legacy controls below · Home returns to the main screen", 16, True
+            row, "Original application below · Home returns to the shared controls", 16, True
         ).pack(side="left", fill="y")
 
     def add_connection_badge(self, parent, legacy=False, column=None):
@@ -832,6 +833,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             return
         self.idle_active = mode == "visitor"
         self.cancel_intent()
+        if mode == "classic" and self.keep_switcher:
+            self.trial_deadline = None
         if mode == "original":
             self.trial_deadline = None
             if self.light_state == "failed" and getattr(self, "light_changes_requested", False):
@@ -841,7 +844,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 return
         if mode == "original" and self.worker:
             self.release_target = "original"
-            self.status_text.set("Finishing lighting control before opening Legacy...")
+            self.status_text.set("Finishing lighting control before opening Original fallback...")
             if self.light_state == "connecting" and not self.light_changes_requested:
                 # Startup/acquire only reads. Do not wait for slow ROS imports to hand back Legacy.
                 self.worker.terminate()
@@ -883,6 +886,10 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                     else ""
                 ),
                 "advanced": "Fine adjustments and room tools. Opening a page does not operate devices.",
+                "classic": (
+                    "Instructions are running. Pause Experiment mode before using lighting."
+                    if self.running else ""
+                ),
                 "visitor": "Visitor view does not change lighting. Recording status is unavailable here.",
                 "experiment": "Experiment mode: instructions and annotations. Recorder not connected.",
                 "settings": "Appearance settings belong to this device; they do not change room lighting.",
@@ -902,8 +909,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         """Make a pending handoff visible instead of accepting ignored touches."""
         busy = bool(self.release_target or self.closing or self.power_busy())
         state = "disabled" if busy else "normal"
-        for button in getattr(self, "navigation_buttons", []):
-            if button.winfo_exists() and button.cget("state") != state:
+        buttons = getattr(self, "navigation_buttons", []) + [getattr(self, "original_fallback_button", None)]
+        for button in buttons:
+            if button is not None and button.winfo_exists() and button.cget("state") != state:
                 button.config(state=state)
         button = getattr(self, "legacy_button", None)
         if button is not None and button.winfo_exists():
@@ -999,6 +1007,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         key = None
         if self.advanced_page:
             key = ("tools",)
+        elif self.mode == "classic":
+            key = ("classic",)
         elif self.mode == "room" or self.idle_active:
             key = (
                 "idle" if self.idle_active else "room",
@@ -1076,7 +1086,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         for control in self.light_buttons:
             if isinstance(control, TouchSlider):
                 control.pressed = False
-                self.bind_slider(control, "channels" if control.vertical else "cct")
+                self.bind_slider(control, getattr(control, "_action", "channels" if control.vertical else "cct"))
                 control.draw()
         self.update_light_buttons()
         self.update_blind_buttons()
@@ -1286,7 +1296,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             or self.closing
             or getattr(self, "running", False)
         ):
-            self.status_text.set("Lighting unavailable. Use Legacy or ask staff.")
+            self.status_text.set("Lighting unavailable. Check System & help.")
             return
         # Immutable complete intent, one unsent selection shared by all light controls.
         arguments = json.loads(json.dumps(arguments))
@@ -1341,7 +1351,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             self.light_state = "failed"
             self.cancel_intent()
             self.lighting_feedback(
-                "Lighting adapter unavailable. Use Legacy or ask staff."
+                "Lighting adapter unavailable. Check System & help."
             )
         self.update_light_buttons()
 
@@ -1912,7 +1922,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         except OSError:
             self.worker = None
             self.light_state = "failed"
-            self.status_text.set("Lighting helper could not start. Use Legacy or ask staff.")
+            self.status_text.set("Lighting helper could not start. Check System & help.")
             self.lighting_feedback("Lighting unavailable; helper could not start.")
             return
         self.light_state = "connecting"
@@ -2022,7 +2032,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             ):
                 # No acquire or setter has been sent before initialization.
                 worker.terminate()
-                self.fail_worker("Lighting helper startup timed out. Legacy remains available.")
+                self.fail_worker("Lighting helper startup timed out. Original fallback remains available.")
                 self.lighting_feedback("Lighting unavailable; helper startup timed out.")
             if self.pending and monotonic() - self.pending.get("sent_monotonic_s", monotonic()) > 35:
                 self.fail_worker("Lighting response timed out. Result unconfirmed; no retry.")
@@ -2176,7 +2186,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 elif state == "failed":
                     self.release_target = None
                     self.cancel_intent()
-                    self.status_text.set(detail + " / Use Legacy or ask staff.")
+                    self.status_text.set(detail + " / Ask staff; check System & help.")
                 elif self.queued_intent and self.intent_timer is None:
                     self.dispatch_intent()
                 self.update_light_buttons()
@@ -2303,7 +2313,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             "escape",
             "window_close",
         ):
-            self.show("original")
+            self.show("classic")
             return
         if self.power_busy() and self.power.phase != "executing":
             self.power.fail("Power action cancelled while the panel is closing.")
@@ -2396,7 +2406,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "--start-mode",
-        choices=["room", "original"],
+        choices=["room", "classic", "original"],
         default="room",
         help="Initial view with --keep-switcher",
     )

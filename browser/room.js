@@ -826,6 +826,26 @@ function system(parent) {
     cards.append(card);
   }
   parent.append(cards);
+  const views = el('section', undefined, 'card');
+  views.id = 'panel-view-controls';
+  const viewActions = el('div', undefined, 'row');
+  viewActions.append(
+    button('Show Legacy view', () => command('legacy'), { action: 'legacy' }),
+    button('Open Original fallback', () => command('original_fallback'), {
+      action: 'original_fallback',
+    }),
+  );
+  views.append(
+    el('h3', 'Panel views'),
+    el('p', 'Legacy uses the same controller and keeps current settings.', 'muted'),
+    el(
+      'p',
+      'Original fallback opens the separate original application after controller release. Website controls pause until it returns.',
+      'muted',
+    ),
+    viewActions,
+  );
+  parent.append(views);
   powerControls(parent);
   const row = el('label', undefined, 'help-select');
   row.append(el('span', 'Help topic'));
@@ -1092,14 +1112,16 @@ function sync() {
           : !available
             ? 'Panel unavailable'
             : state.mode === 'original'
-              ? 'Legacy'
-              : state.busy
-                ? 'Sending'
-                : state.can_control
-                  ? 'Ready'
-                  : s.state === 'failed'
-                    ? 'Uncertain'
-                    : 'Controls unavailable',
+              ? 'Original fallback'
+              : state.mode === 'classic' && !state.busy
+                ? 'Legacy'
+                : state.busy
+                  ? 'Sending'
+                  : state.can_control
+                    ? 'Ready'
+                    : s.state === 'failed'
+                      ? 'Uncertain'
+                      : 'Controls unavailable',
   );
   // Colour the header status: ready, waiting (connecting/sending/Legacy) or problem.
   $('connection').dataset.state =
@@ -1112,7 +1134,7 @@ function sync() {
           : 'waiting';
   const panelMessage =
     state?.mode === 'original'
-      ? 'The touch panel is showing Legacy, the original app. Return it to Home to use website controls.'
+      ? 'The touch panel is showing Original fallback, the separate original application. Return it to Home to use website controls.'
       : state?.mode === 'black'
         ? 'The touch panel is blank. Return it to Home to use lighting.'
         : state?.mode === 'experiment' && !state.experiment?.running && !state.can_control
@@ -1150,7 +1172,7 @@ function sync() {
       Boolean(unknown) ||
       !available ||
       state.busy ||
-      (['legacy', 'blank', 'clock_view'].includes(a) && state.experiment?.running) ||
+      (['original_fallback', 'blank', 'clock_view'].includes(a) && state.experiment?.running) ||
       (a === 'programme'
         ? state.can_programme === false || !s.capabilities?.programmes ||
           (b.dataset.programme !== 'Stop' && !state.can_control)

@@ -256,7 +256,7 @@ def remote_owner():
     return owner
 
 
-@pytest.mark.parametrize("mode", ["room", "guide", "settings", "health", "about", "advanced", "experiment", "visitor"])
+@pytest.mark.parametrize("mode", ["room", "classic", "guide", "settings", "health", "about", "advanced", "experiment", "visitor"])
 def test_remote_lighting_uses_current_owner_without_changing_beta_page(remote_owner, mode):
     remote_owner.mode = mode
     assert snapshot(remote_owner)["can_control"] is True
@@ -279,6 +279,30 @@ def test_remote_lighting_keeps_safety_locks_on_every_beta_page(remote_owner, fie
     with pytest.raises(RuntimeError):
         execute(remote_owner, envelope("on"))
     assert not remote_owner.calls
+
+
+@pytest.mark.parametrize("field,value", [
+    ("running", True), ("pending", {"request_id": "pending"}),
+    ("queued_intent", {"action": "on"}), ("release_target", "original"),
+    ("closing", "exit"), ("press_active", True), ("light_state", "failed"),
+    ("light_state", "connecting"), ("power_busy", lambda: True),
+])
+def test_remote_classic_keeps_every_owner_safety_lock(remote_owner, field, value):
+    remote_owner.mode = "classic"
+    setattr(remote_owner, field, value)
+    assert snapshot(remote_owner)["can_control"] is False
+    with pytest.raises(RuntimeError):
+        execute(remote_owner, envelope("on"))
+    assert not remote_owner.calls and remote_owner.mode == "classic"
+
+
+@pytest.mark.parametrize("running", [False, True])
+def test_remote_legacy_action_only_selects_classic_view(remote_owner, running):
+    remote_owner.running = running
+    remote_owner.show = lambda mode: (remote_owner.calls.append(mode), setattr(remote_owner, "mode", mode))
+    assert execute(remote_owner, envelope("legacy"))["ok"]
+    assert remote_owner.calls == ["classic"] and remote_owner.mode == "classic"
+    assert remote_owner.running is running
 
 
 def test_extended_lighting_commands_keep_bounded_public_shapes():

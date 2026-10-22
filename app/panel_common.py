@@ -36,6 +36,8 @@ ADVANCED_PAGES = [
 # Only presentation references travel with retained pages. Controller state, intent
 # generations and preferences always belong to the live Panel, never a cached page.
 PAGE_REFERENCES = (
+    "classic_buttons",
+    "classic_sliders",
     "programme_buttons",
     "light_buttons",
     "home_power_buttons",
@@ -76,7 +78,8 @@ TIPS = {
     "Visitor": "Room introduction and a large clock. Opening this page does not change lighting.",
     "Experiment mode": "Instructions, elapsed time and panel annotations. No sensor recording starts.",
     "System": "Panel resources and advertised room services. Presence does not prove sensor health.",
-    "Legacy": "Hands control to the original interface without changing the lights.",
+    "Legacy": "Shows the familiar layout with the same room controller; lighting stays unchanged.",
+    "Original fallback": "Opens the untouched original application after releasing the shared controller. Return with Home.",
     "Blank screen": "Shows black pixels. Hold still for 2 seconds to return; the backlight remains on.",
     "Settings": "Appearance, date/time and screen options. Appearance choices can be saved on this device.",
     "About panel": "Panel credits and source repository. No room settings change.",

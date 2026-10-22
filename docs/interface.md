@@ -97,7 +97,8 @@ Replies echo `version` and `request_id`. States are `ready`, `completed`,
 words or release flags. Persistent `--keep-settings` acquisition admits any stable
 snapshot and reports its confirmed `power`; `baseline` is null for a custom mix.
 Its release returns `preserved: true, restored: false` without a fixture setter.
-This applies to Legacy navigation, normal shutdown and parent loss. Bounded trials
+Normal Beta/Legacy navigation retains the same helper without any release/acquire
+cycle. Preserving release applies to Original fallback, shutdown and parent loss. Bounded trials
 omit that flag, require an exactly restorable preset and retain `restored: true`
 on successful cleanup. Failure includes detail and whether outcome is unknown.
 Unknown extra fields are ignored; unsupported versions are refused.
@@ -142,13 +143,23 @@ clients query receipts and never automatically repeat commands.
 The shared actions cover on/off, CCT/level, eight channels, admitted presets, Gradient,
 original programme requests, permitted whole-room blinds,
 instruction start/pause/previous/next/known annotations, panel appearance/clock/
-weather/idle preferences, blind permission/visibility, Home, Legacy, clock view and
+weather/idle preferences, blind permission/visibility, Home, Legacy, Original fallback, clock view and
 blank display. All inputs are bounded enums or integers. Lighting requires ready
-readback, no pending/queued/held touch and no running instructions. Legacy,
+readback, no pending/queued/held touch and no running instructions. Original fallback,
 blank and uncertain states block lighting. Ordinary Beta pages, including Guide,
 Settings, About and paused Experiment mode, do not restrict lighting availability.
 Panel and browser use these same study guards.
 Acceptance is not lighting confirmation, annotation persistence or recording.
+
+`legacy` with empty arguments selects `Panel.mode == "classic"`, the familiar
+Legacy layout inside the existing Panel/Tk process. It retains the same command
+owner, helper PID, ROS initialization and programme state. It is presentation only,
+including while instructions run; instruction guards still prevent actuator commands.
+`original_fallback` with empty arguments selects `mode == "original"` through the
+existing guarded helper-release path. That mode opens the untouched separate
+original application, blocks website control, and is identified as Original fallback.
+The normal Legacy action never launches or acquires a second controller. This is
+an in-process shared view, not a new standalone headless control service.
 
 Blind readiness separates the short user-facing `detail` (Disabled, Busy or Ready)
 from a diagnostic `reason`. When no controller is connected, settings show one
@@ -157,7 +168,7 @@ connection remain independent; unlocking never connects a controller or moves bl
 
 `blinds_enabled` accepts a boolean `value`; `blind` accepts only a `name` of
 `lift`, `open` or `close`. The owner rechecks the saved permission, controller
-connection and busy/Legacy/experiment guards at dispatch. Visibility does not
+connection and busy/Original-fallback/experiment guards at dispatch. Visibility does not
 grant permission. The existing helper advertises connection when the whole-room
 lift/tilt services are present and persistent control owns the resource. Tk
 enqueues work without blocking for movement. The browser updates permission
@@ -185,7 +196,7 @@ references are display/copy text, never command actions.
 
 Pi power actions use `power` with exactly `operation` (`reboot` or `shutdown`)
 and `confirmed: true`. They share the existing network and revision checks.
-The owner refuses busy, running-instruction, Legacy and uncertain-light states,
+The owner refuses busy, running-instruction, Original-fallback and uncertain-light states,
 then requires confirmed ownership release, helper exit, saved preferences and a durable
 power-request record before one fixed OS command. Existing noninteractive
 permission and OS inhibitors are respected; no new privilege rule or automatic
@@ -196,8 +207,8 @@ describe availability and About information without changing schema version 1.
 `app/design_tokens.py` owns theme roles. `app/export_room_content.py` exports the
 panel-owned guide/help and Lucide paths for browser fallback and offline demos.
 The live snapshot supplies current preferences, controls, receipts, guide/help and
-experiment state. The Legacy UI remains separate; Beta relays its qualified
-programme and whole-room blind operations through the shared helper.
+experiment state. Normal Beta and Legacy layouts use this same owner and helper;
+only Original fallback is the separate untouched application.
 
 `app/help_reference.py` owns each command step's computer, effect, purpose,
 expected result and exact copy text. A help topic exports its `reference` object

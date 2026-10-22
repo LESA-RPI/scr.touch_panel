@@ -37,6 +37,7 @@ def command(value):
         "off": (),
         "home": (),
         "legacy": (),
+        "original_fallback": (),
         "blank": (),
         "clock_view": (),
         "start": (),

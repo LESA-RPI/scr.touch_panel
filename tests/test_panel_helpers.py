@@ -100,3 +100,16 @@ def test_queued_light_selection_cannot_dispatch_after_instructions_start():
     state.request = lambda *args: pytest.fail("Instructions must block queued setters")
     state.dispatch_intent()
     assert state.queued_intent is None
+
+
+@pytest.mark.parametrize("reason", ["exit", "timeout", "escape", "window_close"])
+def test_persistent_close_shortcuts_use_shared_view_without_releasing_owner(reason):
+    from scr_touch_panel import Panel
+    view = Panel.__new__(Panel)
+    view.closed = False
+    view.closing = None
+    view.keep_switcher = True
+    calls = []
+    view.show = calls.append
+    view.close(reason)
+    assert calls == ["classic"] and view.closing is None
