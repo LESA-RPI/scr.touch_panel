@@ -1154,6 +1154,14 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         if label is not None and label.winfo_exists():
             label.config(text=readiness["detail"])
 
+    def adapter_metadata(self, response):
+        previous = getattr(self, "blinds_connected", False)
+        self.light_capabilities = response.get("capabilities", getattr(self, "light_capabilities", {}))
+        self.blinds_connected = response.get("blinds_connected", previous) is True
+        self.programme = response.get("programme", getattr(self, "programme", None))
+        if previous != self.blinds_connected and getattr(self, "advanced_page", None) == "screen":
+            self.rebuild_advanced_detail()
+
     def start_weather(self):
         now = monotonic()
         if (
@@ -2062,6 +2070,15 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 ) or (
                     response.get("baseline") is not None
                     and not isinstance(response["baseline"], str)
+                ) or (
+                    "capabilities" in response and (
+                        not isinstance(response["capabilities"], dict)
+                        or any(type(value) is not bool for value in response["capabilities"].values())
+                    )
+                ) or (
+                    "programme" in response and response["programme"] not in (None, "Sun", "Circ")
+                ) or (
+                    "blinds_connected" in response and type(response["blinds_connected"]) is not bool
                 ):
                     self.fail_worker("Invalid adapter reply; controls disabled. Ask staff.")
                     break
@@ -2071,9 +2088,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                     and not self.worker_ready
                     and self.light_state == "connecting"
                 ):
-                    self.light_capabilities = response.get("capabilities", {})
-                    self.blinds_connected = response.get("blinds_connected") is True
                     self.worker_ready = True
+                    self.adapter_metadata(response)
                     self.request(
                         "release" if self.release_target or self.closing else "acquire"
                     )
@@ -2099,9 +2115,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 action = completed_request["action"]
                 self.emit("light_result", result=response)
                 state = response["state"]
-                self.light_capabilities = response.get("capabilities", getattr(self, "light_capabilities", {}))
-                self.blinds_connected = response.get("blinds_connected", getattr(self, "blinds_connected", False)) is True
-                self.programme = response.get("programme", getattr(self, "programme", None))
+                self.adapter_metadata(response)
                 self.light_state = {
                     "completed": "ready",
                     "released": "disconnected",

@@ -68,6 +68,29 @@ def view(monkeypatch):
     assert not errors
 
 
+def test_blind_permissions_appear_when_helper_connects_on_open_settings(view):
+    view.open_advanced("screen")
+    view.root.update()
+    def choices():
+        def walk(widget):
+            yield widget
+            for child in widget.winfo_children():
+                yield from walk(child)
+        return [widget for widget in walk(view.body)
+                if isinstance(widget, panel.tk.Button) and widget.winfo_ismapped()
+                and widget.cget("text") in ("Locked", "Unlocked")]
+    assert not choices()
+    view.worker_ready = True
+    view.worker = SimpleNamespace(poll=lambda: None)
+    view.adapter_metadata({"blinds_connected": True, "capabilities": {"gradient": True}})
+    view.root.update()
+    assert len(choices()) == 2 and not view.blinds_enabled
+    view.adapter_metadata({"blinds_connected": False})
+    view.root.update()
+    assert not choices()
+    view.worker = None
+
+
 @pytest.mark.parametrize("theme", ["light", "dark"])
 def test_home_and_tools_survive_legacy_idle_and_blank_display(view, theme):
     view.choose_theme(theme)
