@@ -1,0 +1,71 @@
+// Exercise the shipped command/receipt logic using Node's standard library only.
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const source = fs.readFileSync(path.join(__dirname, '../browser/room.js'), 'utf8');
+
+function website(respond, snapshot = () => ({available:true, session:'owner-one', revision:'one'})) {
+  const elements = new Map();
+  for (const id of ['legacy-return', 'message', 'connection', 'legacy-banner', 'panel-mode-message', 'light-message', 'light-recent'])
+    elements.set(id, {dataset:{}, textContent:''});
+  const commands = [];
+  const context = vm.createContext({
+    document: {getElementById:id => elements.get(id) || null, querySelectorAll:() => [], addEventListener() {}, hidden:false},
+    window: {addEventListener() {}}, matchMedia:() => ({addEventListener() {}}),
+    setInterval() {}, setTimeout() {return 1;}, clearTimeout() {},
+    crypto: require('node:crypto').webcrypto, AbortSignal,
+    fetch:async (url, options) => {
+      if (url === '/room-content.json') return new Promise(() => {}); // Leave initial rendering idle.
+      if (url === '/api/controller') return {ok:true, json:async () => snapshot()};
+      const request = JSON.parse(options.body);
+      commands.push(request);
+      return respond(request, context);
+    },
+  });
+  vm.runInContext(source, context);
+  context.shippedSync = vm.runInContext('sync', context);
+  vm.runInContext("sync = () => {}; state = {available:true, session:'owner-one', revision:'one', csrf:'local'}; view='home';", context);
+  return {context, commands, run:script => vm.runInContext(script, context)};
+}
+
+(async () => {
+  for (const [status, body] of [[503,{ok:false,code:503,detail:'Receipt unknown; do not retry.'}], [200,{}], [202,{ok:true,code:202,id:'other-command'}]]) {
+    const site = website(() => ({status, ok:status<400, json:async () => body}));
+    assert.equal(await site.run("command('off')"), false);
+    assert.equal(await site.run("command('on')"), false);
+    assert.equal(site.commands.length, 1, 'An ambiguous reply must not enable a second command');
+    assert.match(site.run("$('message').textContent"), /unknown/);
+  }
+  const rejected = website(() => ({status:409,ok:false,json:async () => ({ok:false,code:409,detail:'Review the current settings.'})}));
+  await rejected.run("command('off')");
+  await rejected.run("command('off')");
+  assert.equal(rejected.commands.length, 2, 'A known rejection allows a newly reviewed action');
+
+  let receipt;
+  const recovered = website(request => {receipt={id:request.id,ok:true,code:202};return {status:503,ok:false,json:async () => ({ok:false,code:503})};}, () => ({available:true,session:'owner-one',revision:'two',receipts:receipt?[receipt]:[]}));
+  await recovered.run("command('off')");
+  assert.equal(recovered.run('unknown'), null, 'A matching owner receipt resolves the uncertainty');
+
+  const restarted = website((request, context) => {
+    vm.runInContext("state = {available:true, session:'owner-two', revision:'new'}", context);
+    return Promise.reject(new Error('Lost reply while owner restarted'));
+  }, () => ({available:true,session:'owner-two',revision:'new'}));
+  await restarted.run("command('off')");
+  assert.equal(restarted.run('unknown'), null, 'Restart recovery uses the session at send time');
+  assert.match(restarted.run("$('message').textContent"), /restarted/);
+
+  const display = website(() => {throw Error('Presentation must not send commands');});
+  for (const mode of ['guide', 'settings', 'health', 'about', 'experiment']) {
+    display.run(`state = {available:true, mode:${JSON.stringify(mode)}, can_control:true, lights:{message:'Light settings confirmed.'}}; shippedSync();`);
+    assert.equal(display.run("$('legacy-banner').hidden"), true);
+    assert.equal(display.run("$('light-message').textContent"), 'Light settings confirmed.');
+  }
+  for (const mode of ['original', 'black']) {
+    display.run(`state = {available:true, mode:${JSON.stringify(mode)}, can_control:false, lights:{}}; shippedSync();`);
+    assert.equal(display.run("$('legacy-banner').hidden"), false);
+    assert.match(display.run("$('light-message').textContent"), /Return the touch panel to Home/);
+  }
+  assert.equal(display.commands.length, 0);
+  console.log('Browser receipt ambiguity, rejection, recovery and restart checks passed');
+})().catch(error => {console.error(error);process.exitCode=1;});

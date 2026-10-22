@@ -80,6 +80,7 @@ function command(action, args = {}, revision = state?.revision) {
   const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
     b.toString(16).padStart(2, '0'),
   ).join('');
+  const sentSession = state.session;
   if (action === 'power')
     powerRequest = { operation: args.operation, session: state.session, id, accepted: false };
   posting = true;
@@ -97,9 +98,15 @@ function command(action, args = {}, revision = state?.revision) {
         message('Command was rejected. Refresh the page before trying a new action.');
         return false;
       }
-      if (!reply) {
+      if (
+        !reply ||
+        typeof reply.ok !== 'boolean' ||
+        reply.code !== response.status ||
+        ![202, 400, 403, 405, 408, 409].includes(response.status) ||
+        (reply.ok && (response.status !== 202 || reply.id !== id))
+      ) {
         unknown = id;
-        unknownSession = state?.session;
+        unknownSession = sentSession;
         message(
           action === 'power'
             ? 'Power request status is unknown. Check the touch panel before trying again.'
@@ -133,7 +140,7 @@ function command(action, args = {}, revision = state?.revision) {
     })
     .catch(() => {
       unknown = id;
-      unknownSession = state?.session;
+      unknownSession = sentSession;
       message(
         action === 'power'
           ? 'Power request status is unknown. Check the touch panel before trying again.'
@@ -1038,7 +1045,7 @@ function sync() {
       ? 'The touch panel is showing Legacy, the original app. Return it to Home to use website controls.'
       : state?.mode === 'black'
         ? 'The touch panel is blank. Return it to Home to use lighting.'
-        : state?.mode === 'experiment' && !state.experiment?.running
+        : state?.mode === 'experiment' && !state.experiment?.running && !state.can_control
           ? 'Experiment mode is paused. Return the touch panel to Home to use lighting.'
           : '';
   $('legacy-banner').hidden = !(available && panelMessage);
@@ -1108,7 +1115,7 @@ function sync() {
         : state?.detail || 'Panel unavailable. Controls are disabled.'
       : state.experiment?.running
         ? 'Instructions are running. Pause Experiment mode before using lighting.'
-        : ['original', 'black', 'experiment'].includes(state.mode)
+        : !state.can_control && ['original', 'black', 'experiment'].includes(state.mode)
           ? 'Return the touch panel to Home to use lighting.'
           : s.message || 'Lighting unavailable.',
   );
