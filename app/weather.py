@@ -196,16 +196,23 @@ def fetch(latitude, longitude, timezone):
     return summary(json.loads(body.decode("utf-8")))
 
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("latitude", type=float)
     parser.add_argument("longitude", type=float)
     parser.add_argument("timezone")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     try:
-        print(json.dumps(fetch(args.latitude, args.longitude, args.timezone)))
+        result = fetch(args.latitude, args.longitude, args.timezone)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        # An optional forecast may be unavailable; reserve tracebacks for defects.
+        logging.warning("Weather unavailable: %s", error)
+        result = {"error": "Weather unavailable; the room controls still work."}
     except Exception:
         logging.exception("Weather refresh failed")
-        print(
-            json.dumps({"error": "Weather unavailable; the room controls still work."})
-        )
+        result = {"error": "Weather unavailable; the room controls still work."}
+    print(json.dumps(result))
+
+
+if __name__ == "__main__":
+    main()
