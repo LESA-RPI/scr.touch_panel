@@ -74,7 +74,7 @@ TIPS = {
     "Visitor": "Room introduction and a large clock. Opening this page does not change lighting.",
     "Experiment mode": "Instructions, elapsed time and panel annotations. No sensor recording starts.",
     "System": "Panel resources and advertised room services. Presence does not prove sensor health.",
-    "Legacy": "Restores the starting lighting, then shows the original room controls.",
+    "Legacy": "Hands control to the original interface without changing the lights.",
     "Blank screen": "Shows black pixels. Hold still for 2 seconds to return; the backlight remains on.",
     "Settings": "Appearance, date/time and screen options. Appearance choices can be saved on this device.",
     "About panel": "Panel credits and source repository. No room settings change.",
@@ -216,7 +216,9 @@ def confirmation_age(now, confirmed_at):
 
 
 def confirmed_power(response):
-    """Describe uniform controller readback, never optical or continuously live state."""
+    """Describe confirmed drive readback, never optical or continuously live state."""
+    if response.get("state") == "ready" and response.get("power") in ("on", "off"):
+        return response["power"]
     if response.get("state") == "ready" and response.get("baseline") in PRESETS:
         return "off" if response["baseline"] == "Off" else "on"
     values = response.get("words")

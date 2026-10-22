@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "app_version": "0.2.0",
+  "app_version": "0.2.1",
   "icons": {
     "tools": [
       {
@@ -778,7 +778,7 @@
     {
       "title": "Room controls",
       "icon": "home",
-      "text": "Home always returns to everyday lighting controls. Opening a page does not change the lights.\n\nLegacy opens the original interface after restoring the starting lighting scene. Use Home in the Legacy bar to return.\n\nLift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller."
+      "text": "Home always returns to everyday lighting controls. Opening a page does not change the lights.\n\nLegacy opens the original interface without changing the lights. Use Home in the Legacy bar to return; the current settings stay in place.\n\nLift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller."
     },
     {
       "title": "Sensors and experiments",

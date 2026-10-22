@@ -40,8 +40,8 @@ No blind adapter is installed. Screen & controls explains this and can show or h
 the Home controls. The saved movement permission defaults to Locked; no unlock
 control is offered while the adapter is disconnected. Changing visibility never
 moves equipment or grants permission. Room tools keeps detailed controls together.
-The header identifies Beta and provides a direct Legacy shortcut with its existing
-restoration handover. In Legacy, the matching top bar identifies Legacy view;
+The header identifies Beta and provides a direct Legacy shortcut that keeps the
+current light settings. In Legacy, the matching top bar identifies Legacy view;
 Home returns to the main controls. Room tools opens each tool directly beside the sidebar and
 remembers the last tool. Experiment mode runs instructions and panel annotations;
 its recorder is not connected.
@@ -99,7 +99,10 @@ offers Off, 1, 5 or 15 minutes. Idle does not interrupt Experiment mode, Legacy,
 touches, pending commands or uncertain lighting. Preferences save appearance and
 idle choices, not light settings or recording state.
 
-Opening Legacy restores the panel's starting light scene before handing over control.
+Beta and Legacy are two views of the room controls. Switching between them keeps
+the current light settings, including Gradient and custom mixtures. Only an
+explicit lighting action changes the lights. The separate bounded-trial command
+below retains its starting-scene restoration behavior.
 If a result is uncertain, stop changing lights and ask the room host. **Room tools →
 System & help** shows checks and operator instructions; it does not execute
 commands. The visitor guide also operates no devices. A two-second stationary

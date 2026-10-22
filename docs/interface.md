@@ -54,7 +54,7 @@ another experiment owns import, clock association and participant handling.
 The UI launches one subprocess using inherited, validated deployment ROS settings.
 After initialization, the helper sends `{"version": 1, "state": "initialized"}`.
 The UI then sends a fresh acquire request, or release if navigation already ended
-the trial. It ignores duplicate initialization messages. Pipes carry JSON lines.
+the session. It ignores duplicate initialization messages. Pipes carry JSON lines.
 Requests have:
 
 ```json
@@ -75,7 +75,12 @@ Heartbeat needs no request ID and produces no response.
 
 Replies echo `version` and `request_id`. States are `ready`, `completed`,
 `released` or `failed`. Success includes fixture count and relevant baseline,
-words or restoration flag. Failure includes detail and whether outcome is unknown.
+words or release flags. Persistent `--keep-settings` acquisition admits any stable
+snapshot and reports its confirmed `power`; `baseline` is null for a custom mix.
+Its release returns `preserved: true, restored: false` without a fixture setter.
+This applies to Legacy navigation, normal shutdown and parent loss. Bounded trials
+omit that flag, require an exactly restorable preset and retain `restored: true`
+on successful cleanup. Failure includes detail and whether outcome is unknown.
 Unknown extra fields are ignored; unsupported versions are refused.
 
 Only one request is in flight. Requests are capped at 4096 bytes; buffers at
@@ -150,7 +155,7 @@ references are display/copy text, never command actions.
 Pi power actions use `power` with exactly `operation` (`reboot` or `shutdown`)
 and `confirmed: true`. They share the existing network and revision checks.
 The owner refuses busy, running-instruction, Legacy and uncertain-light states,
-then requires confirmed restoration, helper exit, saved preferences and a durable
+then requires confirmed ownership release, helper exit, saved preferences and a durable
 power-request record before one fixed OS command. Existing noninteractive
 permission and OS inhibitors are respected; no new privilege rule or automatic
 retry is installed. These actions affect this Pi and website, not room computers
@@ -185,7 +190,8 @@ target. Window groups need an explicit mapping; client list order is not a room 
 Every queued intent and receipt must include its immutable target. Invalid or
 missing target identities must be rejected rather than falling back to All.
 Per-fixture writes must verify unaffected fixtures, preserve the owner's expected
-state and retain exact starting-state restoration. Blind ownership, naming,
+state and preserve current settings during view changes. Exact restoration remains
+a separate bounded-trial requirement. Blind ownership, naming,
 response/readback and completion semantics need qualification before wiring its
 controller; a setting alone cannot establish those capabilities.
 

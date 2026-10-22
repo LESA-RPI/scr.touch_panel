@@ -21,7 +21,7 @@ def snapshot(panel):
         and panel.light_state == "ready"
         and not busy
         and not panel.running
-        and (panel.mode == "room" or panel.idle_active)
+        and panel.mode not in ("original", "black")
     )
     elapsed = panel.elapsed + (
         time.monotonic() - panel.run_started if panel.running else 0

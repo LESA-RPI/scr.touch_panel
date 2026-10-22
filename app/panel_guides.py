@@ -14,7 +14,7 @@ DEMO = (
         "Room controls",
         "home",
         "Home always returns to everyday lighting controls. Opening a page does not change the lights.\n\n"
-        "Legacy opens the original interface after restoring the starting lighting scene. Use Home in the Legacy bar to return.\n\n"
+        "Legacy opens the original interface without changing the lights. Use Home in the Legacy bar to return; the current settings stay in place.\n\n"
         "Lift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller.",
     ),
     (

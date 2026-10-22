@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 """Optional SCR light adapter. Author: Diyanko Bhowmik, with Codex assistance.
 
-Uses the existing ROS owner. No discovery, scene control, blinds or raw sockets.
-The temporary trial admits only uniform, known integer-percent baselines because
-the installed ROS setter cannot restore arbitrary 16-bit drive words exactly.
+Uses the existing ROS owner. Persistent room control keeps settings on release;
+bounded trials restore only exactly reproducible, uniform starting presets.
 """
 
 from __future__ import print_function
@@ -67,8 +66,9 @@ def restore_preset(snapshot):
 
 
 class Lights(object):
-    def __init__(self, call, can_write=lambda: None):
+    def __init__(self, call, can_write=lambda: None, keep_settings=False):
         self.call, self.can_write = call, can_write
+        self.keep_settings = keep_settings
         self.baseline = self.current = None
         self.baseline_name = None
         self.changed = self.failed = False
@@ -89,11 +89,21 @@ class Lights(object):
         if self.baseline is not None:
             raise ValueError("Lighting trial already acquired")
         state = self.read()
-        name = restore_preset(state)
+        try:
+            name = restore_preset(state)
+        except ValueError:
+            if not self.keep_settings:
+                raise
+            name = None
         if self.read() != state:
             raise ValueError("Light settings are changing; live controls stay off")
         self.baseline, self.current, self.baseline_name = state, state, name
-        return {"state": "ready", "baseline": name, "fixtures": 10}
+        return {
+            "state": "ready",
+            "baseline": name,
+            "power": "on" if any(any(values) for values in state.values()) else "off",
+            "fixtures": 10,
+        }
 
     def apply(self, action, arguments):
         if self.failed or self.baseline is None:
@@ -153,6 +163,15 @@ class Lights(object):
             raise ValueError(
                 "Outcome unknown; no automatic restore or retry. Inspect the retained receipt"
             )
+        if self.keep_settings:
+            self.baseline = self.current = None
+            self.changed = False
+            return {
+                "state": "released",
+                "restored": False,
+                "preserved": True,
+                "detail": "Lighting ownership released; current settings unchanged",
+            }
         if self.baseline is None or not self.changed:
             self.baseline = self.current = None
             return {
@@ -200,6 +219,11 @@ def main():
         "--status-only",
         action="store_true",
         help="Read advertised services only; no ROS node or fixture queries",
+    )
+    parser.add_argument(
+        "--keep-settings",
+        action="store_true",
+        help="Release ownership without restoring lights (persistent room control)",
     )
     args = parser.parse_args()
     if (
@@ -324,7 +348,7 @@ def main():
         ):
             raise ValueError("Panel lease ended before dispatch; no command sent")
 
-    lights = Lights(call, can_write)
+    lights = Lights(call, can_write, keep_settings=args.keep_settings)
 
     def record(event, **values):
         values.update(event=event, epoch_s=time.time(), pid=os.getpid())

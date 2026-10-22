@@ -24,10 +24,12 @@ python -B app/scr_touch_panel.py --duration 600 --live-lights \
   --journal /tmp/scr-panel-connected-unique.jsonl
 ```
 
-Acquire requires two matching scans and one uniform Fid, Sat, Dul or Off preset.
-Arbitrary drive words and Standard white baselines are refused because their
-exact restore path is not qualified. Use Legacy to establish an
-admitted baseline when no other study holds lighting, then re-enter Room.
+The bounded trial above requires two matching scans and one uniform Fid, Sat, Dul
+or Off preset, because it restores that preset when finished. Arbitrary drive
+words cannot be restored exactly by the existing integer-percent setter.
+The installed persistent launcher uses `--keep-switcher`; its helper uses
+`--keep-settings` instead. It accepts any stable ten-fixture snapshot, including
+Gradient, and never restores lighting on navigation, shutdown or parent loss.
 
 One Tk process owns display interaction. One helper owns this trial's ROS calls.
 The helper checks all fixture words before each write and after its response.
@@ -49,21 +51,24 @@ step or the complete topic and provides documentation links. Neither interface
 executes these references. Service-start commands use `cd ... && python ...` so
 a failed directory change cannot launch the script from another directory.
 
-Legacy waits for confirmed restoration and helper exit before showing
-the legacy program. Its matching header marks Legacy view; Home returns to the
+Legacy waits for confirmed ownership release and helper exit before showing
+the legacy program. Neither direction changes lighting. Its matching header marks Legacy view; Home returns to the
 main controls. Room tools and Demo & guide remain directly available. The strip
 keeps the existing banner footprint and does not cover actuator buttons.
 
 The helper has a ten-second parent lease and 30-second operation budget, with
-individual service calls bounded to at most twelve seconds. Parent loss triggers
-cleanup only when the last confirmed drive state still matches. A lost response
-or external change disables further writes and automatic restoration. Never retry
+individual service calls bounded to at most twelve seconds. Persistent control
+releases without setters; bounded trials restore only while the last confirmed
+drive state still matches. A lost response or external change disables further
+writes and automatic trial restoration. Never retry
 an uncertain write. Inspect the private `.lights-*.jsonl` receipt and coordinate
 with staff before controlling again.
 
-Deadlines do not bound filesystem stalls or ROS initialization. The normal UI
-waits for restoration; process exit alone does not prove that lights were restored.
-`SIGKILL` or host power loss cannot guarantee restoration.
+Deadlines do not bound filesystem stalls. An initializing helper is cancelled
+after 30 seconds without sending a lighting command. The normal UI
+waits for ownership release; a process exit alone cannot confirm an in-flight
+lighting result. A helper still initializing can be cancelled without a write.
+`SIGKILL` or host power loss cannot guarantee bounded-trial restoration.
 
 Blank screen displays black pixels. A stationary two-second press returns to the
 previous view; movement beyond 40 pixels cancels. The backlight remains powered.
@@ -189,8 +194,9 @@ Terminal=false
 
 The launcher uses `--keep-switcher --duration 0`. Legacy, Escape and a window
 close return to Legacy after helper cleanup; the touch strip remains. Returning
-to Room checks a fresh baseline. If restoration is uncertain, inspect the receipt
-before changing lights. Signal shutdown still stops the switcher.
+to Room reads the current settings without a write. If a result is uncertain,
+inspect the receipt before changing lights. Signal shutdown stops the switcher
+and leaves confirmed light settings in place.
 
 User autostart runs only after desktop login. Check the actual display manager
 and session before enabling autologin; use that OS's supported configuration.
@@ -240,9 +246,9 @@ challenge alone is insufficient for unattended execution. Existing narrowly
 authorized noninteractive operator commands may supply an alternative. An unavailable
 action requires the operator's normal desktop or administration workflow.
 
-Before requesting OS power changes, finish lighting operations, confirm restoration
+Before requesting OS power changes, finish lighting operations, confirm ownership release
 and helper exit, and wait for saved preferences and the event journal to finish.
-Uncertain restoration or a persistence error blocks the action. Do not use forced
+An uncertain lighting result or a persistence error blocks the action. Do not use forced
 shutdown or a direct power cut as the normal procedure. An accepted restart is
 not proof of a successful boot: check desktop autostart, one panel/controller,
 website availability and the new release identity afterward.
@@ -304,7 +310,7 @@ packages with pip. The room server remains unchanged.
    `app/run_original.py` supplies Tk/Pillow aliases without modifying original code.
 9. Add the owned XDG autostart entry shown above. Bookworm's labwc desktop calls
    `lxsession-xdg-autostart`; existing desktop autologin must also be enabled.
-10. Check Beta → Legacy → Beta, settings, dynamic lighting and baseline restoration.
+10. Check Beta → Legacy → Beta without lighting changes, settings and dynamic lighting.
     Confirm one process of each application and test duplicate launcher rejection.
     An unattended reboot is a separate final acceptance check.
 
