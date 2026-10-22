@@ -109,6 +109,10 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         self.blinds_display = getattr(args, "blinds_display", "disabled")
         self.blinds_enabled = getattr(args, "blinds_enabled", False)
         self.blind_controller = None
+        self.blinds_connected = False
+        self.light_capabilities = {}
+        self.programme = None
+        self.programme_buttons = []
         self.blind_buttons = []
         self.idle_active, self.press_active = False, False
         self.clock_24 = getattr(args, "clock_format", "24") == "24"
@@ -1052,7 +1056,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             self.home_power_buttons,
             self.scene_buttons,
             self.blind_buttons,
-        ) = ([], [], [], [])
+            self.programme_buttons,
+        ) = ([], [], [], [], [])
 
     def remember_detail(self):
         key = self.advanced_detail_key
@@ -1091,7 +1096,11 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         )
         return blind_readiness(
             getattr(self, "blinds_enabled", False),
-            bool(controller and controller.connected),
+            bool(controller and controller.connected) or bool(
+                getattr(self, "blinds_connected", False)
+                and getattr(self, "worker_ready", False)
+                and self.worker and self.worker.poll() is None
+            ),
             busy,
         )
 
@@ -1102,8 +1111,38 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         if not readiness["available"]:
             self.status_text.set("Blinds · " + readiness["detail"])
             return False
-        # An optional owner adapter must enqueue without blocking Tk. No driver is installed here.
-        self.blind_controller.submit(name)
+        if self.blind_controller is not None:
+            self.blind_controller.submit(name)
+            return True
+        if not self.request("blind", {"name": name}):
+            return False
+        self.light_state = "applying"
+        self.lighting_feedback("Blind movement requested. Waiting for controller response.")
+        self.update_light_buttons()
+        return True
+
+    def programme_available(self):
+        return bool(
+            getattr(self, "light_capabilities", {}).get("programmes")
+            and getattr(self, "worker_ready", False)
+            and self.worker and self.worker.poll() is None
+            and not self.pending and not self.release_target and not self.closing
+            and not self.running and self.mode not in ("original", "black")
+            and self.light_state != "disconnected"
+            and (self.light_state != "failed" or not self.light_changes_requested)
+        )
+
+    def programme_command(self, name):
+        if name not in ("Sun", "Circ", "Stop"):
+            raise ValueError("Unknown programme")
+        if not self.programme_available() or (self.light_state == "failed" and name != "Stop"):
+            return False
+        self.cancel_intent()
+        if not self.request("programme", {"name": name}):
+            return False
+        self.light_state = "applying"
+        self.lighting_feedback("Programme request sent. Waiting for the original service.")
+        self.update_light_buttons()
         return True
 
     def update_blind_buttons(self):
@@ -1211,6 +1250,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             self.cct_apply() if drag[1] == "cct" else self.channels_apply()
 
     def preset(self, name):
+        if name == "Gradient":
+            self.apply("gradient", immediate=True)
+            return
         for variable, value in zip(self.channel_values, PRESETS[name]):
             variable.set(value)
         self.apply("channels", immediate=True, values=list(PRESETS[name]))
@@ -1303,6 +1345,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                     state=(
                         "normal"
                         if self.light_state in ("ready", "applying")
+                        and (not getattr(button, "_gradient", False)
+                             or getattr(self, "light_capabilities", {}).get("gradient"))
                         and not self.release_target
                         and not self.closing
                         and not getattr(self, "running", False)
@@ -1311,6 +1355,12 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 )
         self.update_power_highlights()
         self.update_blind_buttons()
+        for button in getattr(self, "programme_buttons", []):
+            if button.winfo_exists():
+                allowed = self.programme_available() and (
+                    self.light_state != "failed" or getattr(button, "_programme", None) == "Stop"
+                )
+                button.config(state="normal" if allowed else "disabled")
 
     def start_preview(self):
         if self.power_busy():
@@ -1839,6 +1889,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         ]
         if self.keep_switcher:
             command.append("--keep-settings")
+        if getattr(self.args, "status_url", None):
+            command.extend(["--status-url", self.args.status_url])
         self.release_confirmed = self.light_changes_requested = False
         self.worker_started = monotonic()
         try:
@@ -1863,6 +1915,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         self.lighting_feedback("Checking the current light settings…")
         self.worker_buffer = ""
         self.worker_ready = False
+        self.light_capabilities = {}
+        self.blinds_connected = False
 
     def request(self, action, arguments=None):
         if (
@@ -1881,7 +1935,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             "sent_monotonic_s": monotonic(),
         }
         self.emit("light_requested", request=item)
-        if action in ("cct", "channels"):
+        if action in ("cct", "channels", "gradient", "programme", "blind"):
             # A lost pipe response must never permit an unverified controller handoff.
             self.light_changes_requested = True
         elif action == "release":
@@ -2017,6 +2071,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                     and not self.worker_ready
                     and self.light_state == "connecting"
                 ):
+                    self.light_capabilities = response.get("capabilities", {})
+                    self.blinds_connected = response.get("blinds_connected") is True
                     self.worker_ready = True
                     self.request(
                         "release" if self.release_target or self.closing else "acquire"
@@ -2032,6 +2088,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                     "release": ("released", "failed"),
                     "cct": ("completed", "failed"),
                     "channels": ("completed", "failed"),
+                    "gradient": ("completed", "failed"),
+                    "programme": ("completed", "failed"),
+                    "blind": ("completed", "failed"),
                 }.get(self.pending["action"], ())
                 if response.get("version") != 1 or response.get("state") not in expected:
                     self.fail_worker("Invalid adapter reply; controls disabled. Ask staff.")
@@ -2040,6 +2099,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 action = completed_request["action"]
                 self.emit("light_result", result=response)
                 state = response["state"]
+                self.light_capabilities = response.get("capabilities", getattr(self, "light_capabilities", {}))
+                self.blinds_connected = response.get("blinds_connected", getattr(self, "blinds_connected", False)) is True
+                self.programme = response.get("programme", getattr(self, "programme", None))
                 self.light_state = {
                     "completed": "ready",
                     "released": "disconnected",
@@ -2049,7 +2111,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                     # Full exception text remains in the emitted result/receipt.
                     # Keep the touch feedback bounded, even for verbose ROS errors.
                     detail = "Result unconfirmed. Controls disabled; ask staff."
-                if state == "completed":
+                if state == "completed" and action not in ("programme", "blind"):
                     self.confirmed_light = light_selection(
                         action, completed_request["arguments"]
                     )
@@ -2057,6 +2119,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                     self.confirmed_power = confirmed_power(response)
                     self.confirmed_scene = confirmed_scene(response)
                     detail = "Light settings confirmed."
+                elif state == "completed" and action == "programme":
+                    self.confirmed_light = "Programme request accepted; live state unavailable"
+                    self.confirmed_at = self.confirmed_power = self.confirmed_scene = None
                 elif state == "ready":
                     detail = "Lighting ready."
                     baseline = response.get("baseline")
@@ -2412,6 +2477,11 @@ def main(argv=None):
         "--adapter-python",
         default="/usr/bin/python2.7",
         help="Installed ROS interpreter, independent of the UI",
+    )
+    parser.add_argument(
+        "--status-url",
+        default=os.environ.get("SCR_STATUS_URL"),
+        help="Existing Legacy programme service, from private deployment configuration",
     )
     parser.add_argument(
         "--expected-master",

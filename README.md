@@ -1,18 +1,17 @@
 # SCR room touch panel
 
 Touch controls and room guidance for the LESA Smart Conference Room. **Legacy**
-is the original room application. The current touch interface adds direct room controls and touch access
-to Legacy. It does not yet cover every Legacy feature.
+is the original room application. Beta provides touch and browser room controls,
+with Legacy preserved as the fallback.
 
-The fresh Raspberry Pi OS setup, touch interface and trusted-network website are
-reviewed together
-in [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1), on
-`experiment/fresh-pi-setup-20261013`. `main` remains the earlier baseline until
-promotion. An installed cabinet may run a different commit; check its release
-identity before maintenance.
+The current navigation, reliability and Legacy-parity changes are reviewed in
+[PR #3](https://github.com/LESA-RPI/scr.touch_panel/pull/3), on
+`fix/panel-navigation-transitions`. The earlier setup is recorded in
+[PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1). An installed cabinet may
+run a different commit; check its release identity before maintenance.
 
-The current version is **0.2.0**. Keep it in
-[app/panel_version.py](app/panel_version.py); small fixes can use `0.2.1`.
+The current source version is **0.2.2**, owned by
+[app/panel_version.py](app/panel_version.py).
 It is for About and internal development/GitHub tracking; everyday headers say
 Beta. Legacy is the preserved older baseline for backtracking, identified by Git
 history rather than an invented release number. The Git commit identifies exactly
@@ -23,21 +22,26 @@ separate release process are required.
 
 | Screen | Purpose |
 |---|---|
-| Home | Stacked Lights on/off beside clock/weather; disabled blinds can be shown or hidden |
+| Home | Lights on/off, optional blind controls and clock/weather |
 | Room tools | Lighting, Experiment mode, system/help and device preferences in one sidebar |
 | Demo & guide | Four directly selectable topics, with Previous/Next and All topics; no equipment or recording starts |
 
 Home is the default screen. Room tools → Lighting groups **White light, Scenes,
 Programmes and Channels**. Fid, Sat and Dul retain their original mixtures.
-Gradient is the original spatial pattern; Sun is a travelling light cycle and
-Circ cycles the room together. Their fixture/programme adapters are not connected
-in this interface yet; one unavailable note replaces their inactive controls. Legacy remains
-available for the original implementations. Empty Dynamic CCT, Dynamic Intensity
-and Auto placeholders and the old Enable Sliders gate are omitted.
+Scenes also offers the original ten-light Gradient when its service is available.
+Programmes provides the original Sun and Circ Start controls and Stop programmes
+when the existing programme service is configured. Sun staggers its curve across
+the room; Circ applies its curve to the room together. A programme acknowledgement
+confirms only that the request was accepted, not that the programme is running.
+An explicit manual lighting action stops programmes and checks stable drive settings
+before applying. Opening another page or switching Beta/Legacy does not stop a programme.
+Empty Dynamic CCT, Dynamic Intensity and Auto placeholders and the old Enable
+Sliders gate are omitted.
 
-Home includes Lift blinds, Open slats and Close & lower as disabled references.
-No blind adapter is installed. Screen & controls explains this and can show or hide
-the Home controls. The saved movement permission defaults to Locked; no unlock
+Home includes Lift blinds, Open slats and Close & lower through the shared room
+controller when its blind services are available. Service acceptance does not
+measure physical blind position. Screen & controls can show or hide the Home
+controls. The saved movement permission defaults to Locked; no unlock
 control is offered while the adapter is disconnected. Changing visibility never
 moves equipment or grants permission. Room tools keeps detailed controls together.
 The header identifies Beta and provides a direct Legacy shortcut that keeps the
@@ -69,6 +73,9 @@ slow reads do not hold up touches.
 Home, the screen saver and Lighting tabs reuse their existing widgets when you
 return. Readback, availability and slider bindings refresh before controls are
 shown; this does not cache lighting commands or bypass controller checks.
+Browsing Guide, Settings, About or paused Experiment mode does not disable lighting
+on the other interface. Running instructions, pending work, Legacy, a blank panel
+and uncertain results retain their control guards.
 
 White light shows the minimum and maximum beside each slider. System & help
 separates panel health, room connection and guidance. Reference commands are
@@ -118,7 +125,7 @@ needed. The commands below select the reviewed development branch explicitly:
 ```sh
 git clone https://github.com/LESA-RPI/scr.touch_panel.git
 cd scr.touch_panel
-git switch experiment/fresh-pi-setup-20261013
+git switch fix/panel-navigation-transitions
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r app/requirements.txt
@@ -169,9 +176,10 @@ Run `python -m pytest tests` with pytest installed. Tests cover contracts,
 restoration, uncertain operations, preferences and idle guards. UI changes also
 need target font, internal text-fit, touch and failure-state checks.
 
-Bounded Pi navigation, lighting and autostart trials have passed. Undervoltage,
-prolonged reliability, untested Legacy demos/blinds and replacement hardware
-remain acceptance limits. Service presence is not physical device health. Experiment mode
+Earlier bounded Pi navigation, lighting and autostart trials are historical evidence;
+qualify the current release against the installed configuration before use.
+Prolonged reliability, physical blind motion and replacement hardware remain
+acceptance checks. Service presence is not physical device health. Experiment mode
 journals have `recording: false`; recorder integration needs a separate adapter.
 
 General panel code belongs here. Project-X owns its optional recorder integration.

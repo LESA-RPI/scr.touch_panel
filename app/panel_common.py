@@ -1,6 +1,7 @@
 """Shared panel values and pure presentation helpers; no controller instance."""
 
 from scr_touch_panel_lights import PRESETS
+from room_controls import BLIND_ACTIONS
 from design_tokens import THEMES
 import argparse
 import json
@@ -35,6 +36,7 @@ ADVANCED_PAGES = [
 # Only presentation references travel with retained pages. Controller state, intent
 # generations and preferences always belong to the live Panel, never a cached page.
 PAGE_REFERENCES = (
+    "programme_buttons",
     "light_buttons",
     "home_power_buttons",
     "scene_buttons",
@@ -193,6 +195,12 @@ def scheduled_theme(now, light_at, dark_at):
 
 def light_selection(action, arguments):
     """Describe requested controller inputs; never imply optical measurement."""
+    if action == "gradient":
+        return "Gradient scene"
+    if action == "programme":
+        return "Stop programmes" if arguments["name"] == "Stop" else arguments["name"] + " programme"
+    if action == "blind":
+        return dict(BLIND_ACTIONS)[arguments["name"]]
     if action == "cct":
         return "%d K input / level %d" % (arguments["cct"], arguments["intensity"])
     values = tuple(arguments["values"])
@@ -217,6 +225,8 @@ def confirmation_age(now, confirmed_at):
 
 def confirmed_power(response):
     """Describe confirmed drive readback, never optical or continuously live state."""
+    if response.get("state") == "completed" and response.get("scene") == "Gradient" and response.get("fixtures") == 10:
+        return "on"
     if response.get("state") == "ready" and response.get("power") in ("on", "off"):
         return response["power"]
     if response.get("state") == "ready" and response.get("baseline") in PRESETS:
@@ -237,6 +247,8 @@ def confirmed_power(response):
 
 def confirmed_scene(response):
     """Match an admitted baseline or exact confirmed drive words, never a selection."""
+    if response.get("state") == "completed" and response.get("scene") == "Gradient" and response.get("fixtures") == 10:
+        return "Gradient"
     if response.get("state") == "ready" and response.get("baseline") in PRESETS:
         return response["baseline"]
     if response.get("state") == "completed" and confirmed_power(response) is not None:

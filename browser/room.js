@@ -130,8 +130,16 @@ function command(action, args = {}, revision = state?.revision) {
         );
         return true;
       }
+      if (action === 'programme') {
+        message(
+          args.name === 'Stop'
+            ? 'Stop requested. Programme running state is not confirmed.'
+            : args.name + ' start requested. Programme running state is not confirmed.',
+        );
+        return true;
+      }
       message(
-        action === 'on' || action === 'off' || ['cct', 'channels', 'preset'].includes(action)
+        ['on', 'off', 'cct', 'channels', 'preset', 'gradient'].includes(action)
           ? 'Sent. Waiting for controller confirmation.'
           : 'Accepted by the panel.',
         true,
@@ -496,11 +504,14 @@ function tools(root, page) {
     display.append(actions);
     const blinds = setting(detail, 'Blind controls', '');
     blinds.previousElementSibling.querySelector('p').id = 'blind-reason';
-    if (state?.blinds?.connected)
-      choices(blinds, [
-        ['Locked', 'blinds_enabled', false],
-        ['Unlocked', 'blinds_enabled', true],
-      ]);
+    const permission = el('div');
+    permission.id = 'blind-permission';
+    permission.hidden = !state?.blinds?.connected;
+    choices(permission, [
+      ['Locked', 'blinds_enabled', false],
+      ['Unlocked', 'blinds_enabled', true],
+    ]);
+    blinds.append(permission);
     choices(setting(detail, 'Blinds on Home', 'Show the blind buttons on Home.'), [
       ['Show', 'blinds_display', 'disabled'],
       ['Hide', 'blinds_display', 'hidden'],
@@ -551,10 +562,69 @@ function lighting(detail, tab) {
       card.append(el('h3', scene.label), el('p', scene.detail, 'muted'), b);
       grid.append(card);
     }
+    const gradient = el('section', undefined, 'card');
+    gradient.id = 'gradient-controls';
+    gradient.hidden = !state?.lights?.capabilities?.gradient;
+    const apply = button('Apply gradient', () => command('gradient'), {
+      action: 'gradient',
+    });
+    apply.dataset.preset = 'Gradient';
+    gradient.append(
+      el('h3', content.gradient?.label || 'Gradient'),
+      el(
+        'p',
+        content.gradient?.detail || 'Original spatial pattern across the ten room lights.',
+        'muted',
+      ),
+      apply,
+    );
+    grid.append(gradient);
     detail.append(grid);
     feedback(detail);
   } else if (tab === 'programmes') {
-    detail.append(el('p', content.unavailable_lighting, 'muted'));
+    const unavailable = el(
+      'p',
+      content.unavailable_lighting || 'Original lighting programmes are unavailable on this panel.',
+      'muted',
+    );
+    unavailable.id = 'programmes-unavailable';
+    const controls = el('div');
+    controls.id = 'programme-controls';
+    controls.hidden = !state?.lights?.capabilities?.programmes;
+    const grid = el('div', undefined, 'scene-grid');
+    for (const programme of content.programmes || [
+      {
+        id: 'Sun',
+        label: 'Original Sun programme',
+        detail: 'A spatially staggered colour-temperature curve.',
+      },
+      {
+        id: 'Circ',
+        label: 'Original Circ programme',
+        detail: 'A whole-room colour-temperature curve.',
+      },
+    ]) {
+      const card = el('section', undefined, 'card');
+      const start = button(
+        'Start ' + programme.id,
+        () => command('programme', { name: programme.id }),
+        { action: 'programme' },
+      );
+      start.dataset.programme = programme.id;
+      card.append(el('h3', programme.label), el('p', programme.detail, 'muted'), start);
+      grid.append(card);
+    }
+    const stop = button(
+      'Stop programmes',
+      () => command('programme', { name: 'Stop' }),
+      { action: 'programme' },
+    );
+    stop.dataset.programme = 'Stop';
+    const status = el('p', '', 'muted');
+    status.id = 'programme-status';
+    status.setAttribute('role', 'status');
+    controls.append(grid, stop, status);
+    detail.append(unavailable, controls);
   } else if (tab === 'channels') {
     detail.append(el('p', 'Adjust the eight room-wide channel percentages.', 'muted'));
     const grid = el('div', undefined, 'channel-grid');
@@ -1060,9 +1130,20 @@ function sync() {
     'blind-reason',
     state?.blinds?.connected ? state.blinds.reason : content.blinds_unavailable,
   );
+  if ($('blind-permission')) $('blind-permission').hidden = !state?.blinds?.connected;
+  if ($('gradient-controls')) $('gradient-controls').hidden = !s.capabilities?.gradient;
+  if ($('programme-controls')) $('programme-controls').hidden = !s.capabilities?.programmes;
+  if ($('programmes-unavailable'))
+    $('programmes-unavailable').hidden = !!s.capabilities?.programmes;
+  update(
+    'programme-status',
+    s.programme
+      ? s.programme + ' programme requested. Running state is not confirmed.'
+      : 'No programme selected by this panel. Running state is not confirmed.',
+  );
   for (const b of document.querySelectorAll('[data-action]')) {
     const a = b.dataset.action,
-      lighting = ['on', 'off', 'cct', 'preset', 'channels'].includes(a),
+      lighting = ['on', 'off', 'cct', 'preset', 'channels', 'gradient'].includes(a),
       session = ['start', 'pause', 'previous', 'next', 'mark'].includes(a);
     b.disabled =
       posting ||
@@ -1070,13 +1151,18 @@ function sync() {
       !available ||
       state.busy ||
       (['legacy', 'blank', 'clock_view'].includes(a) && state.experiment?.running) ||
-      (a === 'blind'
-        ? !state?.blinds?.available
-        : lighting
-          ? !state.can_control
-          : session
-            ? !state.can_session
-            : false);
+      (a === 'programme'
+        ? state.can_programme === false || !s.capabilities?.programmes ||
+          (b.dataset.programme !== 'Stop' && !state.can_control)
+        : a === 'gradient'
+          ? !s.capabilities?.gradient || !state.can_control
+          : a === 'blind'
+            ? !state?.blinds?.available
+            : lighting
+              ? !state.can_control
+              : session
+                ? !state.can_session
+                : false);
   }
   for (const input of document.querySelectorAll('[data-range]')) {
     const number = $('value-' + input.dataset.range);
@@ -1102,11 +1188,12 @@ function sync() {
       'selected',
       available && !posting && !unknown && s.power === b.dataset.action && state.can_control,
     );
-  for (const b of document.querySelectorAll('[data-preset]'))
-    b.classList.toggle(
-      'selected',
-      available && !posting && !unknown && s.scene === b.dataset.preset && state.can_control,
-    );
+  for (const b of document.querySelectorAll('[data-preset]')) {
+    const selected =
+      available && !posting && !unknown && s.scene === b.dataset.preset && state.can_control;
+    b.classList.toggle('selected', selected);
+    b.setAttribute('aria-pressed', String(selected));
+  }
   update(
     'light-message',
     !available
@@ -1117,7 +1204,9 @@ function sync() {
         ? 'Instructions are running. Pause Experiment mode before using lighting.'
         : !state.can_control && ['original', 'black', 'experiment'].includes(state.mode)
           ? 'Return the touch panel to Home to use lighting.'
-          : s.message || 'Lighting unavailable.',
+          : s.programme
+            ? 'Manual lighting stops programmes before applying.'
+            : s.message || 'Lighting unavailable.',
   );
   update(
     'light-recent',

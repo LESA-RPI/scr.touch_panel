@@ -7,7 +7,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
 from export_room_content import content
 from panel_version import VERSION
-from room_controls import SCENES
+from room_controls import SCENES, GRADIENT, PROGRAMMES
 from scr_touch_panel_lights import PRESETS
 
 
@@ -23,3 +23,11 @@ def test_browser_and_panel_scenes_use_the_qualified_mixtures():
     exported = content()
     assert set(scene["id"] for scene in SCENES) == set(PRESETS) - {"Off"}
     assert exported["presets"] == PRESETS
+
+
+def test_browser_extended_lighting_uses_shared_metadata_and_separate_actions():
+    exported = content()
+    assert exported["gradient"] == GRADIENT
+    assert exported["programmes"] == PROGRAMMES
+    assert GRADIENT["id"] not in PRESETS
+    assert {programme["id"] for programme in PROGRAMMES} == {"Sun", "Circ"}

@@ -7,11 +7,12 @@ const source = fs.readFileSync(path.join(__dirname, '../browser/room.js'), 'utf8
 
 function website(respond, snapshot = () => ({available:true, session:'owner-one', revision:'one'})) {
   const elements = new Map();
-  for (const id of ['legacy-return', 'message', 'connection', 'legacy-banner', 'panel-mode-message', 'light-message', 'light-recent'])
+  for (const id of ['legacy-return', 'message', 'connection', 'legacy-banner', 'panel-mode-message', 'light-message', 'light-recent', 'blind-permission', 'gradient-controls', 'programme-controls', 'programmes-unavailable', 'programme-status'])
     elements.set(id, {dataset:{}, textContent:''});
   const commands = [];
+  const actionButtons = [];
   const context = vm.createContext({
-    document: {getElementById:id => elements.get(id) || null, querySelectorAll:() => [], addEventListener() {}, hidden:false},
+    document: {getElementById:id => elements.get(id) || null, querySelectorAll:selector => selector === '[data-action]' ? actionButtons : [], addEventListener() {}, hidden:false},
     window: {addEventListener() {}}, matchMedia:() => ({addEventListener() {}}),
     setInterval() {}, setTimeout() {return 1;}, clearTimeout() {},
     crypto: require('node:crypto').webcrypto, AbortSignal,
@@ -26,7 +27,7 @@ function website(respond, snapshot = () => ({available:true, session:'owner-one'
   vm.runInContext(source, context);
   context.shippedSync = vm.runInContext('sync', context);
   vm.runInContext("sync = () => {}; state = {available:true, session:'owner-one', revision:'one', csrf:'local'}; view='home';", context);
-  return {context, commands, run:script => vm.runInContext(script, context)};
+  return {context, commands, actionButtons, run:script => vm.runInContext(script, context)};
 }
 
 (async () => {
@@ -65,6 +66,34 @@ function website(respond, snapshot = () => ({available:true, session:'owner-one'
     display.run(`state = {available:true, mode:${JSON.stringify(mode)}, can_control:false, lights:{}}; shippedSync();`);
     assert.equal(display.run("$('legacy-banner').hidden"), false);
     assert.match(display.run("$('light-message').textContent"), /Return the touch panel to Home/);
+  }
+  display.run("state = {available:true, mode:'room', can_control:true, lights:{}, blinds:{connected:true}}; shippedSync();");
+  assert.equal(display.run("$('blind-permission').hidden"), false, 'Connected blind settings appear without rebuilding the page');
+  display.run('state.blinds.connected = false; shippedSync();');
+  assert.equal(display.run("$('blind-permission').hidden"), true, 'Disconnected blind settings hide without rebuilding the page');
+  const start = {dataset:{action:'programme', programme:'Sun'}},
+    stop = {dataset:{action:'programme', programme:'Stop'}},
+    gradient = {dataset:{action:'gradient'}};
+  display.actionButtons.push(start, stop, gradient);
+  display.run("state = {available:true, mode:'room', can_control:false, lights:{state:'failed', capabilities:{gradient:true, programmes:true}}}; shippedSync();");
+  assert.equal(start.disabled, true);
+  assert.equal(gradient.disabled, true);
+  assert.equal(stop.disabled, false, 'Stop remains usable without lighting readiness');
+  assert.equal(display.run("$('programme-controls').hidden"), false);
+  display.run('state.can_control = true; shippedSync();');
+  assert.equal(start.disabled, false);
+  assert.equal(gradient.disabled, false);
+  display.run('state.lights.capabilities = {}; shippedSync();');
+  assert.equal(display.run("$('gradient-controls').hidden"), true);
+  assert.equal(display.run("$('programme-controls').hidden"), true);
+  assert.equal(stop.disabled, true);
+  display.run("state.lights.programme = 'Sun'; shippedSync();");
+  assert.equal(display.run("$('light-message').textContent"), 'Manual lighting stops programmes before applying.');
+  for (const name of ['Sun', 'Circ', 'Stop']) {
+    const programme = website(request => ({status:202,ok:true,json:async () => ({ok:true,code:202,id:request.id})}));
+    assert.equal(await programme.run(`command('programme', {name:${JSON.stringify(name)}})`), true);
+    assert.equal(programme.commands[0].arguments.name, name);
+    assert.match(programme.run("$('message').textContent"), /requested.*not confirmed/);
   }
   assert.equal(display.commands.length, 0);
   console.log('Browser receipt ambiguity, rejection, recovery and restart checks passed');

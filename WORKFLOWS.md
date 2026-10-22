@@ -31,7 +31,7 @@ The installed persistent launcher uses `--keep-switcher`; its helper uses
 `--keep-settings` instead. It accepts any stable ten-fixture snapshot, including
 Gradient, and never restores lighting on navigation, shutdown or parent loss.
 
-One Tk process owns display interaction. One helper owns this trial's ROS calls.
+One Tk process owns display interaction. One helper owns Beta's ROS calls.
 The helper checks all fixture words before each write and after its response.
 It does not claim optical accuracy. The existing setter accepts integer
 percentages, which cannot reproduce arbitrary fractional drive settings.
@@ -40,10 +40,20 @@ percentages, which cannot reproduce arbitrary fractional drive settings.
 
 Home combines stacked Lights on/off with time and outdoor weather. Blind
 callbacks check the saved permission and controller connection; movement defaults
-to disabled and no blind adapter is installed. Room tools → Lighting groups
+to Locked. The helper exposes whole-room blinds when the existing lift/tilt
+services are advertised. Room tools → Lighting groups
 white-light adjustments, scenes, programmes and the channel editor. Home returns to everyday
 controls. All light controls share one latest selection queue. Wait for
 confirmation to distinguish a selection from a result.
+
+Scenes includes the original ten-fixture Gradient when the coordinate service is
+available. Programmes exposes the original Sun/Circ requests through the existing
+Status service when configured below. Start/Stop acceptance is not programme
+running or completion confirmation. Before an explicit manual lighting action,
+the helper requests both programmes stop and qualifies stable drive readback;
+uncertain results block further changes. Opening pages or switching Beta/Legacy
+does not stop programmes or send lighting setters. Blind commands use the same
+helper, with service acknowledgements rather than measured physical positions.
 
 System & help explains each reference command's computer, purpose and expected
 result. The panel shows one command step at a time; the browser can copy each
@@ -85,8 +95,9 @@ or restore light settings. Remove this private file to reset appearance.
 A direct preview saves preferences only when `--preferences PATH` is supplied.
 `blinds_enabled` is a strict boolean, defaults to false and is saved separately
 from Home visibility. Changing this setting never sends a blind command.
-No blind adapter is installed. Screen & controls shows one unavailable note and
-omits unlocking until a controller is connected; movement remains disabled.
+Screen & controls omits unlocking until the helper reports a connected controller.
+Its permission controls update when connection state changes, including while the
+page remains open. Unlocking changes permission only; explicit Home buttons move blinds.
 Room tools → Date & weather selects Celsius or Fahrenheit. Old preference files
 default to Fahrenheit. Direct previews can use `--temperature-unit c` or `f`.
 Switching units converts cached data; it does not fetch again or change room controls.
@@ -170,11 +181,21 @@ ROS_HOSTNAME=panel-hostname
 DISPLAY=:0
 SCR_START_DELAY=8
 SCR_PANEL_PYTHON=/usr/bin/python3
+# Optional: existing approved programme service; omit to hide Sun/Circ controls.
+SCR_STATUS_URL=http://approved-status-service:5000
 ```
 
 Use existing, verified deployment values. Keep this file mode 0600 and outside
 Git. Beta requires Python 3.11+, Tk and Pillow; the launcher checks these before
 sourcing ROS or starting Legacy. `SCR_PANEL_PYTHON` defaults to `/usr/bin/python3`.
+`SCR_STATUS_URL` is the private base URL of the existing Status owner, not a new
+service to install or restart. The launcher passes it as `--status-url` to Beta
+and its helper. Direct launches can use the same option. Use an approved HTTP(S)
+address without embedded credentials, query or fragment; keep real addresses out
+of Git. Only the fixed original `sun`/`circ` Run/Kill requests are admitted.
+Omitting it leaves programme controls unavailable while ordinary lighting remains
+usable. Capability advertisement identifies configured services, not their health;
+qualify request acceptance and stable readback before a live change.
 Legacy and the light adapter use independent interpreter settings. The launcher
 sources the installed ROS setup, sets the same original
 environment, and checks process working directories before starting `main.py`.
@@ -425,6 +446,9 @@ Changing a website page does not move room devices. Explicit Legacy/display
 controls affect the cabinet. A running instruction session blocks lighting on
 both interfaces until paused. Pause instructions before opening Legacy, Blank or
 clock view on either interface. Home keeps the instruction session running; use
-Room tools → Experiment mode to pause it. Blind movement and external Legacy
-actuator buttons remain outside this gateway. Reference commands may be copied,
+Room tools → Experiment mode to pause it. Ordinary Beta pages and paused
+instructions leave lighting available through the other interface. The gateway
+also relays Gradient, original programme requests and permitted whole-room blind
+actions through the same owner; it does not add independent hardware drivers.
+Individual fixture/window selectors remain unimplemented. Reference commands may be copied,
 never executed.

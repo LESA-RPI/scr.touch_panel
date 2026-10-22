@@ -70,8 +70,9 @@ def test_changing_baseline_cannot_be_acquired_or_written():
         return room.call(name, *args)
 
     lights = adapter.Lights(changing_call, keep_settings=True)
-    with pytest.raises(ValueError, match="changing"):
-        lights.acquire()
+    result = lights.acquire()
+    assert result["state"] == "ready" and result["manual_blocked"]
+    assert lights.baseline is None
     with pytest.raises(ValueError, match="unavailable"):
         lights.apply("channels", {"values": list(adapter.PRESETS["Sat"])})
     assert room.writes == []
@@ -136,6 +137,9 @@ def controller(monkeypatch):
     state.closed, state.closing, state.keep_switcher = False, None, True
     state.mode, state.light_state = "room", "connecting"
     state.worker_ready = True
+    state.light_capabilities = {}
+    state.light_programme, state.light_manual_blocked = None, False
+    state.blinds_connected = False
     state.release_confirmed = state.light_changes_requested = False
     state.release_target = state.queued_intent = state.intent_timer = None
     state.pending = {"request_id": "test:1", "action": "acquire", "arguments": {}}

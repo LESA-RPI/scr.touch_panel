@@ -279,3 +279,28 @@ def test_remote_lighting_keeps_safety_locks_on_every_beta_page(remote_owner, fie
     with pytest.raises(RuntimeError):
         execute(remote_owner, envelope("on"))
     assert not remote_owner.calls
+
+
+def test_extended_lighting_commands_keep_bounded_public_shapes():
+    assert command(envelope("gradient"))["action"] == "gradient"
+    for name in ("Sun", "Circ", "Stop"):
+        assert command(envelope("programme", {"name": name}))["arguments"] == {"name": name}
+    for value in (
+        envelope("gradient", {"target": "all"}),
+        envelope("programme", {"name": "arbitrary script"}),
+        envelope("programme", {"name": True}),
+        envelope("programme", {"name": "Sun", "path": "/tmp/programme"}),
+    ):
+        with pytest.raises(ValueError):
+            command(value)
+
+
+def test_remote_gradient_and_programme_call_existing_owner_without_navigation(remote_owner):
+    remote_owner.mode = "guide"
+    remote_owner.light_capabilities = {"gradient": True, "programmes": True}
+    remote_owner.apply = lambda action, **values: remote_owner.calls.append((action, values))
+    remote_owner.programme_command = lambda name: remote_owner.calls.append(("programme", name)) or True
+    assert execute(remote_owner, envelope("gradient"))["ok"]
+    assert execute(remote_owner, envelope("programme", {"name": "Stop"}))["ok"]
+    assert remote_owner.calls == [("gradient", {"immediate": True}), ("programme", "Stop")]
+    assert remote_owner.mode == "guide"
