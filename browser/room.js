@@ -1,6 +1,7 @@
 'use strict';
 // Shared state and commands come from the existing panel owner. No device driver lives here.
 const $ = (id) => document.getElementById(id);
+const phoneLayout = matchMedia('(max-width:650px)');
 let state = null,
   content = { guide: [], help: [] },
   posting = false,
@@ -224,11 +225,11 @@ function home(root) {
     group.id = isBlind ? 'blind-group' : 'light-group';
     let actions = group;
     if (isBlind) {
-      group.open = !matchMedia('(max-width:650px)').matches;
+      group.open = !phoneLayout.matches;
       const summary = el('summary');
       // Blinds fold away only on phones; on wider screens the heading is not a toggle.
       summary.onclick = (event) => {
-        if (!matchMedia('(max-width:650px)').matches) event.preventDefault();
+        if (!phoneLayout.matches) event.preventDefault();
       };
       summary.append(el('h2', title));
       const note = el('span', 'Disabled', 'muted');
@@ -543,7 +544,7 @@ function lighting(detail, tab) {
       card.append(el('h3', scene.label), el('p', scene.detail, 'muted'), b);
       grid.append(card);
     }
-    detail.append(grid, el('p', content.unavailable_lighting, 'muted'));
+    detail.append(grid);
     feedback(detail);
   } else if (tab === 'programmes') {
     detail.append(el('p', content.unavailable_lighting, 'muted'));
@@ -1032,7 +1033,16 @@ function sync() {
         : state.can_control
           ? 'ready'
           : 'waiting';
-  $('legacy-banner').hidden = !(available && state.mode === 'original');
+  const panelMessage =
+    state?.mode === 'original'
+      ? 'The touch panel is showing Legacy, the original app. Return it to Home to use website controls.'
+      : state?.mode === 'black'
+        ? 'The touch panel is blank. Return it to Home to use lighting.'
+        : state?.mode === 'experiment' && !state.experiment?.running
+          ? 'Experiment mode is paused. Return the touch panel to Home to use lighting.'
+          : '';
+  $('legacy-banner').hidden = !(available && panelMessage);
+  update('panel-mode-message', panelMessage);
   if ($('blind-group')) {
     $('blind-group').hidden = p.blinds_display === 'hidden';
     $('essentials').classList.toggle('single', p.blinds_display === 'hidden');
@@ -1052,6 +1062,7 @@ function sync() {
       Boolean(unknown) ||
       !available ||
       state.busy ||
+      (['legacy', 'blank', 'clock_view'].includes(a) && state.experiment?.running) ||
       (a === 'blind'
         ? !state?.blinds?.available
         : lighting
@@ -1097,8 +1108,8 @@ function sync() {
         : state?.detail || 'Panel unavailable. Controls are disabled.'
       : state.experiment?.running
         ? 'Instructions are running. Pause Experiment mode before using lighting.'
-        : state.mode === 'original'
-          ? 'Use Home to return from Legacy.'
+        : ['original', 'black', 'experiment'].includes(state.mode)
+          ? 'Return the touch panel to Home to use lighting.'
           : s.message || 'Lighting unavailable.',
   );
   update(
@@ -1390,6 +1401,9 @@ async function refresh() {
 // Only explicit buttons change the panel; moving around this website never does.
 $('legacy-return').onclick = () => command('home');
 window.addEventListener('hashchange', layout);
+phoneLayout.addEventListener('change', () => {
+  if ($('blind-group')) $('blind-group').open = !phoneLayout.matches;
+});
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) refresh();
 });

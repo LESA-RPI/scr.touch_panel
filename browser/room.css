@@ -1092,6 +1092,9 @@ summary {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
   }
+  .white-grid .value-group {
+    display: contents;
+  }
   .white-grid .range-value small {
     grid-row: 2;
     grid-column: 1/-1;
