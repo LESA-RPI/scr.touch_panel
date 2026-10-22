@@ -8,6 +8,9 @@ service is implemented.
 
 A JSON object may override `title`, `sensors`, `stages` and `annotations`.
 Unknown keys are rejected. No paths, callbacks or executable code are accepted.
+The panel loads this file through `--profile` at startup. The browser/API can
+operate its instructions and annotations; changing the profile through the API
+is not implemented.
 
 ```json
 {

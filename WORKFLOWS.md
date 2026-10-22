@@ -417,5 +417,8 @@ Common actions and their rejection rules are owned by
 [the interface contract](docs/interface.md#optional-browser-gateway-version-1).
 Changing a website page does not move room devices. Explicit Legacy/display
 controls affect the cabinet. A running instruction session blocks lighting on
-both interfaces until paused. Blind movement and external Legacy actuator buttons
-remain outside this gateway. Reference commands may be copied, never executed.
+both interfaces until paused. Pause instructions before opening Legacy, Blank or
+clock view on either interface. Home keeps the instruction session running; use
+Room tools → Experiment mode to pause it. Blind movement and external Legacy
+actuator buttons remain outside this gateway. Reference commands may be copied,
+never executed.

@@ -331,9 +331,6 @@ class PanelViews:
                 button._scene_label = "Apply scene"
                 self.light_buttons.append(button)
                 self.scene_buttons.append((button, scene["id"]))
-            self.wrap_label(self.label(self.body, UNAVAILABLE_LIGHTING, 16, True)).pack(
-                fill="x", pady=(4, 8)
-            )
             self.feedback_card(self.body)
         elif self.lighting_tab == "programmes":
             self.wrap_label(self.label(self.body, UNAVAILABLE_LIGHTING, 18, True)).pack(

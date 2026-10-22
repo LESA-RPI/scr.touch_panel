@@ -542,7 +542,13 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         return button
 
     def show_tip(self, text):
-        if self.help_on and not self.pending and self.light_state != "failed":
+        if (
+            self.help_on
+            and not self.pending
+            and not self.release_target
+            and not self.closing
+            and self.light_state != "failed"
+        ):
             tip = TIPS.get(text)
             if text in ("Fid", "Sat", "Dul"):
                 tip = (
@@ -611,6 +617,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         for name, value in THEMES[chosen].items():
             setattr(self, name, value)
         self.connection_badges = []
+        self.navigation_buttons = []
         self.body_cache.clear()
         self.detail_cache.clear()
         self.body_key = self.advanced_detail_key = None
@@ -655,8 +662,11 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 padx=6,
             )
             button.pack(fill="both", expand=True)
+            self.navigation_buttons.append(button)
             if column == 0:
                 self.home_button = button
+            else:
+                self.legacy_button = button
         self.add_connection_badge(navigation, column=1)
         self.footer = tk.Frame(self.root, bg=self.bg, height=80)
         self.footer.pack_propagate(False)
@@ -683,6 +693,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             else:
                 self.guide_footer_button = button
             button.pack(side="right", padx=(0, gap), pady=8)
+            self.navigation_buttons.append(button)
         status = self.label(self.footer, size=17, muted=True)
         status.config(textvariable=self.status_text)
         self.wrap_label(status)
@@ -731,6 +742,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             compound="left",
         )
         home.pack(fill="both", expand=True)
+        self.navigation_buttons.append(home)
         mode = tk.Label(
             navigation,
             text="Legacy view",
@@ -760,6 +772,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 compound="left",
             )
             button.pack(fill="both", expand=True)
+            self.navigation_buttons.append(button)
         self.label(
             row, "Legacy controls below · Home returns to the main screen", 16, True
         ).pack(side="left", fill="y")
@@ -774,6 +787,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         button = self.button(frame, "", lambda: self.open_advanced("system"))
         button.config(font=(FONT, 15), padx=6, compound="left")
         button.pack(fill="both", expand=True)
+        self.navigation_buttons.append(button)
         self.connection_badges.append((button, legacy))
         self.update_connection_badges()
 
@@ -805,6 +819,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
     def show(self, mode, advanced_page=None):
         if self.release_target is not None or self.closing or self.power_busy():
             return
+        if getattr(self, "running", False) and mode in ("original", "black", "visitor"):
+            self.status_text.set("Pause the instructions before switching the panel.")
+            return
         if mode == "advanced":
             self.open_advanced()
             return
@@ -820,6 +837,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                     self.worker.stdin.close()
             elif not self.pending:
                 self.request("release")
+            self.update_light_buttons()
             return
         if self.mode == "original" and mode != "original" and self.args.live_lights:
             if not self.worker:
@@ -846,7 +864,11 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         if self.light_state != "failed" and not self.pending:
             messages = {
                 "health": "Live panel readings. No system settings change.",
-                "room": "",
+                "room": (
+                    "Instructions are running. Pause Experiment mode before using lighting."
+                    if self.running
+                    else ""
+                ),
                 "advanced": "Fine adjustments and room tools. Opening a page does not operate devices.",
                 "visitor": "Visitor view does not change lighting. Recording status is unavailable here.",
                 "experiment": "Experiment mode: instructions and annotations. Recorder not connected.",
@@ -860,7 +882,21 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             if mode in messages:
                 self.status_text.set(messages[mode])
         self.render()
+        self.update_navigation_buttons()
         self.emit("mode_changed", target=mode)
+
+    def update_navigation_buttons(self):
+        """Make a pending handoff visible instead of accepting ignored touches."""
+        busy = bool(self.release_target or self.closing or self.power_busy())
+        state = "disabled" if busy else "normal"
+        for button in getattr(self, "navigation_buttons", []):
+            if button.winfo_exists() and button.cget("state") != state:
+                button.config(state=state)
+        button = getattr(self, "legacy_button", None)
+        if button is not None and button.winfo_exists():
+            text = "Opening" if self.release_target == "original" else "Legacy"
+            if button.cget("text") != text:
+                button.config(text=text)
 
     def render(self):
         self.cancel_intent()
@@ -869,9 +905,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         self.dock.withdraw()
         if self.mode == "original":
             self.root.withdraw()
-            self.dock.deiconify()
-            self.dock.update_idletasks()
             self.dock.geometry("1280x144+0+0")
+            self.dock.deiconify()
             self.dock.lift()
             return
         if self.root.state() == "withdrawn":
@@ -939,6 +974,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 if getattr(self, "advanced_page", None)
                 else getattr(self, self.mode + "_view")
             )
+        # Blank display unmaps the shell too. Retained tool pages still need it shown.
+        self.body.pack(fill="both", expand=True, padx=24)
         if self.idle_active:
             self.install_wake_bindings()
 
@@ -946,10 +983,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         """Retain the everyday pages so returning does not rebuild their layout."""
         previous = self.body
         old_key = self.body_key
-        if old_key is not None:
-            if old_key[0] == "tools":
-                self.remember_detail()
-            self.body_cache[old_key] = (previous, self.page_references())
         key = None
         if self.advanced_page:
             key = ("tools",)
@@ -959,6 +992,13 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 self.temperature_unit,
                 self.blinds_display,
             )
+        if key is not None and key == old_key:
+            self.refresh_page()
+            return
+        if old_key is not None:
+            if old_key[0] == "tools":
+                self.remember_detail()
+            self.body_cache[old_key] = (previous, self.page_references())
         cached = (
             self.body_cache.pop(key, None)
             if key is not None and key != old_key
@@ -1246,6 +1286,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         self.update_light_buttons()
 
     def update_light_buttons(self):
+        self.update_navigation_buttons()
         for button in self.light_buttons:
             if button.winfo_exists():
                 button.config(
@@ -2063,6 +2104,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         set_changed(self.visitor_date, time.strftime("%A, %d %B %Y"))
         set_changed(self.preference_text, self.preference_summary())
         self.update_connection_badges()
+        self.update_navigation_buttons()
         self.refresh_confirmation_age()
         self.update_idle()
         if self.weather_reading:
