@@ -13,7 +13,15 @@ SCENES = tuple(
     for name in PRESETS
     if name != "Off"
 )
-UNAVAILABLE_LIGHTING = "Gradient, Sun and Circ are not available yet. Their adapters are not connected; use Legacy for the original controls."
+GRADIENT = {"id": "Gradient", "label": "Gradient",
+            "detail": "Original spatial pattern across the ten room lights."}
+PROGRAMMES = (
+    {"id": "Sun", "label": "Original Sun programme",
+     "detail": "Original colour and light-level curve, staggered across the room."},
+    {"id": "Circ", "label": "Original Circ programme",
+     "detail": "Original colour and light-level curve across the whole room."},
+)
+UNAVAILABLE_LIGHTING = "Original programmes are unavailable while the Status connection is not configured."
 BLINDS_UNAVAILABLE = "Not available yet: the blind adapter is not connected."
 BLIND_ACTIONS = (
     ("lift", "Lift blinds"),

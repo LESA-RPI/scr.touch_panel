@@ -14,7 +14,7 @@ DEMO = (
         "Room controls",
         "home",
         "Home always returns to everyday lighting controls. Opening a page does not change the lights.\n\n"
-        "Legacy opens the original interface after restoring the starting lighting scene. Use Home in the Legacy bar to return.\n\n"
+        "Legacy shows the familiar layout using the same controller. Switching layouts keeps the connection and current settings. The untouched original application is available under System & help → Original fallback.\n\n"
         "Lift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller.",
     ),
     (
@@ -27,7 +27,7 @@ DEMO = (
     (
         "How it connects",
         "health",
-        "The touch panel and trusted-network website share the same room controls. Legacy’s original controls remain on the touch panel.\n\n"
+        "The touch panel, its Legacy layout and the trusted-network website share the same room controller. The original application remains available as a separate emergency fallback.\n\n"
         "The lighting badge shows this panel’s connection: Ready, Sending, Offline or Uncertain. Tap it for System & help.\n\n"
         "Weather is an outdoor model estimate, separate from indoor measurements. Source details are under Room tools → Date & weather.",
     ),

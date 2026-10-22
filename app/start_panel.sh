@@ -12,7 +12,7 @@ classic_python=${SCR_CLASSIC_PYTHON:-/usr/bin/python2.7}
 panel_python=${SCR_PANEL_PYTHON:-/usr/bin/python3}
 adapter_python=${SCR_ADAPTER_PYTHON:-$classic_python}
 start_mode=${SCR_START_MODE:-room}
-case "$start_mode" in room|original) ;; *) echo 'SCR_START_MODE must be room or original' >&2; exit 1 ;; esac
+case "$start_mode" in room|classic|original) ;; *) echo 'SCR_START_MODE must be room, classic or original' >&2; exit 1 ;; esac
 # Validate the touch panel before starting Legacy or sourcing the room environment. The ROS
 # adapter keeps its independently configured interpreter.
 "$panel_python" -c 'import sys; sys.version_info >= (3, 11) or sys.exit("The touch panel requires Python 3.11 or later"); import tkinter; from PIL import Image' || {
@@ -62,6 +62,9 @@ if test -n "${SCR_WEATHER_LATITUDE:-}" && test -n "${SCR_WEATHER_LONGITUDE:-}"; 
 fi
 if test -n "${SCR_CONTROL_SOCKET:-}"; then
     set -- "$@" --control-socket "$SCR_CONTROL_SOCKET"
+fi
+if test -n "${SCR_STATUS_URL:-}"; then
+    set -- "$@" --status-url "$SCR_STATUS_URL"
 fi
 exec "$panel_python" -B "$app_dir/scr_touch_panel.py" \
     --keep-switcher --start-mode "$start_mode" --live-lights --theme auto --duration 0 \

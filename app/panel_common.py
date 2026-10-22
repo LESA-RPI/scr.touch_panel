@@ -1,6 +1,7 @@
 """Shared panel values and pure presentation helpers; no controller instance."""
 
 from scr_touch_panel_lights import PRESETS
+from room_controls import BLIND_ACTIONS
 from design_tokens import THEMES
 import argparse
 import json
@@ -35,6 +36,9 @@ ADVANCED_PAGES = [
 # Only presentation references travel with retained pages. Controller state, intent
 # generations and preferences always belong to the live Panel, never a cached page.
 PAGE_REFERENCES = (
+    "classic_buttons",
+    "classic_sliders",
+    "programme_buttons",
     "light_buttons",
     "home_power_buttons",
     "scene_buttons",
@@ -74,7 +78,8 @@ TIPS = {
     "Visitor": "Room introduction and a large clock. Opening this page does not change lighting.",
     "Experiment mode": "Instructions, elapsed time and panel annotations. No sensor recording starts.",
     "System": "Panel resources and advertised room services. Presence does not prove sensor health.",
-    "Legacy": "Restores the starting lighting, then shows the original room controls.",
+    "Legacy": "Shows the familiar layout with the same room controller; lighting stays unchanged.",
+    "Original fallback": "Opens the untouched original application after releasing the shared controller. Return with Home.",
     "Blank screen": "Shows black pixels. Hold still for 2 seconds to return; the backlight remains on.",
     "Settings": "Appearance, date/time and screen options. Appearance choices can be saved on this device.",
     "About panel": "Panel credits and source repository. No room settings change.",
@@ -193,6 +198,12 @@ def scheduled_theme(now, light_at, dark_at):
 
 def light_selection(action, arguments):
     """Describe requested controller inputs; never imply optical measurement."""
+    if action == "gradient":
+        return "Gradient scene"
+    if action == "programme":
+        return "Stop programmes" if arguments["name"] == "Stop" else arguments["name"] + " programme"
+    if action == "blind":
+        return dict(BLIND_ACTIONS)[arguments["name"]]
     if action == "cct":
         return "%d K input / level %d" % (arguments["cct"], arguments["intensity"])
     values = tuple(arguments["values"])
@@ -216,7 +227,11 @@ def confirmation_age(now, confirmed_at):
 
 
 def confirmed_power(response):
-    """Describe uniform controller readback, never optical or continuously live state."""
+    """Describe confirmed drive readback, never optical or continuously live state."""
+    if response.get("state") == "completed" and response.get("scene") == "Gradient" and response.get("fixtures") == 10:
+        return "on"
+    if response.get("state") == "ready" and response.get("power") in ("on", "off"):
+        return response["power"]
     if response.get("state") == "ready" and response.get("baseline") in PRESETS:
         return "off" if response["baseline"] == "Off" else "on"
     values = response.get("words")
@@ -235,6 +250,8 @@ def confirmed_power(response):
 
 def confirmed_scene(response):
     """Match an admitted baseline or exact confirmed drive words, never a selection."""
+    if response.get("state") == "completed" and response.get("scene") == "Gradient" and response.get("fixtures") == 10:
+        return "Gradient"
     if response.get("state") == "ready" and response.get("baseline") in PRESETS:
         return response["baseline"]
     if response.get("state") == "completed" and confirmed_power(response) is not None:

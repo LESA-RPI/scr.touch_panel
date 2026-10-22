@@ -37,6 +37,7 @@ def command(value):
         "off": (),
         "home": (),
         "legacy": (),
+        "original_fallback": (),
         "blank": (),
         "clock_view": (),
         "start": (),
@@ -47,6 +48,8 @@ def command(value):
         "cct": ("cct", "intensity"),
         "preset": ("name",),
         "channels": ("values",),
+        "gradient": (),
+        "programme": ("name",),
         "theme": ("value",),
         "clock": ("value",),
         "temperature": ("value",),
@@ -79,6 +82,7 @@ def command(value):
         )
     choices = {
         "preset": tuple(PRESETS),
+        "programme": ("Sun", "Circ", "Stop"),
         "theme": ("light", "dark", "auto"),
         "clock": ("12", "24"),
         "temperature": ("c", "f"),
@@ -89,7 +93,7 @@ def command(value):
         "tips": (True, False),
     }
     if action in choices:
-        key = "name" if action in ("preset", "blind") else "value"
+        key = "name" if action in ("preset", "blind", "programme") else "value"
         valid = (
             type(args[key]) is type(choices[action][0]) and args[key] in choices[action]
         )

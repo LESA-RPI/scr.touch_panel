@@ -4,7 +4,7 @@ from room_controls import BLIND_ACTIONS
 from panel_version import BUILD_COMMIT
 from room_controls import LIGHTING_TABS
 from room_controls import UNAVAILABLE_LIGHTING, BLINDS_UNAVAILABLE
-from room_controls import SCENES, WEBSITE_URL
+from room_controls import SCENES, GRADIENT, WEBSITE_URL
 from touch_slider import TouchSlider
 from panel_version import VERSION
 import os
@@ -303,7 +303,7 @@ class PanelViews:
             ).pack(anchor="w", pady=(2, 8))
             grid = tk.Frame(self.body, bg=self.bg)
             grid.pack(fill="x")
-            for index, scene in enumerate(SCENES):
+            for index, scene in enumerate(SCENES + (GRADIENT,)):
                 grid.columnconfigure(index % 2, weight=1, uniform="scene")
                 card = tk.Frame(
                     grid,
@@ -318,27 +318,38 @@ class PanelViews:
                     padx=(0, 10) if index % 2 == 0 else 0,
                     pady=(0, 10),
                 )
-                self.label(card, scene["label"], 21).pack(
-                    anchor="w", padx=16, pady=(8, 0)
+                self.label(card, scene["label"], 20).pack(
+                    anchor="w", padx=16, pady=(4, 0)
                 )
-                note = self.label(card, scene["detail"], 15, True)
+                note = self.label(card, scene["detail"], 14, True)
                 self.wrap_label(note).pack(fill="x", padx=16, pady=(0, 6))
                 button = self.button(
                     card, "Apply scene", lambda name=scene["id"]: self.preset(name)
                 )
-                button.config(font=(self.font_family, 15), pady=8)
-                button.pack(fill="x", padx=16, pady=(0, 10), ipady=3)
+                button.config(font=(self.font_family, 15), pady=5)
+                button.pack(fill="x", padx=16, pady=(0, 8), ipady=3)
                 button._scene_label = "Apply scene"
+                button._gradient = scene["id"] == "Gradient"
                 self.light_buttons.append(button)
                 self.scene_buttons.append((button, scene["id"]))
-            self.wrap_label(self.label(self.body, UNAVAILABLE_LIGHTING, 16, True)).pack(
-                fill="x", pady=(4, 8)
-            )
             self.feedback_card(self.body)
         elif self.lighting_tab == "programmes":
-            self.wrap_label(self.label(self.body, UNAVAILABLE_LIGHTING, 18, True)).pack(
-                fill="x", pady=16
+            self.programme_buttons = self.row_buttons(
+                self.body,
+                [("Original " + name, lambda name=name: self.programme_command(name), False)
+                 for name in ("Sun", "Circ")], height=74,
             )
+            self.programme_buttons.extend(self.row_buttons(
+                self.body, [("Stop programmes", lambda: self.programme_command("Stop"), False)], height=64,
+            ))
+            for button, name in zip(self.programme_buttons, ("Sun", "Circ", "Stop")):
+                button._programme = name
+            self.wrap_label(self.label(
+                self.body,
+                "Uses the original room programmes. The service acknowledges requests; live programme status is unavailable. Manual lighting stops programmes before applying.",
+                16, True,
+            )).pack(fill="x", pady=(12, 8))
+            self.feedback_card(self.body)
         else:
             self.channels_view(embedded=True)
         self.update_light_buttons()

@@ -1,20 +1,20 @@
 # SCR room touch panel
 
-Touch controls and room guidance for the LESA Smart Conference Room. **Legacy**
-is the original room application. The current touch interface adds direct room controls and touch access
-to Legacy. It does not yet cover every Legacy feature.
+Touch controls and room guidance for the LESA Smart Conference Room. **Beta** and
+**Legacy** are two layouts of the same room controller. Legacy keeps the familiar
+controls; **Original fallback** opens the preserved separate original application
+when it is needed for emergency recovery.
 
-The fresh Raspberry Pi OS setup, touch interface and trusted-network website are
-reviewed together
-in [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1), on
-`experiment/fresh-pi-setup-20261013`. `main` remains the earlier baseline until
-promotion. An installed cabinet may run a different commit; check its release
-identity before maintenance.
+The current navigation, reliability and Legacy-parity changes are reviewed in
+[PR #3](https://github.com/LESA-RPI/scr.touch_panel/pull/3), on
+`fix/panel-navigation-transitions`. The earlier setup is recorded in
+[PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1). An installed cabinet may
+run a different commit; check its release identity before maintenance.
 
-The current version is **0.2.0**. Keep it in
-[app/panel_version.py](app/panel_version.py); small fixes can use `0.2.1`.
+The current source version is **0.2.3**, owned by
+[app/panel_version.py](app/panel_version.py).
 It is for About and internal development/GitHub tracking; everyday headers say
-Beta. Legacy is the preserved older baseline for backtracking, identified by Git
+Beta. Original fallback is the preserved older baseline for backtracking, identified by Git
 history rather than an invented release number. The Git commit identifies exactly
 what is deployed. No automatic tags or
 separate release process are required.
@@ -23,26 +23,34 @@ separate release process are required.
 
 | Screen | Purpose |
 |---|---|
-| Home | Stacked Lights on/off beside clock/weather; disabled blinds can be shown or hidden |
+| Home | Lights on/off, optional blind controls and clock/weather |
 | Room tools | Lighting, Experiment mode, system/help and device preferences in one sidebar |
 | Demo & guide | Four directly selectable topics, with Previous/Next and All topics; no equipment or recording starts |
 
 Home is the default screen. Room tools → Lighting groups **White light, Scenes,
 Programmes and Channels**. Fid, Sat and Dul retain their original mixtures.
-Gradient is the original spatial pattern; Sun is a travelling light cycle and
-Circ cycles the room together. Their fixture/programme adapters are not connected
-in this interface yet; one unavailable note replaces their inactive controls. Legacy remains
-available for the original implementations. Empty Dynamic CCT, Dynamic Intensity
-and Auto placeholders and the old Enable Sliders gate are omitted.
+Scenes also offers the original ten-light Gradient when its service is available.
+Programmes provides the original Sun and Circ Start controls and Stop programmes
+when the existing programme service is configured. Sun staggers its curve across
+the room; Circ applies its curve to the room together. A programme acknowledgement
+confirms only that the request was accepted, not that the programme is running.
+An explicit manual lighting action stops programmes and checks stable drive settings
+before applying. Opening another page or switching Beta/Legacy does not stop a programme.
+Empty Dynamic CCT, Dynamic Intensity and Auto placeholders and the old Enable
+Sliders gate are omitted.
 
-Home includes Lift blinds, Open slats and Close & lower as disabled references.
-No blind adapter is installed. Screen & controls explains this and can show or hide
-the Home controls. The saved movement permission defaults to Locked; no unlock
+Home includes Lift blinds, Open slats and Close & lower through the shared room
+controller when its blind services are available. Service acceptance does not
+measure physical blind position. Screen & controls can show or hide the Home
+controls. The saved movement permission defaults to Locked; no unlock
 control is offered while the adapter is disconnected. Changing visibility never
 moves equipment or grants permission. Room tools keeps detailed controls together.
-The header identifies Beta and provides a direct Legacy shortcut with its existing
-restoration handover. In Legacy, the matching top bar identifies Legacy view;
-Home returns to the main controls. Room tools opens each tool directly beside the sidebar and
+The header identifies Beta and provides a direct Legacy shortcut that keeps the
+same controller, current light settings and active programmes. Legacy uses a
+familiar layout inside the same panel process; Home returns immediately without
+restarting ROS or acquiring another controller. System & help offers **Original
+fallback** separately; this releases the helper before opening the original app,
+and website controls pause until the panel returns. Room tools opens each tool directly beside the sidebar and
 remembers the last tool. Experiment mode runs instructions and panel annotations;
 its recorder is not connected.
 
@@ -69,6 +77,9 @@ slow reads do not hold up touches.
 Home, the screen saver and Lighting tabs reuse their existing widgets when you
 return. Readback, availability and slider bindings refresh before controls are
 shown; this does not cache lighting commands or bypass controller checks.
+Browsing Guide, Settings, About or paused Experiment mode does not disable lighting
+on the other interface. Running instructions, pending work, Original fallback, a blank panel
+and uncertain results retain their control guards.
 
 White light shows the minimum and maximum beside each slider. System & help
 separates panel health, room connection and guidance. Reference commands are
@@ -99,7 +110,11 @@ offers Off, 1, 5 or 15 minutes. Idle does not interrupt Experiment mode, Legacy,
 touches, pending commands or uncertain lighting. Preferences save appearance and
 idle choices, not light settings or recording state.
 
-Opening Legacy restores the panel's starting light scene before handing over control.
+Beta and Legacy are two views of the room controls, sharing one panel process and
+the same lighting helper. Switching between them keeps the current light settings,
+including Gradient and custom mixtures, and does not reinitialize ROS. Only an
+explicit lighting action changes the lights. The separate bounded-trial command
+below retains its starting-scene restoration behavior.
 If a result is uncertain, stop changing lights and ask the room host. **Room tools →
 System & help** shows checks and operator instructions; it does not execute
 commands. The visitor guide also operates no devices. A two-second stationary
@@ -115,7 +130,7 @@ needed. The commands below select the reviewed development branch explicitly:
 ```sh
 git clone https://github.com/LESA-RPI/scr.touch_panel.git
 cd scr.touch_panel
-git switch experiment/fresh-pi-setup-20261013
+git switch fix/panel-navigation-transitions
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r app/requirements.txt
@@ -144,14 +159,14 @@ The fresh Pi 3 deployment uses Raspberry Pi OS Legacy 32-bit Bookworm with
 distribution Python 3.11, Tk 8.6 and Pillow 9.4. Desktop preview dependencies are
 separate; do not install them over system packages. The touch panel defaults to
 `/usr/bin/python3` and checks for Python 3.11+, Tk and Pillow before startup.
-`SCR_PANEL_PYTHON` selects another supported interpreter. Legacy and the ROS
+`SCR_PANEL_PYTHON` selects another supported interpreter. Original fallback and the ROS
 adapter retain their separate interpreter settings: the older Ubuntu installation
 used Python 2.7, while the fresh setup explicitly selects Python 3 for each.
 
-Legacy starts from [main.py](main.py); the new interface starts from
+Original fallback starts from [main.py](main.py); Beta and Legacy layouts start from
 [app/scr_touch_panel.py](app/scr_touch_panel.py). The installed
 [launcher](app/start_panel.sh) reads private deployment settings and starts one
-Legacy application plus the new interface. The compatibility wrapper preserves the original
+original fallback application plus the shared panel. The compatibility wrapper preserves the original
 source. Existing room ROS services and custom bindings are required for control;
 a local ROS master on the panel is not required.
 
@@ -166,17 +181,19 @@ Run `python -m pytest tests` with pytest installed. Tests cover contracts,
 restoration, uncertain operations, preferences and idle guards. UI changes also
 need target font, internal text-fit, touch and failure-state checks.
 
-Bounded Pi navigation, lighting and autostart trials have passed. Undervoltage,
-prolonged reliability, untested Legacy demos/blinds and replacement hardware
-remain acceptance limits. Service presence is not physical device health. Experiment mode
+Earlier bounded Pi navigation, lighting and autostart trials are historical evidence;
+qualify the current release against the installed configuration before use.
+Prolonged reliability, physical blind motion and replacement hardware remain
+acceptance checks. Service presence is not physical device health. Experiment mode
 journals have `recording: false`; recorder integration needs a separate adapter.
 
 General panel code belongs here. Project-X owns its optional recorder integration.
 The browser and touch interface share one command owner and experiment ownership.
 The optional gateway permits controls from the configured trusted subnet; it has
 no separate staff sign-in. Guide/help content, appearance roles and common actions
-come from the panel. Legacy is opened only on the touch panel; if the panel is in Legacy,
-the website pauses its controls and offers Return panel to Home. Browsing the website
+come from the panel. System & help can switch the panel to Legacy without changing
+controller ownership. Original fallback is an explicit emergency action; while it
+is open, the website pauses controls and offers Return panel to Home. Browsing the website
 never wakes or switches the panel; only its explicit buttons do.
 Technical contracts remain available to maintainers and agents through the links
 above. Private configuration, captures and incident history stay outside Git.

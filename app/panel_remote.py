@@ -21,7 +21,7 @@ def snapshot(panel):
         and panel.light_state == "ready"
         and not busy
         and not panel.running
-        and (panel.mode == "room" or panel.idle_active)
+        and panel.mode not in ("original", "black")
     )
     elapsed = panel.elapsed + (
         time.monotonic() - panel.run_started if panel.running else 0
@@ -37,8 +37,12 @@ def snapshot(panel):
         "mode": panel.mode,
         "busy": busy,
         "can_control": lighting,
+        "can_programme": getattr(panel, "programme_available", lambda: False)(),
         "can_session": not busy and panel.mode != "original",
         "lights": {
+            "capabilities": getattr(panel, "light_capabilities", {}),
+            "programme": getattr(panel, "programme", None),
+            "programme_confirmed": False,
             "state": panel.light_state,
             "power": panel.confirmed_power if lighting else None,
             "scene": panel.confirmed_scene if lighting else None,
@@ -126,7 +130,7 @@ def execute(panel, request):
         raise RuntimeError(
             "The panel is busy. Wait for the current touch or command to finish."
         )
-    if action in ("on", "off", "preset", "cct", "channels"):
+    if action in ("on", "off", "preset", "cct", "channels", "gradient"):
         if not state["can_control"]:
             raise RuntimeError(
                 "Lighting is unavailable, uncertain, in Legacy or held by an experiment. Check the panel."
@@ -143,10 +147,17 @@ def execute(panel, request):
             panel.cct.set(args["cct"])
             panel.intensity.set(args["intensity"])
             panel.apply("cct", immediate=True, **args)
+        elif action == "gradient":
+            if not state["lights"]["capabilities"].get("gradient"):
+                raise RuntimeError("Gradient is unavailable from this controller.")
+            panel.apply("gradient", immediate=True)
         else:
             for var, value in zip(panel.channel_values, args["values"]):
                 var.set(value)
             panel.apply("channels", immediate=True, **args)
+    elif action == "programme":
+        if not panel.programme_command(args["name"]):
+            raise RuntimeError("Programme controls are unavailable. Check the panel.")
     elif action == "blind":
         if not state["blinds"]["available"]:
             raise RuntimeError("Blinds · " + state["blinds"]["detail"])
@@ -168,14 +179,14 @@ def execute(panel, request):
             panel.next_stage()
         else:
             panel.mark(args["label"])
-    elif action in ("home", "legacy", "blank", "clock_view"):
-        if panel.running and action != "home":
+    elif action in ("home", "legacy", "original_fallback", "blank", "clock_view"):
+        if panel.running and action not in ("home", "legacy"):
             raise RuntimeError("Pause the instructions before switching the panel.")
         if action == "home":
             panel.open_home()
         else:
             panel.show(
-                {"legacy": "original", "blank": "black", "clock_view": "visitor"}[
+                {"legacy": "classic", "original_fallback": "original", "blank": "black", "clock_view": "visitor"}[
                     action
                 ]
             )

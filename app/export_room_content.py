@@ -10,6 +10,8 @@ from command_reference import command_tokens
 from room_controls import (
     LIGHTING_TABS,
     SCENES,
+    GRADIENT,
+    PROGRAMMES,
     BLIND_ACTIONS,
     PRESETS,
     UNAVAILABLE_LIGHTING,
@@ -69,6 +71,8 @@ def content():
         "weather_accents": WEATHER_ACCENTS,
         "lighting_tabs": LIGHTING_TABS,
         "scenes": SCENES,
+        "gradient": GRADIENT,
+        "programmes": PROGRAMMES,
         "presets": PRESETS,
         "unavailable_lighting": UNAVAILABLE_LIGHTING,
         "blinds_unavailable": BLINDS_UNAVAILABLE,

@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 """Optional SCR light adapter. Author: Diyanko Bhowmik, with Codex assistance.
 
-Uses the existing ROS owner. No discovery, scene control, blinds or raw sockets.
-The temporary trial admits only uniform, known integer-percent baselines because
-the installed ROS setter cannot restore arbitrary 16-bit drive words exactly.
+Uses the existing ROS owner. Persistent room control keeps settings on release;
+bounded trials restore only exactly reproducible, uniform starting presets.
 """
 
 from __future__ import print_function
@@ -36,6 +35,66 @@ COORDINATES = {
     (5, 0),
     (5, 2),
 }
+GRADIENT = dict(
+    (xy, tuple(100 if channel == colour else 0 for channel in range(8)))
+    for xy, colour in zip(sorted(COORDINATES), (0, 0, 1, 2, 3, 4, 5, 6, 7, 7))
+)
+
+
+class StatusProgrammes(object):
+    """Use the existing Status owner; an HTTP acknowledgement is only acceptance."""
+
+    def __init__(self, base_url, can_write=lambda: None, deadline=None):
+        try:
+            from urlparse import urlparse
+        except ImportError:
+            from urllib.parse import urlparse
+        url = urlparse(base_url)
+        if (url.scheme not in ("http", "https") or not url.hostname
+                or url.username or url.password or url.query or url.fragment):
+            raise ValueError("A configured Status HTTP address without credentials is required")
+        self.base_url = base_url.rstrip("/")
+        self.can_write, self.deadline = can_write, deadline
+
+    def request(self, operation, name):
+        if operation not in ("Run", "Kill") or name not in ("sun", "circ"):
+            raise ValueError("Only original Sun/Circ programme requests are permitted")
+        try:
+            from urllib2 import Request, urlopen
+        except ImportError:
+            from urllib.request import Request, urlopen
+        request = Request(
+            self.base_url + "/Script_" + operation,
+            json.dumps({"name": name}).encode("utf-8"),
+            {"Content-Type": "application/json"},
+        )
+        self.can_write()
+        if self.deadline is not None:
+            remaining = self.deadline() - clock()
+            if remaining <= 0:
+                raise RuntimeError("Whole programme operation exceeded 30 seconds")
+            signal.alarm(max(1, int(math.ceil(min(3, remaining)))))
+        response = None
+        try:
+            response = urlopen(request, timeout=3)
+            body = response.read(4097)
+            if response.getcode() != 202 or len(body) > 4096:
+                raise ValueError("Status did not accept the programme request")
+            result = json.loads(body.decode("utf-8"))
+            if not isinstance(result, dict) or result.get("name") != name:
+                raise ValueError("Status programme acknowledgement did not match")
+        finally:
+            if self.deadline is not None:
+                signal.alarm(0)
+            if response is not None:
+                response.close()
+
+    def stop(self):
+        self.request("Kill", "sun")
+        self.request("Kill", "circ")
+
+    def start(self, name):
+        self.request("Run", {"Sun": "sun", "Circ": "circ"}[name])
 
 
 def words(percent):
@@ -67,11 +126,28 @@ def restore_preset(snapshot):
 
 
 class Lights(object):
-    def __init__(self, call, can_write=lambda: None):
+    def __init__(self, call, can_write=lambda: None, keep_settings=False,
+                 programmes=None, sleep=time.sleep, blinds_connected=False,
+                 gradient_connected=True):
         self.call, self.can_write = call, can_write
+        self.keep_settings = keep_settings
         self.baseline = self.current = None
         self.baseline_name = None
         self.changed = self.failed = False
+        self.programmes, self.sleep = programmes, sleep
+        self.programme = None
+        self.blinds_connected, self.blinds_failed = blinds_connected, False
+        self.gradient_connected = gradient_connected
+
+    def capabilities(self):
+        return {
+            "capabilities": {"gradient": self.gradient_connected,
+                             "programmes": bool(self.programmes and self.keep_settings)},
+            "programme": self.programme,
+            "programme_confirmed": False,
+            "blinds_connected": self.keep_settings and self.blinds_connected and not self.blinds_failed,
+            "manual_blocked": self.programme is not None or self.baseline is None,
+        }
 
     def read(self):
         flat = list(self.call("get_lights").lights)
@@ -89,14 +165,132 @@ class Lights(object):
         if self.baseline is not None:
             raise ValueError("Lighting trial already acquired")
         state = self.read()
-        name = restore_preset(state)
+        try:
+            name = restore_preset(state)
+        except ValueError:
+            if not self.keep_settings:
+                raise
+            name = None
         if self.read() != state:
+            if self.keep_settings:
+                result = {"state": "ready", "baseline": None, "fixtures": 10,
+                          "detail": "Lights are changing. Stop the programme before manual control."}
+                result.update(self.capabilities())
+                return result
             raise ValueError("Light settings are changing; live controls stay off")
         self.baseline, self.current, self.baseline_name = state, state, name
-        return {"state": "ready", "baseline": name, "fixtures": 10}
+        result = {
+            "state": "ready",
+            "baseline": name,
+            "power": "on" if any(any(values) for values in state.values()) else "off",
+            "fixtures": 10,
+        }
+        result.update(self.capabilities())
+        return result
+
+    def stop_programmes(self):
+        """Qualify quiescent drive after stop acceptance, without claiming job health."""
+        self.can_write()
+        self.programmes.stop()
+        self.sleep(0.25)
+        state = self.read()
+        self.sleep(0.25)
+        if self.read() != state:
+            raise ValueError("Programme stop accepted but lights are still changing")
+        self.programme = None
+        if self.baseline is None:
+            self.baseline = state
+            self.baseline_name = None
+        self.current = state
+
+    def run_programme(self, name):
+        if name not in ("Sun", "Circ", "Stop"):
+            raise ValueError("Unknown original programme")
+        if not self.keep_settings or not self.programmes or self.failed:
+            raise ValueError("Original programmes are unavailable")
+        try:
+            self.stop_programmes()
+            if name != "Stop":
+                self.can_write()
+                self.changed = True
+                self.current = None
+                self.programmes.start(name)
+                self.programme = name
+            result = {
+                "state": "completed",
+                "detail": ("Programme stop accepted; drive settings stable."
+                           if name == "Stop" else name + " start request accepted; running status unavailable."),
+                "manual_blocked": name != "Stop",
+            }
+            result.update(self.capabilities())
+            return result
+        except Exception:
+            self.failed = True
+            raise
+
+    def apply_gradient(self):
+        if not self.gradient_connected:
+            raise ValueError("Gradient service is unavailable")
+        if self.failed or (self.baseline is None and not (self.programmes and self.keep_settings)):
+            raise ValueError("Lighting trial is unavailable")
+        try:
+            self.prepare_manual()
+            self.can_write()
+            self.changed = True
+            self.current = None
+            for xy, values in sorted(GRADIENT.items()):
+                self.can_write()
+                self.call("sources", *(list(values) + list(xy)))
+            expected = dict((xy, setter_words(values)) for xy, values in GRADIENT.items())
+            actual = self.read()
+            if actual != expected:
+                raise ValueError("Gradient fixture drive readback differs from the command")
+            self.current = actual
+            result = {
+                "state": "completed", "scene": "Gradient", "power": "on", "fixtures": 10,
+                "detail": "Gradient drive settings confirmed on 10 lights",
+                "fixture_words": [[list(xy), list(values)] for xy, values in sorted(actual.items())],
+            }
+            result.update(self.capabilities())
+            return result
+        except Exception:
+            self.failed = True
+            raise
+
+    def prepare_manual(self):
+        if self.programmes and self.keep_settings:
+            previous, active = self.current, self.programme is not None or self.baseline is None
+            self.stop_programmes()
+            if not active and self.current != previous:
+                raise ValueError("Another controller changed the lights; trial ownership lost")
+        elif self.read() != self.current:
+            raise ValueError("Another controller changed the lights; trial ownership lost")
+
+    def move_blinds(self, name):
+        if name not in ("lift", "open", "close"):
+            raise ValueError("Unknown blind action")
+        if not self.keep_settings or not self.blinds_connected or self.blinds_failed:
+            raise ValueError("Blind controller is unavailable")
+        try:
+            actions = {"lift": [("lift_all", 100)], "open": [("tilt_all", 50)],
+                       "close": [("tilt_all", 100), ("lift_all", 0)]}[name]
+            for index, (action, value) in enumerate(actions):
+                if index:
+                    self.sleep(2)
+                self.can_write()
+                response = self.call(action, value)
+                if getattr(response, "lift" if action == "lift_all" else "tilt", None) != value:
+                    raise ValueError("Blind service acknowledgement did not match")
+            result = {"state": "completed", "blind": name,
+                      "detail": "Blind command accepted; physical position is not measured."}
+            result.update(self.capabilities())
+            return result
+        except Exception:
+            self.blinds_failed = True
+            raise
 
     def apply(self, action, arguments):
-        if self.failed or self.baseline is None:
+        if self.failed or (self.baseline is None and not (self.programmes and self.keep_settings)):
             raise ValueError("Lighting trial is unavailable")
         if action == "channels":
             values = arguments["values"]
@@ -121,10 +315,7 @@ class Lights(object):
         else:
             raise ValueError("Unknown lighting action")
         try:
-            if self.read() != self.current:
-                raise ValueError(
-                    "Another controller changed the lights; trial ownership lost"
-                )
+            self.prepare_manual()
             self.can_write()
             self.changed = True
             # Until a matching readback arrives, the result is uncertain.
@@ -138,21 +329,32 @@ class Lights(object):
             if any(value != expected for value in actual.values()):
                 raise ValueError("Fixture drive readback differs from the command")
             self.current = actual
-            return {
+            result = {
                 "state": "completed",
                 "fixtures": 10,
                 "detail": "Drive settings confirmed on 10 lights",
                 "words": list(expected),
             }
+            result.update(self.capabilities())
+            return result
         except Exception:
             self.failed = True
             raise
 
     def release(self):
-        if self.failed:
+        if self.failed or self.blinds_failed:
             raise ValueError(
                 "Outcome unknown; no automatic restore or retry. Inspect the retained receipt"
             )
+        if self.keep_settings:
+            self.baseline = self.current = None
+            self.changed = False
+            return {
+                "state": "released",
+                "restored": False,
+                "preserved": True,
+                "detail": "Lighting ownership released; current settings unchanged",
+            }
         if self.baseline is None or not self.changed:
             self.baseline = self.current = None
             return {
@@ -201,6 +403,13 @@ def main():
         action="store_true",
         help="Read advertised services only; no ROS node or fixture queries",
     )
+    parser.add_argument(
+        "--keep-settings",
+        action="store_true",
+        help="Release ownership without restoring lights (persistent room control)",
+    )
+    parser.add_argument("--status-url", default=os.environ.get("SCR_STATUS_URL"),
+                        help="Approved existing Status HTTP service for Sun/Circ")
     args = parser.parse_args()
     if (
         not args.status_only
@@ -252,6 +461,15 @@ def main():
     journal = os.fdopen(
         os.open(args.receipt, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w"
     )
+    # Persist both the receipt name and its newly created run directory before
+    # any hardware command can be accepted. File fsync alone misses these entries.
+    receipt_dir = os.path.dirname(os.path.abspath(args.receipt))
+    for directory in (receipt_dir, os.path.dirname(receipt_dir)):
+        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
     socket.setdefaulttimeout(10)
     import rospy
     from scr_control.srv import (
@@ -259,6 +477,9 @@ def main():
         GetSources,
         OctaLight_sourcesAll,
         OctaLight_CCTAll,
+        OctaLight_sources,
+        BlindLiftAll,
+        BlindTiltAll,
     )
 
     rospy.init_node("scr_panel_lights", anonymous=True, disable_signals=True)
@@ -267,6 +488,9 @@ def main():
         get_sources=GetSources,
         sources_all=OctaLight_sourcesAll,
         cct_all=OctaLight_CCTAll,
+        sources=OctaLight_sources,
+        lift_all=BlindLiftAll,
+        tilt_all=BlindTiltAll,
     )
 
     def expired(signum, frame):
@@ -324,7 +548,23 @@ def main():
         ):
             raise ValueError("Panel lease ended before dispatch; no command sent")
 
-    lights = Lights(call, can_write)
+    try:
+        try:
+            from xmlrpclib import ServerProxy
+        except ImportError:
+            from xmlrpc.client import ServerProxy
+        socket.setdefaulttimeout(3)
+        graph = ServerProxy(args.expected_master).getSystemState("scr_panel_capabilities")
+        services = {name for name, nodes in graph[2][2]} if graph[0] == 1 else set()
+    except Exception:
+        services = set()
+    finally:
+        socket.setdefaulttimeout(10)
+    programmes = StatusProgrammes(args.status_url, can_write, lambda: deadline[0]) if args.status_url else None
+    lights = Lights(call, can_write, keep_settings=args.keep_settings,
+                    programmes=programmes,
+                    blinds_connected={"/lift_all", "/tilt_all"} <= services,
+                    gradient_connected="/sources" in services)
 
     def record(event, **values):
         values.update(event=event, epoch_s=time.time(), pid=os.getpid())
@@ -337,6 +577,7 @@ def main():
         os.fsync(journal.fileno())
 
     def respond(request_id, result):
+        result.update(lights.capabilities())
         record("result", request_id=request_id, result=result)
         print(json.dumps(dict(result, version=1, request_id=request_id)))
         sys.stdout.flush()
@@ -344,7 +585,9 @@ def main():
     stopping = [False]
     signal.signal(signal.SIGTERM, lambda signum, frame: stopping.__setitem__(0, True))
     signal.signal(signal.SIGINT, lambda signum, frame: stopping.__setitem__(0, True))
-    print(json.dumps({"version": 1, "state": "initialized"}))
+    initialized = {"version": 1, "state": "initialized"}
+    initialized.update(lights.capabilities())
+    print(json.dumps(initialized))
     sys.stdout.flush()
     try:
         while not stopping[0]:
@@ -370,6 +613,12 @@ def main():
                     result = lights.acquire()
                 elif action == "release":
                     result = lights.release()
+                elif action == "gradient":
+                    result = lights.apply_gradient()
+                elif action == "programme":
+                    result = lights.run_programme(item.get("arguments", {}).get("name"))
+                elif action in ("blind", "blinds"):
+                    result = lights.move_blinds(item.get("arguments", {}).get("name"))
                 else:
                     result = lights.apply(action, item.get("arguments", {}))
                 respond(request_id, result)
@@ -381,9 +630,11 @@ def main():
                     {
                         "state": "failed",
                         "detail": str(error),
-                        "outcome_unknown": lights.failed,
+                        "outcome_unknown": lights.failed or lights.blinds_failed,
                     },
                 )
+                if action == "acquire" and not lights.failed:
+                    continue  # Status Stop remains usable when read-only acquisition fails.
                 break
     finally:
         deadline[0] = clock() + 30

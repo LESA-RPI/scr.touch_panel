@@ -1,7 +1,7 @@
 # Panel operation
 
-The root `main.py` is the Legacy room application; `app/` provides Beta and its
-touch switcher. Keep the installed Legacy checkout, working directory and ROS
+The root `main.py` is the separate Original fallback; `app/` provides the shared
+Beta and familiar Legacy layouts. Keep the installed original checkout, working directory and ROS
 environment intact. README owns the user overview; this guide owns operating
 procedures. `docs/interface.md` owns data and adapter contracts.
 
@@ -24,12 +24,14 @@ python -B app/scr_touch_panel.py --duration 600 --live-lights \
   --journal /tmp/scr-panel-connected-unique.jsonl
 ```
 
-Acquire requires two matching scans and one uniform Fid, Sat, Dul or Off preset.
-Arbitrary drive words and Standard white baselines are refused because their
-exact restore path is not qualified. Use Legacy to establish an
-admitted baseline when no other study holds lighting, then re-enter Room.
+The bounded trial above requires two matching scans and one uniform Fid, Sat, Dul
+or Off preset, because it restores that preset when finished. Arbitrary drive
+words cannot be restored exactly by the existing integer-percent setter.
+The installed persistent launcher uses `--keep-switcher`; its helper uses
+`--keep-settings` instead. It accepts any stable ten-fixture snapshot, including
+Gradient, and never restores lighting on navigation, shutdown or parent loss.
 
-One Tk process owns display interaction. One helper owns this trial's ROS calls.
+One Tk process owns display interaction. One helper owns Beta's ROS calls.
 The helper checks all fixture words before each write and after its response.
 It does not claim optical accuracy. The existing setter accepts integer
 percentages, which cannot reproduce arbitrary fractional drive settings.
@@ -38,10 +40,20 @@ percentages, which cannot reproduce arbitrary fractional drive settings.
 
 Home combines stacked Lights on/off with time and outdoor weather. Blind
 callbacks check the saved permission and controller connection; movement defaults
-to disabled and no blind adapter is installed. Room tools → Lighting groups
+to Locked. The helper exposes whole-room blinds when the existing lift/tilt
+services are advertised. Room tools → Lighting groups
 white-light adjustments, scenes, programmes and the channel editor. Home returns to everyday
 controls. All light controls share one latest selection queue. Wait for
 confirmation to distinguish a selection from a result.
+
+Scenes includes the original ten-fixture Gradient when the coordinate service is
+available. Programmes exposes the original Sun/Circ requests through the existing
+Status service when configured below. Start/Stop acceptance is not programme
+running or completion confirmation. Before an explicit manual lighting action,
+the helper requests both programmes stop and qualifies stable drive readback;
+uncertain results block further changes. Opening pages or switching Beta/Legacy
+does not stop programmes or send lighting setters. Blind commands use the same
+helper, with service acknowledgements rather than measured physical positions.
 
 System & help explains each reference command's computer, purpose and expected
 result. The panel shows one command step at a time; the browser can copy each
@@ -49,21 +61,32 @@ step or the complete topic and provides documentation links. Neither interface
 executes these references. Service-start commands use `cd ... && python ...` so
 a failed directory change cannot launch the script from another directory.
 
-Legacy waits for confirmed restoration and helper exit before showing
-the legacy program. Its matching header marks Legacy view; Home returns to the
-main controls. Room tools and Demo & guide remain directly available. The strip
-keeps the existing banner footprint and does not cover actuator buttons.
+Normal Legacy is `Panel.mode == "classic"`: a familiar layout inside the same Tk
+process using the same helper. Beta → Legacy → Home changes presentation only;
+it does not release ownership, reinitialize ROS, change light settings or stop
+programmes. Website lighting remains available in this view under the usual guards.
+Normal Legacy navigation can continue while instructions run; actuators stay locked.
+
+System & help exposes Original fallback separately. It waits for confirmed
+ownership release and exact helper exit before showing the untouched original
+application. Website controls then pause and offer Return panel to Home. This is
+the emergency path, not the normal Legacy shortcut. Its matching top strip
+identifies Original fallback and retains access to Home.
 
 The helper has a ten-second parent lease and 30-second operation budget, with
-individual service calls bounded to at most twelve seconds. Parent loss triggers
-cleanup only when the last confirmed drive state still matches. A lost response
-or external change disables further writes and automatic restoration. Never retry
+individual service calls bounded to at most twelve seconds. Persistent control
+releases without setters; bounded trials restore only while the last confirmed
+drive state still matches. A lost response or external change disables further
+writes and automatic trial restoration. Never retry
 an uncertain write. Inspect the private `.lights-*.jsonl` receipt and coordinate
 with staff before controlling again.
 
-Deadlines do not bound filesystem stalls or ROS initialization. The normal UI
-waits for restoration; process exit alone does not prove that lights were restored.
-`SIGKILL` or host power loss cannot guarantee restoration.
+Deadlines do not bound filesystem stalls. An initializing helper is cancelled
+after 30 seconds without sending a lighting command. The normal UI
+waits for ownership release only for Original fallback, shutdown and power actions;
+a process exit alone cannot confirm an in-flight
+lighting result. A helper still initializing can be cancelled without a write.
+`SIGKILL` or host power loss cannot guarantee bounded-trial restoration.
 
 Blank screen displays black pixels. A stationary two-second press returns to the
 previous view; movement beyond 40 pixels cancels. The backlight remains powered.
@@ -80,8 +103,9 @@ or restore light settings. Remove this private file to reset appearance.
 A direct preview saves preferences only when `--preferences PATH` is supplied.
 `blinds_enabled` is a strict boolean, defaults to false and is saved separately
 from Home visibility. Changing this setting never sends a blind command.
-No blind adapter is installed. Screen & controls shows one unavailable note and
-omits unlocking until a controller is connected; movement remains disabled.
+Screen & controls omits unlocking until the helper reports a connected controller.
+Its permission controls update when connection state changes, including while the
+page remains open. Unlocking changes permission only; explicit Home buttons move blinds.
 Room tools → Date & weather selects Celsius or Fahrenheit. Old preference files
 default to Fahrenheit. Direct previews can use `--temperature-unit c` or `f`.
 Switching units converts cached data; it does not fetch again or change room controls.
@@ -165,12 +189,22 @@ ROS_HOSTNAME=panel-hostname
 DISPLAY=:0
 SCR_START_DELAY=8
 SCR_PANEL_PYTHON=/usr/bin/python3
+# Optional: existing approved programme service; omit to hide Sun/Circ controls.
+SCR_STATUS_URL=http://approved-status-service:5000
 ```
 
 Use existing, verified deployment values. Keep this file mode 0600 and outside
 Git. Beta requires Python 3.11+, Tk and Pillow; the launcher checks these before
-sourcing ROS or starting Legacy. `SCR_PANEL_PYTHON` defaults to `/usr/bin/python3`.
-Legacy and the light adapter use independent interpreter settings. The launcher
+sourcing ROS or starting Original fallback. `SCR_PANEL_PYTHON` defaults to `/usr/bin/python3`.
+`SCR_STATUS_URL` is the private base URL of the existing Status owner, not a new
+service to install or restart. The launcher passes it as `--status-url` to Beta
+and its helper. Direct launches can use the same option. Use an approved HTTP(S)
+address without embedded credentials, query or fragment; keep real addresses out
+of Git. Only the fixed original `sun`/`circ` Run/Kill requests are admitted.
+Omitting it leaves programme controls unavailable while ordinary lighting remains
+usable. Capability advertisement identifies configured services, not their health;
+qualify request acceptance and stable readback before a live change.
+Original fallback and the light adapter use independent interpreter settings. The launcher
 sources the installed ROS setup, sets the same original
 environment, and checks process working directories before starting `main.py`.
 Its file lock prevents two switchers. Journals and logs stay under
@@ -187,10 +221,14 @@ Exec=/bin/bash /absolute/path/to/current/app/start_panel.sh
 Terminal=false
 ```
 
-The launcher uses `--keep-switcher --duration 0`. Legacy, Escape and a window
-close return to Legacy after helper cleanup; the touch strip remains. Returning
-to Room checks a fresh baseline. If restoration is uncertain, inspect the receipt
-before changing lights. Signal shutdown still stops the switcher.
+The launcher uses `--keep-switcher --duration 0`. The normal Legacy shortcut,
+Escape and a window close show the shared Legacy layout and keep the existing
+helper. Original fallback requires its explicit System & help action or startup
+configuration; it retains the guarded original-application path after helper cleanup.
+Returning from Original fallback reads the current settings without a write.
+If a result is uncertain,
+inspect the receipt before changing lights. Signal shutdown stops the switcher
+and leaves confirmed light settings in place.
 
 User autostart runs only after desktop login. Check the actual display manager
 and session before enabling autologin; use that OS's supported configuration.
@@ -240,9 +278,9 @@ challenge alone is insufficient for unattended execution. Existing narrowly
 authorized noninteractive operator commands may supply an alternative. An unavailable
 action requires the operator's normal desktop or administration workflow.
 
-Before requesting OS power changes, finish lighting operations, confirm restoration
+Before requesting OS power changes, finish lighting operations, confirm ownership release
 and helper exit, and wait for saved preferences and the event journal to finish.
-Uncertain restoration or a persistence error blocks the action. Do not use forced
+An uncertain lighting result or a persistence error blocks the action. Do not use forced
 shutdown or a direct power cut as the normal procedure. An accepted restart is
 not proof of a successful boot: check desktop autostart, one panel/controller,
 website availability and the new release identity afterward.
@@ -304,7 +342,7 @@ packages with pip. The room server remains unchanged.
    `app/run_original.py` supplies Tk/Pillow aliases without modifying original code.
 9. Add the owned XDG autostart entry shown above. Bookworm's labwc desktop calls
    `lxsession-xdg-autostart`; existing desktop autologin must also be enabled.
-10. Check Beta → Legacy → Beta, settings, dynamic lighting and baseline restoration.
+10. Check Beta → Legacy → Beta without lighting changes, settings and dynamic lighting.
     Confirm one process of each application and test duplicate launcher rejection.
     An unattended reboot is a separate final acceptance check.
 
@@ -333,7 +371,7 @@ trusted subnet.
 
 Enforce roles in the backend, not only by hiding buttons. Do not expose personal
 experiment metadata to visitors. These proposed roles do not secure the existing
-legacy ROS services or change the physical Legacy application's access policy.
+legacy ROS services or change the Original fallback application's access policy.
 
 Use one shared, documented command/state contract and one command owner. Multiple
 clients may observe; independent browser ROS owners must not compete with Tk.
@@ -388,8 +426,9 @@ types and wire MD5s before enabling writes. The ROS master, native light/blind
 servers and HTTP demo/status endpoints are external dependencies. A Pi image
 does not back them up. Use the room's existing deployment owner and contracts.
 
-Restore acceptance requires desktop login, touch alignment, exactly one original
-and beta process, touch-only switching, read-only service/status checks, and an
+Restore acceptance requires desktop login, touch alignment, one shared Beta/Legacy
+process and the retained separate original fallback process, touch-only switching,
+read-only service/status checks, and an
 authorized light-control/restoration trial. Verify original blinds and HTTP demo
 controls through their existing owners when the room permits those actions.
 Confirm power/storage health before an unattended reboot test. Record untested
@@ -407,8 +446,8 @@ browser control disabled. The fixed bind address and trusted-client subnet still
 determine who can access the site. No separate staff login is implemented.
 
 Deploy and qualify both compatible releases. Keep the original application and
-room servers running. The panel gracefully releases lighting before its selector
-changes; preserve its receipts. Restart only the owned browser service after
+room servers running. Normal Beta/Legacy navigation retains the helper; Original
+fallback waits for safe release and helper exit. Preserve its receipts. Restart only the owned browser service after
 selecting its release. Check controller availability and receipt handling with a
 same-value display preference, not an actuator command. If the panel bridge is
 unavailable, web controls disable while the panel and guide/help remain usable.
@@ -417,5 +456,11 @@ Common actions and their rejection rules are owned by
 [the interface contract](docs/interface.md#optional-browser-gateway-version-1).
 Changing a website page does not move room devices. Explicit Legacy/display
 controls affect the cabinet. A running instruction session blocks lighting on
-both interfaces until paused. Blind movement and external Legacy actuator buttons
-remain outside this gateway. Reference commands may be copied, never executed.
+both interfaces until paused. Pause instructions before opening Original fallback, Blank or
+clock view on either interface. Home keeps the instruction session running; use
+Room tools → Experiment mode to pause it. Ordinary Beta pages and paused
+instructions leave lighting available through the other interface. The gateway
+also relays Gradient, original programme requests and permitted whole-room blind
+actions through the same owner; it does not add independent hardware drivers.
+Individual fixture/window selectors remain unimplemented. Reference commands may be copied,
+never executed.

@@ -16,6 +16,10 @@ class PanelGuidance:
         heading.pack_propagate(False)
         self.label(heading, "System & help", 27).pack(side="left")
         self.power_buttons = []
+        fallback = self.button(heading, "Original fallback", lambda: self.show("original"))
+        fallback.config(font=(self.font_family, 15), pady=8, padx=12)
+        fallback.pack(side="right", padx=(12, 0), fill="y")
+        self.original_fallback_button = fallback
         for operation, title in (
             ("shutdown", "Shut down Pi"),
             ("reboot", "Restart Pi"),

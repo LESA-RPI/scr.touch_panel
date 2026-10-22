@@ -452,7 +452,9 @@ def test_slow_adapter_initialization_sends_fresh_request_once_and_honors_exit(
     monkeypatch.setattr(panel.select, "select", lambda *args: ([], [], []))
     for leave in (None, "original", "close"):
         now[0] = 100.0
-        worker = SimpleNamespace(stdin=BytesIO(), stdout=object(), poll=lambda: None)
+        worker = SimpleNamespace(
+            stdin=BytesIO(), stdout=object(), poll=lambda: None, terminate=lambda: None
+        )
         monkeypatch.setattr(panel.subprocess, "Popen", lambda *args, **kwargs: worker)
         state = panel.Panel.__new__(panel.Panel)
         state.args = SimpleNamespace(

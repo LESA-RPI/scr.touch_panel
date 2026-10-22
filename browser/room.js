@@ -1,6 +1,7 @@
 'use strict';
 // Shared state and commands come from the existing panel owner. No device driver lives here.
 const $ = (id) => document.getElementById(id);
+const phoneLayout = matchMedia('(max-width:650px)');
 let state = null,
   content = { guide: [], help: [] },
   posting = false,
@@ -79,6 +80,7 @@ function command(action, args = {}, revision = state?.revision) {
   const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
     b.toString(16).padStart(2, '0'),
   ).join('');
+  const sentSession = state.session;
   if (action === 'power')
     powerRequest = { operation: args.operation, session: state.session, id, accepted: false };
   posting = true;
@@ -96,9 +98,15 @@ function command(action, args = {}, revision = state?.revision) {
         message('Command was rejected. Refresh the page before trying a new action.');
         return false;
       }
-      if (!reply) {
+      if (
+        !reply ||
+        typeof reply.ok !== 'boolean' ||
+        reply.code !== response.status ||
+        ![202, 400, 403, 405, 408, 409].includes(response.status) ||
+        (reply.ok && (response.status !== 202 || reply.id !== id))
+      ) {
         unknown = id;
-        unknownSession = state?.session;
+        unknownSession = sentSession;
         message(
           action === 'power'
             ? 'Power request status is unknown. Check the touch panel before trying again.'
@@ -122,8 +130,16 @@ function command(action, args = {}, revision = state?.revision) {
         );
         return true;
       }
+      if (action === 'programme') {
+        message(
+          args.name === 'Stop'
+            ? 'Stop requested. Programme running state is not confirmed.'
+            : args.name + ' start requested. Programme running state is not confirmed.',
+        );
+        return true;
+      }
       message(
-        action === 'on' || action === 'off' || ['cct', 'channels', 'preset'].includes(action)
+        ['on', 'off', 'cct', 'channels', 'preset', 'gradient'].includes(action)
           ? 'Sent. Waiting for controller confirmation.'
           : 'Accepted by the panel.',
         true,
@@ -132,7 +148,7 @@ function command(action, args = {}, revision = state?.revision) {
     })
     .catch(() => {
       unknown = id;
-      unknownSession = state?.session;
+      unknownSession = sentSession;
       message(
         action === 'power'
           ? 'Power request status is unknown. Check the touch panel before trying again.'
@@ -224,11 +240,11 @@ function home(root) {
     group.id = isBlind ? 'blind-group' : 'light-group';
     let actions = group;
     if (isBlind) {
-      group.open = !matchMedia('(max-width:650px)').matches;
+      group.open = !phoneLayout.matches;
       const summary = el('summary');
       // Blinds fold away only on phones; on wider screens the heading is not a toggle.
       summary.onclick = (event) => {
-        if (!matchMedia('(max-width:650px)').matches) event.preventDefault();
+        if (!phoneLayout.matches) event.preventDefault();
       };
       summary.append(el('h2', title));
       const note = el('span', 'Disabled', 'muted');
@@ -488,11 +504,14 @@ function tools(root, page) {
     display.append(actions);
     const blinds = setting(detail, 'Blind controls', '');
     blinds.previousElementSibling.querySelector('p').id = 'blind-reason';
-    if (state?.blinds?.connected)
-      choices(blinds, [
-        ['Locked', 'blinds_enabled', false],
-        ['Unlocked', 'blinds_enabled', true],
-      ]);
+    const permission = el('div');
+    permission.id = 'blind-permission';
+    permission.hidden = !state?.blinds?.connected;
+    choices(permission, [
+      ['Locked', 'blinds_enabled', false],
+      ['Unlocked', 'blinds_enabled', true],
+    ]);
+    blinds.append(permission);
     choices(setting(detail, 'Blinds on Home', 'Show the blind buttons on Home.'), [
       ['Show', 'blinds_display', 'disabled'],
       ['Hide', 'blinds_display', 'hidden'],
@@ -543,10 +562,69 @@ function lighting(detail, tab) {
       card.append(el('h3', scene.label), el('p', scene.detail, 'muted'), b);
       grid.append(card);
     }
-    detail.append(grid, el('p', content.unavailable_lighting, 'muted'));
+    const gradient = el('section', undefined, 'card');
+    gradient.id = 'gradient-controls';
+    gradient.hidden = !state?.lights?.capabilities?.gradient;
+    const apply = button('Apply gradient', () => command('gradient'), {
+      action: 'gradient',
+    });
+    apply.dataset.preset = 'Gradient';
+    gradient.append(
+      el('h3', content.gradient?.label || 'Gradient'),
+      el(
+        'p',
+        content.gradient?.detail || 'Original spatial pattern across the ten room lights.',
+        'muted',
+      ),
+      apply,
+    );
+    grid.append(gradient);
+    detail.append(grid);
     feedback(detail);
   } else if (tab === 'programmes') {
-    detail.append(el('p', content.unavailable_lighting, 'muted'));
+    const unavailable = el(
+      'p',
+      content.unavailable_lighting || 'Original lighting programmes are unavailable on this panel.',
+      'muted',
+    );
+    unavailable.id = 'programmes-unavailable';
+    const controls = el('div');
+    controls.id = 'programme-controls';
+    controls.hidden = !state?.lights?.capabilities?.programmes;
+    const grid = el('div', undefined, 'scene-grid');
+    for (const programme of content.programmes || [
+      {
+        id: 'Sun',
+        label: 'Original Sun programme',
+        detail: 'A spatially staggered colour-temperature curve.',
+      },
+      {
+        id: 'Circ',
+        label: 'Original Circ programme',
+        detail: 'A whole-room colour-temperature curve.',
+      },
+    ]) {
+      const card = el('section', undefined, 'card');
+      const start = button(
+        'Start ' + programme.id,
+        () => command('programme', { name: programme.id }),
+        { action: 'programme' },
+      );
+      start.dataset.programme = programme.id;
+      card.append(el('h3', programme.label), el('p', programme.detail, 'muted'), start);
+      grid.append(card);
+    }
+    const stop = button(
+      'Stop programmes',
+      () => command('programme', { name: 'Stop' }),
+      { action: 'programme' },
+    );
+    stop.dataset.programme = 'Stop';
+    const status = el('p', '', 'muted');
+    status.id = 'programme-status';
+    status.setAttribute('role', 'status');
+    controls.append(grid, stop, status);
+    detail.append(unavailable, controls);
   } else if (tab === 'channels') {
     detail.append(el('p', 'Adjust the eight room-wide channel percentages.', 'muted'));
     const grid = el('div', undefined, 'channel-grid');
@@ -748,6 +826,26 @@ function system(parent) {
     cards.append(card);
   }
   parent.append(cards);
+  const views = el('section', undefined, 'card');
+  views.id = 'panel-view-controls';
+  const viewActions = el('div', undefined, 'row');
+  viewActions.append(
+    button('Show Legacy view', () => command('legacy'), { action: 'legacy' }),
+    button('Open Original fallback', () => command('original_fallback'), {
+      action: 'original_fallback',
+    }),
+  );
+  views.append(
+    el('h3', 'Panel views'),
+    el('p', 'Legacy uses the same controller and keeps current settings.', 'muted'),
+    el(
+      'p',
+      'Original fallback opens the separate original application after controller release. Website controls pause until it returns.',
+      'muted',
+    ),
+    viewActions,
+  );
+  parent.append(views);
   powerControls(parent);
   const row = el('label', undefined, 'help-select');
   row.append(el('span', 'Help topic'));
@@ -1014,14 +1112,16 @@ function sync() {
           : !available
             ? 'Panel unavailable'
             : state.mode === 'original'
-              ? 'Legacy'
-              : state.busy
-                ? 'Sending'
-                : state.can_control
-                  ? 'Ready'
-                  : s.state === 'failed'
-                    ? 'Uncertain'
-                    : 'Controls unavailable',
+              ? 'Original fallback'
+              : state.mode === 'classic' && !state.busy
+                ? 'Legacy'
+                : state.busy
+                  ? 'Sending'
+                  : state.can_control
+                    ? 'Ready'
+                    : s.state === 'failed'
+                      ? 'Uncertain'
+                      : 'Controls unavailable',
   );
   // Colour the header status: ready, waiting (connecting/sending/Legacy) or problem.
   $('connection').dataset.state =
@@ -1032,7 +1132,16 @@ function sync() {
         : state.can_control
           ? 'ready'
           : 'waiting';
-  $('legacy-banner').hidden = !(available && state.mode === 'original');
+  const panelMessage =
+    state?.mode === 'original'
+      ? 'The touch panel is showing Original fallback, the separate original application. Return it to Home to use website controls.'
+      : state?.mode === 'black'
+        ? 'The touch panel is blank. Return it to Home to use lighting.'
+        : state?.mode === 'experiment' && !state.experiment?.running && !state.can_control
+          ? 'Experiment mode is paused. Return the touch panel to Home to use lighting.'
+          : '';
+  $('legacy-banner').hidden = !(available && panelMessage);
+  update('panel-mode-message', panelMessage);
   if ($('blind-group')) {
     $('blind-group').hidden = p.blinds_display === 'hidden';
     $('essentials').classList.toggle('single', p.blinds_display === 'hidden');
@@ -1043,22 +1152,39 @@ function sync() {
     'blind-reason',
     state?.blinds?.connected ? state.blinds.reason : content.blinds_unavailable,
   );
+  if ($('blind-permission')) $('blind-permission').hidden = !state?.blinds?.connected;
+  if ($('gradient-controls')) $('gradient-controls').hidden = !s.capabilities?.gradient;
+  if ($('programme-controls')) $('programme-controls').hidden = !s.capabilities?.programmes;
+  if ($('programmes-unavailable'))
+    $('programmes-unavailable').hidden = !!s.capabilities?.programmes;
+  update(
+    'programme-status',
+    s.programme
+      ? s.programme + ' programme requested. Running state is not confirmed.'
+      : 'No programme selected by this panel. Running state is not confirmed.',
+  );
   for (const b of document.querySelectorAll('[data-action]')) {
     const a = b.dataset.action,
-      lighting = ['on', 'off', 'cct', 'preset', 'channels'].includes(a),
+      lighting = ['on', 'off', 'cct', 'preset', 'channels', 'gradient'].includes(a),
       session = ['start', 'pause', 'previous', 'next', 'mark'].includes(a);
     b.disabled =
       posting ||
       Boolean(unknown) ||
       !available ||
       state.busy ||
-      (a === 'blind'
-        ? !state?.blinds?.available
-        : lighting
-          ? !state.can_control
-          : session
-            ? !state.can_session
-            : false);
+      (['original_fallback', 'blank', 'clock_view'].includes(a) && state.experiment?.running) ||
+      (a === 'programme'
+        ? state.can_programme === false || !s.capabilities?.programmes ||
+          (b.dataset.programme !== 'Stop' && !state.can_control)
+        : a === 'gradient'
+          ? !s.capabilities?.gradient || !state.can_control
+          : a === 'blind'
+            ? !state?.blinds?.available
+            : lighting
+              ? !state.can_control
+              : session
+                ? !state.can_session
+                : false);
   }
   for (const input of document.querySelectorAll('[data-range]')) {
     const number = $('value-' + input.dataset.range);
@@ -1084,11 +1210,12 @@ function sync() {
       'selected',
       available && !posting && !unknown && s.power === b.dataset.action && state.can_control,
     );
-  for (const b of document.querySelectorAll('[data-preset]'))
-    b.classList.toggle(
-      'selected',
-      available && !posting && !unknown && s.scene === b.dataset.preset && state.can_control,
-    );
+  for (const b of document.querySelectorAll('[data-preset]')) {
+    const selected =
+      available && !posting && !unknown && s.scene === b.dataset.preset && state.can_control;
+    b.classList.toggle('selected', selected);
+    b.setAttribute('aria-pressed', String(selected));
+  }
   update(
     'light-message',
     !available
@@ -1097,9 +1224,11 @@ function sync() {
         : state?.detail || 'Panel unavailable. Controls are disabled.'
       : state.experiment?.running
         ? 'Instructions are running. Pause Experiment mode before using lighting.'
-        : state.mode === 'original'
-          ? 'Use Home to return from Legacy.'
-          : s.message || 'Lighting unavailable.',
+        : !state.can_control && ['original', 'black', 'experiment'].includes(state.mode)
+          ? 'Return the touch panel to Home to use lighting.'
+          : s.programme
+            ? 'Manual lighting stops programmes before applying.'
+            : s.message || 'Lighting unavailable.',
   );
   update(
     'light-recent',
@@ -1390,6 +1519,9 @@ async function refresh() {
 // Only explicit buttons change the panel; moving around this website never does.
 $('legacy-return').onclick = () => command('home');
 window.addEventListener('hashchange', layout);
+phoneLayout.addEventListener('change', () => {
+  if ($('blind-group')) $('blind-group').open = !phoneLayout.matches;
+});
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) refresh();
 });

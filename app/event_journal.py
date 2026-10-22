@@ -3,6 +3,7 @@
 from __future__ import print_function
 import os
 import threading
+from preferences import sync_directory
 
 try:
     import Queue as queue
@@ -23,6 +24,8 @@ class EventJournal(object):
         self.thread.start()
 
     def append(self, line, sequence, durable=False):
+        if self.done.is_set() and not self.error:
+            self.error = "Panel journal writer stopped"
         if self.error or self.closing:
             raise IOError(self.error or "Panel journal is closing")
         try:
@@ -44,11 +47,17 @@ class EventJournal(object):
 
     def _run(self):
         stream = None
+        finished = False
         try:
             if self.path:
                 stream = os.fdopen(
                     os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w"
                 )
+                sync_directory(os.path.dirname(os.path.abspath(self.path)))
+            if self.output is None:
+                self.output_error = "Panel output is unavailable"
+                if not stream:
+                    raise IOError(self.output_error)
             while not self.closing or not self.pending.empty():
                 try:
                     batch = [self.pending.get(timeout=0.05)]
@@ -74,8 +83,8 @@ class EventJournal(object):
                     try:
                         self.output.write(lines)
                         self.output.flush()
-                    except (IOError, OSError) as error:
-                        self.output_error = str(error)
+                    except (IOError, OSError, ValueError) as error:
+                        self.output_error = str(error) or "Panel output write failed"
                         if not stream:
                             self.error = self.output_error
                 if not stream and not self.output_error:
@@ -85,12 +94,16 @@ class EventJournal(object):
             if stream:
                 stream.flush()
                 os.fsync(stream.fileno())
-        except (IOError, OSError, queue.Full) as error:
+            finished = True
+        except (IOError, OSError, ValueError, queue.Full) as error:
             self.error = str(error) or "Panel journal write failed"
         finally:
-            if stream:
-                try:
+            try:
+                if stream:
                     stream.close()
-                except (IOError, OSError) as error:
-                    self.error = self.error or str(error)
-            self.done.set()
+            except (IOError, OSError, ValueError) as error:
+                self.error = self.error or str(error) or "Panel journal close failed"
+            finally:
+                if not finished and not self.error:
+                    self.error = "Panel journal writer stopped before shutdown"
+                self.done.set()

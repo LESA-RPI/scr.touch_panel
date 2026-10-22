@@ -70,7 +70,7 @@ def load(path, defaults=None):
             merged.update(value)
             validated(merged)
         return value, None
-    except (IOError, OSError, ValueError) as error:
+    except (IOError, OSError, ValueError, RecursionError) as error:
         return {}, str(error)
 
 
@@ -96,6 +96,9 @@ class Preferences(object):
         with self.condition:
             if self.closing:
                 return
+            if self.done.is_set():
+                self.error = self.error or "Appearance settings writer stopped"
+                return
             self.pending = value
             self.settled.clear()
             self.condition.notify()
@@ -106,12 +109,14 @@ class Preferences(object):
             self.condition.notify()
 
     def _run(self):
+        finished = False
         try:
             while True:
                 with self.condition:
                     while self.pending is None and not self.closing:
                         self.condition.wait()
                     if self.pending is None:
+                        finished = True
                         return
                     value, self.pending = self.pending, None
                     self.writing = True
@@ -132,17 +137,23 @@ class Preferences(object):
                     temporary = None
                     sync_directory(directory)
                     self.error = None
-                except (IOError, OSError) as error:
-                    self.error = str(error)
+                except (IOError, OSError, ValueError) as error:
+                    self.error = str(error) or "Appearance settings write failed"
                 finally:
                     if temporary:
                         try:
                             os.unlink(temporary)
                         except OSError as error:
-                            self.error = str(error)
+                            self.error = (
+                                self.error or str(error)
+                                or "Appearance temporary file cleanup failed"
+                            )
                     with self.condition:
                         self.writing = False
                         if self.pending is None:
                             self.settled.set()
         finally:
+            if not finished and not self.error:
+                self.error = "Appearance settings writer stopped before shutdown"
+            self.settled.set()
             self.done.set()

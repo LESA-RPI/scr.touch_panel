@@ -11,6 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
 from panel_control import command, Bridge
 from panel_remote import execute
+from panel_remote import snapshot
 from design_tokens import THEMES
 
 
@@ -222,3 +223,108 @@ def test_remote_blind_action_uses_owner_readiness_and_never_bypasses_setting(
         else:
             assert execute(owner, envelope("blind", {"name": "lift"}))["ok"]
     assert calls == ["lift"]
+
+
+@pytest.fixture
+def remote_owner():
+    """Complete cached presentation state; every action stays inside this fake owner."""
+    def variable(value):
+        return SimpleNamespace(get=lambda: value)
+
+    owner = SimpleNamespace(
+        args=SimpleNamespace(live_lights=True, timezone="America/New_York", light_at=420, dark_at=1140),
+        pending=None, queued_intent=None, release_target=None, closing=None,
+        press_active=False, running=False, idle_active=False,
+        light_state="ready", mode="room", elapsed=0, run_started=time.monotonic(),
+        run_id="owner", sequence=1, view_generation=1,
+        confirmed_power="on", confirmed_scene="Fid", confirmed_light="Fid scene",
+        confirmed_at=None, light_message="Light settings confirmed.",
+        cct=variable(3500), intensity=variable(1000),
+        channel_values=[variable(25) for _ in range(8)],
+        theme_choice="light", theme="light", clock_24=False, temperature_unit="f",
+        idle_timeout=300, help_on=True, blinds_display="disabled", blinds_enabled=False,
+        profile={"title":"Practice", "stages":["Pause"], "annotations":[]}, stage=0,
+        annotation_text=variable(""), weather_reading=None, weather_good=None,
+        health_cache={}, room_status="Not checked",
+        blind_state=lambda: {"available":False},
+        emit=lambda *args, **kwargs: None, activity=lambda *args: None,
+    )
+    for name, value in THEMES["light"].items():
+        setattr(owner, name, value)
+    owner.calls = []
+    owner.lights_on = lambda: owner.calls.append(owner.mode)
+    return owner
+
+
+@pytest.mark.parametrize("mode", ["room", "classic", "guide", "settings", "health", "about", "advanced", "experiment", "visitor"])
+def test_remote_lighting_uses_current_owner_without_changing_beta_page(remote_owner, mode):
+    remote_owner.mode = mode
+    assert snapshot(remote_owner)["can_control"] is True
+    assert execute(remote_owner, envelope("on"))["ok"]
+    assert remote_owner.calls == [mode]
+    assert remote_owner.mode == mode
+
+
+@pytest.mark.parametrize("field,value", [
+    ("mode", "original"), ("mode", "black"), ("running", True),
+    ("pending", {"request_id":"pending"}), ("queued_intent", {"action":"on"}),
+    ("release_target", "original"), ("closing", "exit"), ("press_active", True),
+    ("light_state", "failed"), ("light_state", "connecting"),
+    ("power_busy", lambda: True),
+])
+def test_remote_lighting_keeps_safety_locks_on_every_beta_page(remote_owner, field, value):
+    remote_owner.mode = "guide"
+    setattr(remote_owner, field, value)
+    assert snapshot(remote_owner)["can_control"] is False
+    with pytest.raises(RuntimeError):
+        execute(remote_owner, envelope("on"))
+    assert not remote_owner.calls
+
+
+@pytest.mark.parametrize("field,value", [
+    ("running", True), ("pending", {"request_id": "pending"}),
+    ("queued_intent", {"action": "on"}), ("release_target", "original"),
+    ("closing", "exit"), ("press_active", True), ("light_state", "failed"),
+    ("light_state", "connecting"), ("power_busy", lambda: True),
+])
+def test_remote_classic_keeps_every_owner_safety_lock(remote_owner, field, value):
+    remote_owner.mode = "classic"
+    setattr(remote_owner, field, value)
+    assert snapshot(remote_owner)["can_control"] is False
+    with pytest.raises(RuntimeError):
+        execute(remote_owner, envelope("on"))
+    assert not remote_owner.calls and remote_owner.mode == "classic"
+
+
+@pytest.mark.parametrize("running", [False, True])
+def test_remote_legacy_action_only_selects_classic_view(remote_owner, running):
+    remote_owner.running = running
+    remote_owner.show = lambda mode: (remote_owner.calls.append(mode), setattr(remote_owner, "mode", mode))
+    assert execute(remote_owner, envelope("legacy"))["ok"]
+    assert remote_owner.calls == ["classic"] and remote_owner.mode == "classic"
+    assert remote_owner.running is running
+
+
+def test_extended_lighting_commands_keep_bounded_public_shapes():
+    assert command(envelope("gradient"))["action"] == "gradient"
+    for name in ("Sun", "Circ", "Stop"):
+        assert command(envelope("programme", {"name": name}))["arguments"] == {"name": name}
+    for value in (
+        envelope("gradient", {"target": "all"}),
+        envelope("programme", {"name": "arbitrary script"}),
+        envelope("programme", {"name": True}),
+        envelope("programme", {"name": "Sun", "path": "/tmp/programme"}),
+    ):
+        with pytest.raises(ValueError):
+            command(value)
+
+
+def test_remote_gradient_and_programme_call_existing_owner_without_navigation(remote_owner):
+    remote_owner.mode = "guide"
+    remote_owner.light_capabilities = {"gradient": True, "programmes": True}
+    remote_owner.apply = lambda action, **values: remote_owner.calls.append((action, values))
+    remote_owner.programme_command = lambda name: remote_owner.calls.append(("programme", name)) or True
+    assert execute(remote_owner, envelope("gradient"))["ok"]
+    assert execute(remote_owner, envelope("programme", {"name": "Stop"}))["ok"]
+    assert remote_owner.calls == [("gradient", {"immediate": True}), ("programme", "Stop")]
+    assert remote_owner.mode == "guide"
