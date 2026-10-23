@@ -1,8 +1,5 @@
 """Shared presentation/state and actions, always called on the panel's Tk thread."""
 
-from panel_guides import DEMO, SUPPORT
-from command_reference import command_tokens
-from help_reference import reference
 import time
 from panel_version import VERSION, BUILD_COMMIT
 
@@ -93,19 +90,6 @@ def snapshot(panel):
             "annotation": panel.annotation_text.get(),
             "recording": False,
         },
-        "guide": [
-            {"title": title, "icon": kind, "text": text} for title, kind, text in DEMO
-        ],
-        "help": [
-            {
-                "title": title,
-                "text": text,
-                "commands": commands,
-                "command_tokens": command_tokens(commands),
-                "reference": reference(title),
-            }
-            for title, kind, text, commands in SUPPORT
-        ],
         "weather": panel.weather_reading,
         "weather_age_s": (
             None

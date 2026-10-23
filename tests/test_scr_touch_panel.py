@@ -952,3 +952,35 @@ def test_journal_failures_never_claim_unsaved_annotations_are_saved(
             assert "Saved on panel" not in state.annotation_text.value
             assert "Written to panel output" not in state.annotation_text.value
             assert "Panel journal shutdown failed:" in stderr
+
+
+def test_panel_loops_keep_running_after_one_unexpected_error(capsys):
+    scheduled = []
+    state = panel.Panel.__new__(panel.Panel)
+    state.closed = False
+    state.root = SimpleNamespace(after=lambda delay, callback: scheduled.append(callback))
+    calls = []
+
+    def step():
+        calls.append(1)
+        if len(calls) < 3:
+            raise KeyError("broken reading")
+        return False if len(calls) == 4 else None
+
+    state.repeat(step, 1000)
+    scheduled.pop()()
+    assert capsys.readouterr().err.count("KeyError:") == 1  # logged once
+    scheduled.pop()()
+    scheduled.pop()()  # returned False: the loop ends
+    assert len(calls) == 4 and not scheduled
+    state.closed = True
+    state.repeat(lambda: None, 1000)
+    assert not scheduled
+
+
+def test_live_snapshot_leaves_guide_and_help_to_the_shared_export():
+    import inspect
+    import panel_remote
+
+    source = inspect.getsource(panel_remote.snapshot)
+    assert '"guide"' not in source and '"help"' not in source
