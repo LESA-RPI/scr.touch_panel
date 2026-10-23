@@ -238,8 +238,10 @@ def bounded_graph(master):
 
 
 class Snapshot:
-    def __init__(self, label, master=None, weather_location=None):
-        self.label, self.master = label, master
+    def __init__(
+        self, label, master=None, weather_location=None, timezone="America/New_York"
+    ):
+        self.label, self.master, self.timezone = label, master, timezone
         self.lock = threading.Lock()
         self.data = None
         self.sample_time = self.graph_time = None
@@ -267,7 +269,7 @@ class Snapshot:
                     "-B",
                     str(ROOT.parent / "app/weather.py"),
                     *map(str, self.weather_location),
-                    "America/New_York",
+                    self.timezone,
                 ],
                 capture_output=True,
                 text=True,
@@ -344,8 +346,13 @@ class Snapshot:
         while not stopped.wait(30):
             try:
                 self.collect()
-            except OSError:
-                # Keep the dated previous sample; clients mark it stale.
+            except Exception as error:
+                # Keep the dated previous sample; clients mark it stale. Never stop sampling.
+                print(
+                    "%s status sample failed: %r" % (utc(), error),
+                    file=sys.stderr,
+                    flush=True,
+                )
                 continue
 
 
@@ -547,6 +554,11 @@ def main():
         help="Optional public outdoor-weather location",
     )
     parser.add_argument("--weather-longitude", type=float)
+    parser.add_argument(
+        "--timezone",
+        default="America/New_York",
+        help="Weather day boundaries; match the panel's --timezone",
+    )
     parser.add_argument("--probe-master", help=argparse.SUPPRESS)
     args = parser.parse_args()
     try:
@@ -576,7 +588,7 @@ def main():
         if args.weather_latitude is None
         else (args.weather_latitude, args.weather_longitude)
     )
-    snapshot = Snapshot(args.label, args.master, location)
+    snapshot = Snapshot(args.label, args.master, location, args.timezone)
     snapshot.collect()
     server = RoomServer((args.bind, args.port), Handler)
     server.allowed_clients = allowed

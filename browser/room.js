@@ -766,7 +766,7 @@ function commitRange(key) {
     );
 }
 function guide(root, index) {
-  const topics = state?.guide || content.guide;
+  const topics = content.guide;
   root.append(el('h2', 'Demo & guide'));
   if (index < 0 || !topics[index]) {
     root.append(
@@ -854,7 +854,7 @@ function system(parent) {
   select.id = 'help-topic';
   row.append(select);
   parent.append(row);
-  const topics = state?.help || content.help;
+  const topics = content.help;
   for (const [i, t] of topics.entries()) {
     const option = el('option', t.title);
     option.value = i;
@@ -990,7 +990,7 @@ function syncPower() {
 }
 function renderHelp() {
   if (!$('help-detail')) return;
-  const topic = (state?.help || content.help)[chosenHelp];
+  const topic = (content.help)[chosenHelp];
   $('help-detail').replaceChildren();
   if (!topic) return;
   const card = el('section', undefined, 'card');
@@ -1491,7 +1491,6 @@ async function refresh() {
           : 'The panel is back online. This website is connected again.',
       );
     }
-    if (state.guide) content = { ...content, guide: state.guide, help: state.help };
     if (
       !view ||
       (!$('help-topic') && view === 'tools-system') ||
@@ -1529,13 +1528,24 @@ window.addEventListener('scr-preview-change', () => {
   view = '';
   layout();
 });
-(async () => {
+// Guide and help text come from room-content.json, generated from the panel's own text.
+async function loadContent() {
   try {
-    content = await (await fetch('/room-content.json')).json();
-  } catch (_) {}
+    content = await (await fetch('/room-content.json', { cache: 'no-store' })).json();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+(async () => {
+  await loadContent();
   layout();
   // Poll every second; slow to every 5 s while the website is not answering.
   for (;;) {
+    if (!content.guide.length && (await loadContent())) {
+      view = '';
+      layout();
+    }
     await refresh();
     await new Promise((done) => setTimeout(done, failures > 2 ? 5000 : 1000));
   }
