@@ -19,6 +19,7 @@ import subprocess
 import sys
 import threading
 import time
+import traceback
 import uuid
 from io import BytesIO
 from scr_touch_panel_lights import PRESETS, setter_words
@@ -183,6 +184,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             800,
         ) and not args.windowed:
             self.root.destroy()
+            self.journal.close()
             raise ValueError("Expected 1280x800; use --windowed for local review")
         self.root.geometry("1280x800+0+0")
         self.root.overrideredirect(not args.windowed)
@@ -258,7 +260,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         self.set_theme()
         if args.live_lights and self.mode != "original":
             self.start_worker()
-        self.tick()
+        self.repeat(self.tick, 1000)
         self.root.after(100, self.poll_worker)
         self.emit(
             "panel_opened",
@@ -278,11 +280,25 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 )
                 self.emit("browser_bridge_unavailable", detail=str(error))
             else:
-                self.poll_control()
+                self.repeat(self.poll_control, 80)
+
+    def repeat(self, step, delay):
+        """Run one loop step, then schedule the next unless it returned False or the
+        panel closed. An unexpected error is logged once per step; the loop goes on."""
+        again = True
+        try:
+            again = step() is not False
+        except Exception:
+            failed = self.__dict__.setdefault("loop_failures", set())
+            if step.__name__ not in failed:
+                failed.add(step.__name__)
+                traceback.print_exc()
+        if again and not self.closed:
+            self.root.after(delay, lambda: self.repeat(step, delay))
 
     def poll_control(self):
         if self.closed or self.closing or self.control_bridge is None:
-            return
+            return False
         import panel_remote
 
         self.refresh_resources()
@@ -290,7 +306,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             lambda: panel_remote.snapshot(self),
             lambda request: panel_remote.execute(self, request),
         )
-        self.root.after(80, self.poll_control)
 
     def emit(self, event, **values):
         self.sequence += 1
@@ -301,7 +316,10 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
             panel_run_id=self.run_id,
             boot_id=self.boot_id,
             sequence=self.sequence,
-            utc=datetime.datetime.utcnow().isoformat() + "Z",
+            utc=datetime.datetime.now(datetime.timezone.utc)
+            .replace(tzinfo=None)
+            .isoformat()
+            + "Z",
             elapsed_s=round(monotonic() - self.started, 3),
             instruction_index=self.stage,
             instruction=self.profile["stages"][self.stage],
@@ -1353,6 +1371,10 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         message = power.message if power else "Power controls unavailable."
         if power and power.phase == "ready" and not clear:
             message = "Pause instructions and wait for confirmed lighting before restarting or shutting down."
+        if power and power.phase == "failed":
+            message += " Power controls stay off until the panel restarts."
+            if self.light_state == "disconnected" and self.worker is None:
+                message += " Open Legacy, then Home, to reconnect lighting."
         return {
             "available": available,
             "actions": actions,
@@ -2034,7 +2056,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
 
     def tick(self):
         if self.closed:
-            return
+            return False
         remaining = (
             self.trial_deadline - monotonic()
             if self.trial_deadline is not None
@@ -2043,7 +2065,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
         if remaining is not None and remaining <= 0 and not self.closing:
             self.close("timeout")
         if self.closed:
-            return
+            return False
         self.set_theme()
         clock = (
             time.strftime("%a %d %b")
@@ -2086,7 +2108,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance):
                 )
         self.update_session()
         self.update_health()
-        self.root.after(1000, self.tick)
 
     def close(self, reason):
         if self.closed or self.closing:

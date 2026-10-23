@@ -156,8 +156,8 @@ describe availability and About information without changing schema version 1.
 
 `app/design_tokens.py` owns theme roles. `app/export_room_content.py` exports the
 panel-owned guide/help and Lucide paths for browser fallback and offline demos.
-The live snapshot supplies current preferences, controls, receipts, guide/help and
-experiment state. Original Legacy controls are external to this common Beta API.
+The website reads guide/help only from that export. The live snapshot supplies
+current preferences, controls, receipts and experiment state. Original Legacy controls are external to this common Beta API.
 
 `app/help_reference.py` owns each command step's computer, effect, purpose,
 expected result and exact copy text. A help topic exports its `reference` object
