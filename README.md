@@ -45,14 +45,10 @@ measure physical blind position. Screen & controls can show or hide the Home
 controls. The saved movement permission defaults to Locked; no unlock
 control is offered while the adapter is disconnected. Changing visibility never
 moves equipment or grants permission. Room tools keeps detailed controls together.
-The header identifies Beta and provides a direct Legacy shortcut. It preserves
-current light settings and waits for the Beta helper to release control and stop
-before showing the original application. Website controls pause while Legacy is
-open. Home checks the original interface, stops its Sun/Circ programmes and reads
-all ten lights before automatically returning Beta and website controls to Ready.
-Current light levels are preserved. If the original interface check fails before
-handoff, Legacy keeps ownership and can be reopened. An uncertain programme stop
-or lighting result blocks further control until the room host checks it.
+The Legacy shortcut opens the original controls while website lighting pauses.
+Home checks the connection and stops Sun/Circ before automatically returning to
+Ready, keeping current light levels. If the original interface check fails, Legacy
+can reopen. An unconfirmed programme stop or lighting result needs the room host.
 Room tools opens each tool directly beside the sidebar and
 remembers the last tool. Experiment mode runs instructions and panel annotations;
 its recorder is not connected.
@@ -113,18 +109,12 @@ offers Off, 1, 5 or 15 minutes. Idle does not interrupt Experiment mode, Legacy,
 touches, pending commands or uncertain lighting. Preferences save appearance and
 idle choices, not light settings or recording state.
 
-Lighting always has one owner. An experiment reserves it before starting and must
-return verified everyday control when finished. Home and the website explain
-**Lighting reserved for an experiment**, connection checks and unconfirmed results.
-An experiment crash or expired heartbeat never silently transfers control.
-**Check connection** reads current settings without changing them or repeating the
-last command. An unconfirmed result stays blocked until staff confirm the previous
-owner has stopped and no lighting request is pending. A read alone cannot prove
-that a remote request has ended. Ask the room host if controls remain unavailable.
-Website offline is shown separately from a lighting connection problem; the page
-reconnects automatically. **Room tools → System & help** provides staff guidance.
-The separate bounded-trial command below retains its starting-scene restoration
-behaviour. The visitor guide operates no devices. A two-second stationary
+**Lighting reserved for an experiment** means its owner must return everyday
+control when finished. **Check connection** reads current settings without changing
+them or repeating a command. If a result is unconfirmed, do not retry; ask the room
+host. **Room tools → System & help** provides guidance. **Website offline** means
+the page cannot reach the panel; it reconnects automatically.
+The visitor guide operates no devices. A two-second stationary
 press leaves the black screen; black pixels do not turn off the backlight.
 A small gray hint at the bottom explains the two-second hold.
 
@@ -198,11 +188,8 @@ General panel code belongs here. Project-X owns its optional recorder integratio
 The browser and touch interface share one command owner and experiment ownership.
 The optional gateway permits controls from the configured trusted subnet; it has
 no separate staff sign-in. Guide/help content, appearance roles and common actions
-come from the panel. Legacy is a guarded handoff to the original application's
-controller; while it is open, the website pauses controls and offers Return panel
-to Home. Experiment handoff and staff recovery use the private local interface,
-outside the ordinary website. Browsing the website
-never wakes or switches the panel; only its explicit buttons do.
+come from the panel. Browsing the website never wakes or switches the panel;
+only its explicit buttons do.
 Technical contracts remain available to maintainers and agents through the links
 above. Private configuration, captures and incident history stay outside Git.
 

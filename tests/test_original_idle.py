@@ -2,6 +2,7 @@
 
 import json
 import sys
+from io import BytesIO, StringIO
 from types import SimpleNamespace
 
 import pytest
@@ -93,6 +94,7 @@ def test_cli_emits_one_json_result_and_destroys_only_its_own_window(
     monkeypatch, capsys, available,
 ):
     events = []
+    monkeypatch.setattr(original_idle, "process_identity", lambda pid: (("original",), "12345"))
     root = SimpleNamespace(tk=Interpreter() if available else Interpreter({}),
                            withdraw=lambda: events.append("withdraw"),
                            destroy=lambda: events.append("destroy"))
@@ -101,3 +103,47 @@ def test_cli_emits_one_json_result_and_destroys_only_its_own_window(
     result = json.loads(capsys.readouterr().out)
     assert result["idle"] is available
     assert events == ["withdraw", "destroy"]
+
+
+@pytest.mark.parametrize("arguments, accepted", [
+    (["/usr/bin/python3", "-u", "-B", "/installed/run_original.py", "--classic-dir", "/original"], True),
+    (["/usr/bin/python3", "-B", "/installed/run_original.py", "--classic-dir", "/original"], False),
+    (["/usr/bin/python3", "/installed/run_original.py", "-u"], False),
+])
+def test_process_identity_requires_unbuffered_flag_before_original_wrapper(monkeypatch, arguments, accepted):
+    def open_process(path, mode="r"):
+        assert path in ("/proc/200/cmdline", "/proc/200/stat")
+        if path.endswith("cmdline"):
+            return BytesIO(("\0".join(arguments) + "\0").encode())
+        return StringIO("200 (python3) " + " ".join(["S"] + ["0"] * 18 + ["12345"]))
+
+    monkeypatch.setattr(original_idle, "open", open_process, raising=False)
+    if accepted:
+        assert original_idle.process_identity(200) == (tuple(arguments), "12345")
+    else:
+        with pytest.raises(ValueError, match="unbuffered"):
+            original_idle.process_identity(200)
+
+
+def test_buffered_original_is_rejected_before_any_tk_query(monkeypatch, capsys):
+    def buffered(pid):
+        raise ValueError("Original logging must be unbuffered")
+
+    monkeypatch.setattr(original_idle, "process_identity", buffered)
+    monkeypatch.setitem(sys.modules, "tkinter", SimpleNamespace(Tk=lambda: pytest.fail("No Tk query is permitted")))
+    assert original_idle.main(["--pid", "200"]) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["idle"] is False and "unbuffered" in result["error"]
+
+
+def test_replaced_original_is_rejected_after_the_exact_pid_reply(monkeypatch, capsys):
+    identities = iter([(("original",), "12345"), (("original",), "99999")])
+    monkeypatch.setattr(original_idle, "process_identity", lambda pid: next(identities))
+    destroyed = []
+    root = SimpleNamespace(tk=Interpreter(), withdraw=lambda: None,
+                           destroy=lambda: destroyed.append(True))
+    monkeypatch.setitem(sys.modules, "tkinter", SimpleNamespace(Tk=lambda: root))
+    assert original_idle.main(["--pid", "200"]) == 1
+    result = json.loads(capsys.readouterr().out)
+    assert result["idle"] is False and "changed" in result["error"]
+    assert destroyed == [True]

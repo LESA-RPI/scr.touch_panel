@@ -17,6 +17,22 @@ import sys
 QUERY = "list [pid] [winfo exists .] [wm title .]"
 
 
+def process_identity(pid):
+    """Require flushed original logs and retain this exact process across the query."""
+    with open("/proc/%d/cmdline" % pid, "rb") as stream:
+        args = stream.read().decode("utf-8").split("\0")[:-1]
+    try:
+        wrapper = next(index for index, arg in enumerate(args)
+                       if arg.endswith("/run_original.py"))
+    except StopIteration:
+        raise ValueError("The expected original process is not running its wrapper")
+    if "-u" not in args[1:wrapper]:
+        raise ValueError("Original logging must be unbuffered (-u) before automatic return")
+    with open("/proc/%d/stat" % pid) as stream:
+        start_ticks = stream.read().rsplit(")", 1)[1].split()[19]
+    return tuple(args), start_ticks
+
+
 def probe(interpreter, expected_pid):
     """Accept exactly one responding original root belonging to the expected PID."""
     if isinstance(expected_pid, bool) or not isinstance(expected_pid, int) or expected_pid <= 0:
@@ -55,6 +71,7 @@ def main(argv=None):
     try:
         if args.pid <= 0:
             raise ValueError("A positive original process ID is required")
+        identity = process_identity(args.pid)
         try:
             import tkinter as tk
         except ImportError:
@@ -62,6 +79,9 @@ def main(argv=None):
         root = tk.Tk()
         root.withdraw()
         result = probe(root.tk, args.pid)
+        if process_identity(args.pid) != identity:
+            raise ValueError("The original process changed during the connection check")
+        result["start_ticks"] = identity[1]
     except Exception as error:
         result = {"version": 1, "idle": False, "error": str(error)}
     finally:

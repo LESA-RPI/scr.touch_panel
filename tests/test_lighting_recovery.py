@@ -19,7 +19,7 @@ LOG_POSITION = {"device": 5, "inode": 17, "size": 100}
 
 def reserve(guard, token=TOKEN):
     guard.begin_reservation(token, LABEL)
-    guard.reserve(token, LABEL, released=True, helper_exited=True)
+    guard.reserve(token, released=True, helper_exited=True)
 
 
 def test_full_handoff_requires_preserved_release_exit_owner_closure_and_acquire(tmp_path):
@@ -30,8 +30,8 @@ def test_full_handoff_requires_preserved_release_exit_owner_closure_and_acquire(
     assert guard.public()["write_blocked"]
     for release, exited in ((False, True), (True, False), (1, True)):
         with pytest.raises(RuntimeError):
-            guard.reserve(TOKEN, LABEL, released=release, helper_exited=exited)
-    guard.reserve(TOKEN, LABEL, released=True, helper_exited=True)
+            guard.reserve(TOKEN, released=release, helper_exited=exited)
+    guard.reserve(TOKEN, released=True, helper_exited=True)
     with pytest.raises(RuntimeError):
         guard.finish(TOKEN, owner_closed=True)
     guard.finish(TOKEN, owner_closed=True, pending_clear=True)
@@ -257,7 +257,7 @@ def test_interrupted_recovery_does_not_reuse_stale_owner_closure(tmp_path, owner
     assert not restarted.public()["write_blocked"]
 
 
-@pytest.mark.parametrize("marker", (b"Exception in Tkinter callback", b"Traceback", b"ROSException", b"ServiceException"))
+@pytest.mark.parametrize("marker", (b"Exception in Tkinter callback", b"Traceback", b"ROSException", b"ServiceException", b"Service call failed:"))
 def test_legacy_new_callback_error_blocks_automatic_return(marker):
     guard = LightingRecovery()
     guard.enter_legacy(LOG_POSITION)

@@ -144,9 +144,9 @@ class LightingRecovery:
                    label=self._text(label, 80, "experiment label"), heartbeat_at=self.clock(),
                    acknowledged_at=None)
 
-    def reserve(self, token, label, released=False, helper_exited=False):
+    def reserve(self, token, released=False, helper_exited=False):
         self._matching(token)
-        if self.state["status"] != "releasing" or label != self.state["label"]:
+        if self.state["status"] != "releasing":
             raise ValueError("No matching experiment handoff is in progress")
         if released is not True or helper_exited is not True:
             raise RuntimeError("Preserved release and helper exit must both be confirmed")
@@ -180,14 +180,13 @@ class LightingRecovery:
         saved = self.state["legacy_log"]
         if not self._valid_log_position(saved) or not self._valid_log_position(log_position):
             return False
-        if isinstance(current_new_bytes, str):
-            current_new_bytes = current_new_bytes.encode("utf-8")
         if not isinstance(current_new_bytes, bytes):
             return False
         if any(saved[key] != log_position[key] for key in ("device", "inode")) or log_position["size"] - saved["size"] != len(current_new_bytes):
             return False
         return not any(marker in current_new_bytes for marker in (
-            b"Exception in Tkinter callback", b"Traceback", b"ROSException", b"ServiceException"))
+            b"Exception in Tkinter callback", b"Traceback", b"ROSException", b"ServiceException",
+            b"Service call failed:"))
 
     def leave_legacy(self, idle_confirmed=False, callback_clean=False):
         if (self.state["status"] != "legacy" or idle_confirmed is not True

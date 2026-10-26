@@ -2205,9 +2205,15 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 ):
                     self.worker_ready = True
                     self.adapter_metadata(response)
-                    self.request(
-                        "release" if self.release_target or self.closing else ("check" if getattr(self, "observing", False) else "return_legacy" if getattr(self, "legacy_returning", False) else "acquire")
-                    )
+                    if self.release_target or self.closing:
+                        action = "release"
+                    elif getattr(self, "observing", False):
+                        action = "check"
+                    elif getattr(self, "legacy_returning", False):
+                        action = "return_legacy"
+                    else:
+                        action = "acquire"
+                    self.request(action)
                     continue
                 if (
                     not self.pending

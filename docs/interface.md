@@ -114,23 +114,18 @@ queries. The UI bounds that subprocess, refreshes only while System is visible
 and labels the result as advertised service availability. It does not query TOF,
 blinds, HVAC or acquisition data, and does not assess IRMA recorder health.
 
-`check` has empty arguments and performs stable read-only scans of all ten lights.
-Its `checked` reply reports current settings; it never applies a scene, repeats a
-setter or proves that a remote handler has finished. An uncertain write stays
-quarantined until explicit local ownership reconciliation and fresh acquisition.
+`check` has empty arguments and returns `checked` after stable read-only scans of
+all ten lights. It cannot resolve an uncertain write or prove remote handlers idle.
 
 ## Lighting ownership and recovery
 
-The panel persists its lighting ownership guard before writes and handoffs. An
-interrupted write or release becomes uncertain on restart; an active experiment
-reservation survives restart. Missing heartbeats are advisory after 60 seconds,
-never automatic permission to reclaim the lights. Persistence failures block writes.
-Private tokens are hashed in the durable state and absent from public snapshots.
+Ownership persists before writes and handoffs. Interrupted work and storage errors
+block writes across restart. Heartbeats older than 60 seconds warn without reclaiming
+ownership. Tokens are stored hashed and excluded from public snapshots.
 
-The existing same-user, mode-0600 Unix socket accepts a private envelope with
-exactly `op: "lighting_handoff"`, `id`, `revision`, `action`, and `arguments`.
-IDs, revisions, bounded queueing and receipts use the existing bridge rules.
-The ordinary HTTP gateway rejects this envelope and cannot invoke these actions:
+The same-user mode-0600 socket accepts exactly `op: "lighting_handoff"`, `id`,
+`revision`, `action`, `arguments`, using existing bridge ID/revision/receipt rules.
+HTTP rejects this envelope. Private actions are:
 
 | Action | Exact arguments | Completion condition |
 |---|---|---|
@@ -139,31 +134,22 @@ The ordinary HTTP gateway rejects this envelope and cannot invoke these actions:
 | `finish` | `token`, `owner_closed: true`, `pending_clear: true` | Matching reservation, fresh acquisition and normal Ready controls |
 | `recover` | `owner_closed: true`, `pending_clear: true` | Local staff reconciliation, fresh acquisition and normal Ready controls |
 
-Tokens contain 16–128 ASCII letters, digits, underscores or hyphens. Labels are
-1–80 characters without control characters; use a generic public label without
-participant information. A fresh token is required for each experiment. The two
-acknowledgements assert completed operator checks: previous lighting workers and
-programmes have stopped and no remote lighting handler or request remains pending.
-After a failed Legacy return, its original UI must remain covered while staff
-checks and recovery run; the preserved original app remains available as the fallback. Neither local process
-exit nor stable fixture readback establishes both facts by itself.
+Fresh tokens contain 16–128 ASCII letters, digits, underscores or hyphens. Labels
+contain 1–80 characters without controls; omit participant information. Finish/recover
+require operator confirmation that previous workers/programmes stopped and no
+remote request remains pending; stable readback alone cannot establish this.
 
-`app/lighting_handoff.py` is the private CLI. It reads status with `op: "read"`,
-submits an ownership request once, and polls up to 45 seconds for its completion.
-Reserve/heartbeat return zero only when reserved; finish/recover return zero only
-when normal, `can_control` is true and lighting is Ready after two matching
-all-ten-fixture scans. Acceptance alone is not completion. A timeout or lost reply
-does not grant ownership and must not trigger a repeated request or light write.
-See [operation and recovery](../WORKFLOWS.md#experiments-and-returning-everyday-control).
+The [CLI](../WORKFLOWS.md#experiments-and-returning-everyday-control) uses `op: "read"`
+for status. Mutations submit once and wait up to 45 seconds. Reserve/heartbeat
+succeed when reserved; finish/recover only when normal, `can_control` and Ready
+after two matching all-ten scans. Timeout or lost reply never permits a retry.
 
 The public `lighting_recovery` snapshot contains `status`, `title`, `detail`,
 `can_check`, `needs_staff`, `write_blocked`, `heartbeat_stale` and a generic `label`.
 States are `normal`, `writing`, `releasing`, `reserved`, `checking`, `returning`,
-`needs_staff`, `offline` and `legacy`. Public `check_connection` with empty arguments is
-read-only and cannot override ownership or clear the durable uncertain-write latch.
-The website also retains an unknown command receipt until the owner supplies its
-receipt or a new owner session, and never resends that command. Its own network
-loss is displayed separately from room lighting unavailability.
+`needs_staff`, `offline`, `legacy`. Public `check_connection` takes no arguments,
+reads only and cannot clear uncertainty or override ownership. The website retains
+unknown receipts until a matching receipt or new owner session; it never resends.
 
 ## Optional weather details
 
@@ -202,25 +188,18 @@ Settings, About and paused Experiment mode, do not restrict lighting availabilit
 Panel and browser use these same study guards.
 Acceptance is not lighting confirmation, annotation persistence or recording.
 
-`legacy` with empty arguments selects `Panel.mode == "original"` through the
-guarded preserving-release path. `original_fallback` remains a compatibility alias
-for the same action. After confirmed release and successful helper exit, the
-unchanged original app is shown behind a 144-pixel navigation strip. Its original
-callbacks and device behaviour remain intact; Beta and website actuators pause.
-Running instructions, experiment ownership and uncertain results block entry.
-Returning to Home covers original input and obtains a bounded idle acknowledgement
-from the exact original Tk process. The log checkpoint captured on Legacy entry
-must still identify the same readable file, with bounded new output and no new
-callback/service errors. The owner persists a writing marker before the
-bounded `return_legacy` helper operation stops Sun/Circ and requires two matching
-all-ten-fixture reads. Success automatically returns Beta and website controls to
-Ready with current drive settings preserved. A failed idle probe or callback/log
-check retains `legacy` ownership and permits reopening the same original app.
-After programme stopping begins, a failed stop, moving readback or lost result
-latches uncertainty and blocks both Beta and new Legacy entry across restart.
-Staff must verify original programmes, workers and pending handlers before local
-`recover` clears that block. The original app and its hardware callbacks remain
-unchanged. Neither path restores an old scene or restarts ROS/Status.
+`legacy` (alias `original_fallback`) takes no arguments and opens `mode: "original"`
+after preserving release and successful helper exit. The unchanged original app
+sits behind a 144-pixel navigation strip; Beta/website actuators pause. Instruction,
+experiment and uncertainty guards still apply.
+Home covers original input, probes its exact Tk PID and checks the entry log:
+same readable file, bounded new output and no new callback/service errors.
+Failed checks retain `legacy` ownership and allow reopening the same app. Otherwise
+a durable writing marker precedes bounded `return_legacy`: stop Sun/Circ and read
+all ten fixtures twice. Stable success automatically enables Ready with current
+drive preserved. Failed stop, moving readback or lost result blocks both control
+paths across restart until local staff reconciliation. Original callbacks remain
+unchanged; no old scene is restored and no ROS/Status restart occurs.
 
 Blind readiness separates the short user-facing `detail` (Disabled, Busy or Ready)
 from a diagnostic `reason`. When no controller is connected, settings show one

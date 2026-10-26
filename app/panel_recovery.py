@@ -20,7 +20,6 @@ class PanelRecovery:
         self.observing = False
         self.recovery_check_at = None
         self.reservation_token = None
-        self.reservation_label = None
         self.legacy_probe = None
         self.legacy_target = None
         self.legacy_returning = False
@@ -201,7 +200,7 @@ class PanelRecovery:
             if not self.keep_switcher or not self.worker or self.light_state != "ready" or self.programme:
                 raise RuntimeError("Lighting must be ready with no programme before an experiment.")
             self.recovery.begin_reservation(args["token"], args["label"])
-            self.reservation_token, self.reservation_label = args["token"], args["label"]
+            self.reservation_token = args["token"]
             self.cancel_intent()
             self.release_target = "experiment"
             if not self.request("release"):
@@ -256,7 +255,7 @@ class PanelRecovery:
     def recovery_exit(self, target, returncode=0):
         if target == "experiment":
             if self.release_confirmed and returncode == 0:
-                self.recovery.reserve(self.reservation_token, self.reservation_label, released=True, helper_exited=True)
+                self.recovery.reserve(self.reservation_token, released=True, helper_exited=True)
                 self.light_state = "disconnected"
                 self.lighting_feedback("Lighting reserved for an experiment. Everyday controls return after verified cleanup.")
             else:

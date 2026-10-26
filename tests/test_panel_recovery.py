@@ -33,7 +33,7 @@ def recoverable(tmp_path, monkeypatch):
     view.observing, view.recovery_check_at = False, None
     view.legacy_probe = view.legacy_target = None
     view.legacy_returning = False
-    view.reservation_token = view.reservation_label = None
+    view.reservation_token = None
     view.release_target = view.pending = view.queued_intent = view.intent_timer = None
     view.press_active = view.running = view.idle_active = False
     view.run_id, view.request_seq, view.sequence, view.view_generation = "test-owner", 0, 0, 0
@@ -77,7 +77,7 @@ def live_helper(view):
 
 def held_experiment(view):
     view.recovery.begin_reservation(TOKEN, LABEL)
-    view.recovery.reserve(TOKEN, LABEL, released=True, helper_exited=True)
+    view.recovery.reserve(TOKEN, released=True, helper_exited=True)
 
 
 def test_public_connection_check_starts_read_only_acquire_with_no_setter(recoverable, monkeypatch):

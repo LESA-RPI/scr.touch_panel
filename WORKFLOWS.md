@@ -61,21 +61,13 @@ step or the complete topic and provides documentation links. Neither interface
 executes these references. Service-start commands use `cd ... && python ...` so
 a failed directory change cannot launch the script from another directory.
 
-Legacy opens `Panel.mode == "original"`, the unchanged original application behind
-a 144-pixel navigation strip. It waits for confirmed preserving release and the
-exact Beta helper's successful exit first. The original buttons and callbacks
-remain unchanged; Beta and website actuator controls pause. A new Legacy handoff
-is blocked during running instructions, experiment ownership or an unconfirmed
-result. Home covers the original interface and runs a bounded idle probe against
-its exact process. The original log must remain readable with the same identity
-and no new callback/service errors since Legacy entry. The helper then stops
-Sun/Circ and requires two stable all-ten-fixture scans before automatically
-enabling everyday Beta and website controls. Current drive settings are preserved;
-no old scene is restored. A failed idle probe or log check retains Legacy ownership,
-so the same original app can be reopened. Once programme stopping begins, a failed
-stop, moving readback or lost result latches uncertainty and blocks both Beta and
-new Legacy entry until staff recovery. A normal roundtrip needs no staff action.
-The `original_fallback` action remains a compatibility alias for Legacy.
+Legacy opens the unchanged original app after preserving helper release and
+confirmed exit; website lighting pauses. Home checks the original interface,
+stops Sun/Circ and reads stable settings before automatically returning to Ready.
+No old scene is restored. A failed interface/log check lets the same Legacy owner
+reopen. Uncertainty after programme stopping or readback blocks both control paths
+until staff recovery. The [interface contract](docs/interface.md#optional-browser-gateway-version-1)
+defines these checks.
 
 The helper has a ten-second parent lease and 30-second operation budget, with
 individual service calls bounded to at most twelve seconds. Persistent control
@@ -94,11 +86,9 @@ lighting result. A helper still initializing can be cancelled without a write.
 
 ### Experiments and returning everyday control
 
-Use the private local handoff before an external lighting worker starts. The
-experiment owns its recorder integration; the panel owns handoff and recovery.
-Run the CLI as the panel user with the configured private control socket. Keep a
-fresh token in the experiment's private cleanup context; do not reuse tokens or
-put participant details in the label.
+Run the CLI as the panel user with its configured private control socket. Use a
+fresh private token and a generic label. Reserve before starting an external
+lighting worker; wait for success, then send heartbeats while it owns lighting.
 
 ```sh
 TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
@@ -106,47 +96,30 @@ python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" reserve --token "
 python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" heartbeat --token "$TOKEN"
 ```
 
-Do not start the worker until reserve succeeds: success requires a preserving
-helper release and confirmed helper exit. Send heartbeats while the experiment
-owns lighting. Finish recording and stop the worker, then separately confirm that
-no remote lighting handler or request is still pending before acknowledging both:
+After stopping the worker and verifying no remote lighting request remains pending:
 
 ```sh
 python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" finish --token "$TOKEN" --owner-closed --pending-clear
 ```
 
-`finish` succeeds only after the panel reacquires control, reads all ten fixtures
-twice and reports normal, Ready everyday controls. Treat a failed or timed-out
-finish as incomplete cleanup; do not start another worker or repeat a light write.
-The current scene is preserved throughout handoff. No failed command or old scene
-is replayed. Crashes, heartbeat expiry and panel restarts retain the reservation or
-uncertain state; expiry is a warning, not permission to take control.
+Successful finish means verified Ready controls with the current scene preserved.
+A failed or timed-out finish is incomplete cleanup: do not start another worker or
+repeat the request. Crashes, expired heartbeats and restarts never reclaim lighting.
 
 ### When controls are unavailable
 
-Visitors can use **Check connection** on Home or System & help when offered. It
-reads lighting without changing it; it cannot override an experiment reservation
-or clear an uncertain write. A successful read does not prove remote handlers have
-finished. The website distinguishes its own lost connection from unavailable room
-lighting and reconnects automatically.
-
-Staff first check the deployed version, current owner, private receipts and any
-pending remote handler. Stop the experiment and confirm its workers are closed and
-no request remains pending. If an automatic Legacy return fails, leave its
-interface covered on Beta Home, inspect the callback error and verify original
-programmes and pending remote requests have stopped. Only then run local recovery:
+Staff check the deployed version, current owner and private receipts. Stop previous
+workers/programmes and verify no remote lighting handler remains pending; a stable
+read alone cannot prove that. Keep Legacy covered on Home during recovery.
 
 ```sh
 python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" status
 python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" recover --owner-closed --pending-clear
 ```
 
-The flags are explicit operator acknowledgements of those checks, not automated
-proof. `recover` succeeds only after the same stable all-ten read and Ready check
-as finish. The ordinary website cannot make these acknowledgements. Never restart
-ROS/Status, delete the durable ownership file, launch a competing controller or
-retry an uncertain setter to clear this state. Record the result and remaining
-limits in the private `.local/README.md` after deployment or recovery.
+The flags acknowledge those completed checks. The website cannot make them.
+Never restart ROS/Status, delete ownership state or retry an uncertain setter to
+clear a block. Record deployment/recovery results in the private `.local/README.md`.
 
 Blank screen displays black pixels. A stationary two-second press returns to the
 previous view; movement beyond 40 pixels cancels. The backlight remains powered.
@@ -283,16 +256,9 @@ Exec=/bin/bash /absolute/path/to/current/app/start_panel.sh
 Terminal=false
 ```
 
-The launcher uses `--keep-switcher --duration 0`. Legacy, Escape and a window close
-use the guarded original-application path after preserving helper cleanup.
-Returning from Legacy automatically checks the original interface and its error
-log, stops Sun/Circ and reads stable current settings before Ready. It preserves
-current light levels. Failed idle/log checks retain Legacy ownership and allow
-reopening the same original app. An uncertain stop or readback blocks both control
-paths across restart until staff recovery.
-If a result is uncertain,
-inspect the receipt before changing lights. Signal shutdown stops the switcher
-and leaves confirmed light settings in place.
+The launcher uses `--keep-switcher --duration 0`. Legacy, Escape and window close
+use the guarded original-application path described above. Signal shutdown stops
+the switcher and leaves confirmed light settings in place.
 
 User autostart runs only after desktop login. Check the actual display manager
 and session before enabling autologin; use that OS's supported configuration.
