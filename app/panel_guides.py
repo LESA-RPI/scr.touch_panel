@@ -14,7 +14,7 @@ DEMO = (
         "Room controls",
         "home",
         "Home opens the everyday room page. Opening a page does not change the lights.\n\n"
-        "Legacy opens the unchanged original application. Home checks the connection and stops its Sun/Circ programmes before automatically returning Beta controls to Ready, keeping current light levels. If the check fails, use Legacy or ask the room host.\n\n"
+        "Legacy opens the original controls. Home stops any Legacy programme and returns to Beta after checking the connection, keeping current light levels. If controls stay unavailable, ask the room host.\n\n"
         "Lift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller.",
     ),
     (
@@ -39,7 +39,7 @@ SUPPORT = (
         "room",
         "Ready means the lighting adapter is available. Sending means a request is awaiting readback.\n\n"
         "If Lighting result unconfirmed appears, do not repeat the command. Check connection reads current settings without changing them or clearing an uncertain result. An experiment reservation cannot be overridden here.\n\n"
-        "Staff: stop previous lighting workers and Legacy programmes, confirm no remote request is pending, then use local recovery. An idle original interface or successful read cannot prove remote handlers have finished. Do not restart ROS or Status as a connection fix.",
+        "If the connection stays unavailable, ask the room host to check it.",
         "",
     ),
     (
