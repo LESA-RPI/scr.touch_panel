@@ -66,12 +66,15 @@ a 144-pixel navigation strip. It waits for confirmed preserving release and the
 exact Beta helper's successful exit first. The original buttons and callbacks
 remain unchanged; Beta and website actuator controls pause. A new Legacy handoff
 is blocked during running instructions, experiment ownership or an unconfirmed
-result. Home covers the original interface and uses a bounded idle probe against
-its exact process before returning to Beta navigation. Lighting stays owned by
-Legacy: an idle Tk loop cannot prove original programmes or remote requests have
-ended. Visitors can reopen the same Legacy app for ordinary control. Staff must
-check those operations and use local recovery before Beta can reacquire and read
-all ten fixtures twice. No old scene is restored.
+result. Home covers the original interface and runs a bounded idle probe against
+its exact process. The original log must remain readable with the same identity
+and no new callback/service errors since Legacy entry. The helper then stops
+Sun/Circ and requires two stable all-ten-fixture scans before automatically
+enabling everyday Beta and website controls. Current drive settings are preserved;
+no old scene is restored. A failed idle probe or log check retains Legacy ownership,
+so the same original app can be reopened. Once programme stopping begins, a failed
+stop, moving readback or lost result latches uncertainty and blocks both Beta and
+new Legacy entry until staff recovery. A normal roundtrip needs no staff action.
 The `original_fallback` action remains a compatibility alias for Legacy.
 
 The helper has a ten-second parent lease and 30-second operation budget, with
@@ -129,9 +132,9 @@ lighting and reconnects automatically.
 
 Staff first check the deployed version, current owner, private receipts and any
 pending remote handler. Stop the experiment and confirm its workers are closed and
-no request remains pending. After Legacy use, leave its interface covered on Beta
-Home, stop original programmes and verify no original callback or remote lighting
-request remains pending. Tk idle alone is insufficient. Only then run local recovery:
+no request remains pending. If an automatic Legacy return fails, leave its
+interface covered on Beta Home, inspect the callback error and verify original
+programmes and pending remote requests have stopped. Only then run local recovery:
 
 ```sh
 python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" status
@@ -260,7 +263,8 @@ and its helper. Direct launches can use the same option. Use an approved HTTP(S)
 address without embedded credentials, query or fragment; keep real addresses out
 of Git. Only the fixed original `sun`/`circ` Run/Kill requests are admitted.
 Omitting it leaves programme controls unavailable while ordinary lighting remains
-usable. Capability advertisement identifies configured services, not their health;
+usable. Automatic return from Legacy also requires this existing programme service
+to stop Sun/Circ; without it, the return stays blocked. Capability advertisement identifies configured services, not their health;
 qualify request acceptance and stable readback before a live change.
 Legacy and the light adapter use independent interpreter settings. The launcher
 sources the installed ROS setup, sets the same original
@@ -281,10 +285,11 @@ Terminal=false
 
 The launcher uses `--keep-switcher --duration 0`. Legacy, Escape and a window close
 use the guarded original-application path after preserving helper cleanup.
-Returning from Legacy opens Beta navigation after an idle check; it retains the
-persisted Legacy ownership block. Use Legacy for room control until staff check
-programmes and pending requests and complete local recovery. Recovery reads the
-current settings without a write.
+Returning from Legacy automatically checks the original interface and its error
+log, stops Sun/Circ and reads stable current settings before Ready. It preserves
+current light levels. Failed idle/log checks retain Legacy ownership and allow
+reopening the same original app. An uncertain stop or readback blocks both control
+paths across restart until staff recovery.
 If a result is uncertain,
 inspect the receipt before changing lights. Signal shutdown stops the switcher
 and leaves confirmed light settings in place.

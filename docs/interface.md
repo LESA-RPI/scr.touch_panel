@@ -67,7 +67,7 @@ Requests have:
 }
 ```
 
-Actions are `acquire`, `check`, `cct`, `channels`, `gradient`, `programme`, `blind`,
+Actions are `acquire`, `check`, `return_legacy`, `cct`, `channels`, `gradient`, `programme`, `blind`,
 `release` and `heartbeat`.
 Channels takes eight integer percentages in installed channel order:
 Blue 1, Blue 2, Blue 3, Lime, Amber, Orange, Red 1, Red 2.
@@ -144,8 +144,8 @@ Tokens contain 16–128 ASCII letters, digits, underscores or hyphens. Labels ar
 participant information. A fresh token is required for each experiment. The two
 acknowledgements assert completed operator checks: previous lighting workers and
 programmes have stopped and no remote lighting handler or request remains pending.
-After Legacy use, its original UI must remain covered while these checks and
-recovery run; the preserved original app remains available as the fallback. Neither local process
+After a failed Legacy return, its original UI must remain covered while staff
+checks and recovery run; the preserved original app remains available as the fallback. Neither local process
 exit nor stable fixture readback establishes both facts by itself.
 
 `app/lighting_handoff.py` is the private CLI. It reads status with `op: "read"`,
@@ -209,13 +209,18 @@ unchanged original app is shown behind a 144-pixel navigation strip. Its origina
 callbacks and device behaviour remain intact; Beta and website actuators pause.
 Running instructions, experiment ownership and uncertain results block entry.
 Returning to Home covers original input and obtains a bounded idle acknowledgement
-from the exact original Tk process. It returns Beta navigation while retaining
-the persisted `legacy` ownership block; there is no automatic Beta acquisition.
-An idle acknowledgement cannot prove original programmes or remote requests have
-ended. The same Legacy app can be reopened for ordinary room control. Staff must
-verify original programmes, workers and pending handlers have stopped, then use
-local `recover` before two stable all-ten-fixture scans enable Beta. Neither path
-restores an old scene or restarts ROS/Status.
+from the exact original Tk process. The log checkpoint captured on Legacy entry
+must still identify the same readable file, with bounded new output and no new
+callback/service errors. The owner persists a writing marker before the
+bounded `return_legacy` helper operation stops Sun/Circ and requires two matching
+all-ten-fixture reads. Success automatically returns Beta and website controls to
+Ready with current drive settings preserved. A failed idle probe or callback/log
+check retains `legacy` ownership and permits reopening the same original app.
+After programme stopping begins, a failed stop, moving readback or lost result
+latches uncertainty and blocks both Beta and new Legacy entry across restart.
+Staff must verify original programmes, workers and pending handlers before local
+`recover` clears that block. The original app and its hardware callbacks remain
+unchanged. Neither path restores an old scene or restarts ROS/Status.
 
 Blind readiness separates the short user-facing `detail` (Disabled, Busy or Ready)
 from a diagnostic `reason`. When no controller is connected, settings show one

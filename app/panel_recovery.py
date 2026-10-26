@@ -23,6 +23,7 @@ class PanelRecovery:
         self.reservation_label = None
         self.legacy_probe = None
         self.legacy_target = None
+        self.legacy_returning = False
         if self.recovery.state["status"] == "legacy":
             self.mode = "original"
 
@@ -35,11 +36,13 @@ class PanelRecovery:
         recovery = getattr(self, "recovery", None)
         if recovery is None:
             return {"status": "normal", "can_check": False, "write_blocked": False}
-        result = recovery.public(helper_alive=bool(self.worker))
+        result = recovery.public()
         if self.mode == "original":
             result.update(status="legacy", title="Legacy controls are open", detail="The original room app controls the lights. Return Home to use Beta.", can_check=False, write_blocked=True)
         elif self.recovery.state["status"] == "legacy":
             result.update(status="needs_staff", title="Legacy still owns lighting", detail="Use Legacy for room controls. Before Beta reconnects, the room host must check that Legacy programmes and pending commands have stopped.", can_check=False, needs_staff=True, write_blocked=True)
+        elif getattr(self, "legacy_returning", False) and result["status"] in ("recovering", "writing"):
+            result.update(status="returning", title="Returning lighting control", detail="Finishing Legacy programmes and checking current settings. The room stays at its current light level.", can_check=False, write_blocked=True)
         elif self.observing or (self.light_state == "connecting" and not self.ownership_blocked()):
             result.update(status="checking", title="Checking lighting connection", detail="Reading current settings. The lights will stay as they are.", can_check=False)
         elif result["status"] == "recovering":
@@ -134,6 +137,26 @@ class PanelRecovery:
         except (OSError, ValueError):
             self.legacy_return_failed()
 
+    def original_log_position(self):
+        try:
+            value = (Path.home() / ".cache/scr-panel/original.log").stat()
+            return dict(device=value.st_dev, inode=value.st_ino, size=value.st_size)
+        except OSError:
+            return None
+
+    def legacy_callbacks_clean(self):
+        checkpoint = self.recovery.state.get("legacy_log")
+        current = self.original_log_position()
+        if not checkpoint or not current or not 0 <= current["size"] - checkpoint["size"] <= 65536:
+            return False
+        try:
+            with (Path.home() / ".cache/scr-panel/original.log").open("rb") as stream:
+                stream.seek(checkpoint["size"])
+                added = stream.read(65537)
+            return self.recovery.legacy_log_unchanged(current, added)
+        except OSError:
+            return False
+
     def legacy_return_failed(self):
         # Failure of our read-only observer does not revoke the original owner's
         # control. Keep that owner available; Beta still cannot acquire lighting.
@@ -164,11 +187,12 @@ class PanelRecovery:
             self.legacy_return_failed()
             return
         target, self.legacy_target = self.legacy_target, None
-        # Original callbacks and programmes have no durable outcome/ownership API.
-        # A Tk response is useful, but cannot authorize a second controller.
-        self.mode = "room"
+        if not self.legacy_callbacks_clean():
+            self.legacy_return_failed()
+            return
+        self.recovery.leave_legacy(idle_confirmed=True, callback_clean=True)
+        self.legacy_returning = True
         self.show(target[0], advanced_page=target[1])
-        self.lighting_feedback("Legacy retains lighting control. Use Legacy, or ask the room host to return control to Beta.")
 
     def handoff(self, action, args):
         if self.closing or self.release_target or self.pending or self.queued_intent or self.press_active or self.running or self.power_busy() or self.mode == "original" or self.legacy_probe is not None:
@@ -202,7 +226,13 @@ class PanelRecovery:
 
     def recovery_result(self, request, response):
         action, state = request["action"], response["state"]
-        if action in ("cct", "channels", "gradient", "programme", "blind"):
+        if action == "return_legacy":
+            self.legacy_returning = False
+            if state == "ready" and response.get("fixtures") == 10 and not response.get("manual_blocked"):
+                self.recovery.confirm_write(request["request_id"])
+            else:
+                self.recovery.mark_uncertain("Legacy lighting control could not be returned. Ask the room host.")
+        elif action in ("cct", "channels", "gradient", "programme", "blind"):
             if state == "completed":
                 self.recovery.confirm_write(request["request_id"])
             else:

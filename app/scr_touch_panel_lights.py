@@ -237,6 +237,30 @@ class Lights(object):
         result.update(self.capabilities())
         return result
 
+    def return_legacy(self):
+        """Stop original programmes, then acquire the current scene without a setter.
+
+        Only the parent can establish that the original callback has finished.
+        Programme stops are writes, so any failed return keeps uncertainty latched.
+        """
+        try:
+            if (self.observe_only or not self.keep_settings or not self.programmes
+                    or self.failed or self.blinds_failed or self.baseline is not None):
+                raise ValueError("Legacy return requires a fresh persistent controller and Status programmes")
+            self.can_write()
+            self.programmes.stop()
+            self.sleep(0.25)
+            result = self.acquire()
+            if result.get("manual_blocked") is not False:
+                raise ValueError("Legacy programmes stopped but light settings are still changing")
+            result["detail"] = "Legacy programmes stopped; current settings confirmed on 10 lights"
+            result["fixture_words"] = [[list(xy), list(values)]
+                                       for xy, values in sorted(self.current.items())]
+            return result
+        except Exception:
+            self.failed = True
+            raise
+
     def stop_programmes(self):
         """Qualify quiescent drive after stop acceptance, without claiming job health."""
         if self.observe_only:
@@ -682,6 +706,8 @@ def main():
             try:
                 if action == "acquire":
                     result = lights.acquire()
+                elif action == "return_legacy":
+                    result = lights.return_legacy()
                 elif action == "check":
                     result = lights.check()
                 elif action == "release":

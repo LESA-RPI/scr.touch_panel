@@ -2,6 +2,7 @@
 
 from io import BytesIO
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -20,7 +21,7 @@ LABEL = "Lighting study"
 def recoverable(tmp_path, monkeypatch):
     """Real owner logic with a fake event loop; no Tk/native windows or processes."""
     view = panel.Panel.__new__(panel.Panel)
-    view.args = SimpleNamespace(live_lights=True, timezone="America/New_York", light_at=420, dark_at=1140)
+    view.args = SimpleNamespace(live_lights=True, timezone="America/New_York", light_at=420, dark_at=1140, duration=0)
     view.recovery = LightingRecovery(tmp_path / "lighting.json")
     view.closed, view.closing, view.keep_switcher = False, None, True
     view.mode, view.light_state = "room", "disconnected"
@@ -31,6 +32,7 @@ def recoverable(tmp_path, monkeypatch):
     view.blind_controller = None
     view.observing, view.recovery_check_at = False, None
     view.legacy_probe = view.legacy_target = None
+    view.legacy_returning = False
     view.reservation_token = view.reservation_label = None
     view.release_target = view.pending = view.queued_intent = view.intent_timer = None
     view.press_active = view.running = view.idle_active = False
@@ -106,6 +108,15 @@ def test_existing_helper_check_sends_only_read_request(recoverable):
     assert [item["action"] for item in requests] == ["check"]
     assert recoverable.recovery.state["status"] == "normal"
     assert not recoverable.light_changes_requested
+
+
+def test_failed_legacy_return_shows_staff_recovery_even_if_return_flag_remains(recoverable):
+    recoverable.legacy_returning = True
+    recoverable.recovery.mark_uncertain("The lighting helper stopped while returning control.")
+    state = recoverable.recovery_snapshot()
+    assert state["status"] == "needs_staff"
+    assert state["title"] == "Lighting result unconfirmed"
+    assert state["needs_staff"] and state["write_blocked"]
 
 
 def test_reservation_is_not_granted_until_preserved_release_and_helper_exit(recoverable, monkeypatch):
@@ -300,7 +311,7 @@ def test_helper_death_with_pending_write_blocks_without_restarting_panel(recover
     assert any(args[0] == 100 for args in recoverable.scheduled)
 
 
-def test_original_idle_probe_never_grants_beta_ownership_and_same_legacy_can_reopen(recoverable, monkeypatch):
+def test_original_idle_without_log_proof_stays_blocked_and_same_legacy_can_reopen(recoverable, monkeypatch):
     recoverable.recovery.enter_legacy()
     recoverable.mode = "original"
     recoverable.legacy_probe = SimpleNamespace(poll=lambda: 0, returncode=0,
@@ -312,12 +323,12 @@ def test_original_idle_probe_never_grants_beta_ownership_and_same_legacy_can_reo
     monkeypatch.setattr(recoverable, "update_navigation_buttons", lambda: None)
     monkeypatch.setattr(recoverable, "start_worker", lambda **unused: pytest.fail("An idle callback cannot grant ownership"))
     recoverable.poll_legacy_return()
-    assert recoverable.mode == "room"
+    assert recoverable.mode == "health"
     assert recoverable.recovery.state["status"] == "legacy"
     assert recoverable.recovery_snapshot()["write_blocked"]
     assert recoverable.recovery_snapshot()["needs_staff"]
     recoverable.show("original")
-    assert recoverable.mode == "original" and rendered == ["room", "original"]
+    assert recoverable.mode == "original" and rendered == ["health", "original"]
     assert recoverable.recovery.state["status"] == "legacy"
 
 
@@ -368,3 +379,75 @@ def test_navigation_and_staff_recovery_are_rejected_during_original_probe(recove
     with pytest.raises(RuntimeError):
         recoverable.handoff("recover", {"owner_closed": True, "pending_clear": True})
     assert recoverable.recovery.state["status"] == "legacy"
+
+
+def test_clean_original_return_automatically_reacquires_through_durable_return_request(recoverable, monkeypatch):
+    recoverable.recovery.enter_legacy({"device": 1, "inode": 9, "size": 100})
+    recoverable.mode = "original"
+    recoverable.legacy_probe = SimpleNamespace(poll=lambda: 0, returncode=0,
+        stdout=BytesIO(b'{"idle":true}'), stderr=BytesIO())
+    recoverable.legacy_target = ("room", None)
+    starts = []
+    monkeypatch.setattr(recoverable, "render", lambda: None)
+    monkeypatch.setattr(recoverable, "cancel_hold", lambda: None)
+    monkeypatch.setattr(recoverable, "update_navigation_buttons", lambda: None)
+    monkeypatch.setattr(recoverable, "legacy_callbacks_clean", lambda: True)
+    monkeypatch.setattr(recoverable, "start_worker", lambda **kwargs: starts.append(kwargs))
+    recoverable.poll_legacy_return()
+    assert recoverable.mode == "room"
+    assert starts == [{"legacy_return": True}]
+    assert recoverable.recovery.state["status"] == "recovering"
+    assert recoverable.legacy_returning
+    assert recoverable.ownership_blocked()
+    worker = live_helper(recoverable)
+    assert recoverable.request("return_legacy")
+    assert recoverable.recovery.state["status"] == "writing"
+    assert json.loads(Path(recoverable.recovery.path).read_text())["status"] == "writing"
+    request = recoverable.pending
+    recoverable.recovery_result(request, {"state": "ready", "fixtures": 10, "manual_blocked": False})
+    assert recoverable.recovery.state["status"] == "normal"
+    assert not recoverable.legacy_returning
+    assert [json.loads(line)["action"] for line in worker.stdin.getvalue().splitlines()] == ["return_legacy"]
+
+
+def test_new_original_callback_error_prevents_automatic_reacquisition(recoverable, monkeypatch):
+    recoverable.recovery.enter_legacy({"device": 1, "inode": 9, "size": 100})
+    recoverable.mode = "original"
+    recoverable.legacy_probe = SimpleNamespace(poll=lambda: 0, returncode=0,
+        stdout=BytesIO(b'{"idle":true}'), stderr=BytesIO())
+    recoverable.legacy_target = ("room", None)
+    monkeypatch.setattr(recoverable, "render", lambda: None)
+    monkeypatch.setattr(recoverable, "cancel_hold", lambda: None)
+    monkeypatch.setattr(recoverable, "update_navigation_buttons", lambda: None)
+    monkeypatch.setattr(recoverable, "legacy_callbacks_clean", lambda: False)
+    monkeypatch.setattr(recoverable, "start_worker", lambda **kwargs: pytest.fail("Callback error cannot grant ownership"))
+    recoverable.poll_legacy_return()
+    assert recoverable.mode == "health"
+    assert recoverable.recovery.state["status"] == "legacy"
+    assert recoverable.recovery_snapshot()["needs_staff"]
+
+
+def test_return_mode_survives_actual_helper_initialization_until_matching_response(recoverable, monkeypatch, tmp_path):
+    recoverable.recovery.enter_legacy({"device": 1, "inode": 9, "size": 100})
+    recoverable.recovery.leave_legacy(idle_confirmed=True, callback_clean=True)
+    recoverable.args.journal = str(tmp_path / "events.jsonl")
+    recoverable.args.expected_master = "http://example.invalid:11311"
+    worker = SimpleNamespace(stdin=BytesIO(), stdout=SimpleNamespace(fileno=lambda: 99),
+                             poll=lambda: None, returncode=None)
+    monkeypatch.setattr(panel.subprocess, "Popen", lambda *args, **kwargs: worker)
+    monkeypatch.setattr(panel.select, "select", lambda *unused: ([], [], []))
+    recoverable.last_heartbeat = panel.monotonic()
+    recoverable.start_worker(legacy_return=True)
+    assert recoverable.legacy_returning
+    recoverable.worker_buffer = '{"version":1,"state":"initialized"}\n'
+    REAL_POLL_WORKER(recoverable)
+    assert recoverable.legacy_returning
+    assert recoverable.pending["action"] == "return_legacy"
+    assert recoverable.recovery.state["status"] == "writing"
+    recoverable.worker_buffer = json.dumps({"version": 1, "request_id": recoverable.pending["request_id"],
+        "state": "ready", "fixtures": 10, "manual_blocked": False}) + "\n"
+    REAL_POLL_WORKER(recoverable)
+    assert not recoverable.legacy_returning
+    assert recoverable.pending is None
+    assert recoverable.recovery.state["status"] == "normal"
+    assert [json.loads(line)["action"] for line in worker.stdin.getvalue().splitlines()] == ["return_legacy"]

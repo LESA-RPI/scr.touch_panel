@@ -21,13 +21,16 @@ class LightingRecovery:
         self.state = {"version": 1, "status": "normal", "revision": 0,
                       "token_hash": "", "label": "", "request_id": "",
                       "heartbeat_at": None, "acknowledged_at": None,
-                      "recovered_at": None, "reason": "", "updated_at": clock()}
+                      "recovered_at": None, "reason": "", "updated_at": clock(),
+                      "legacy_log": None}
         if self.path is None:
             return
         try:
             with open(self.path, encoding="utf-8") as stream:
                 raw = stream.read(8193)
             value = json.loads(raw)
+            if isinstance(value, dict):
+                value.setdefault("legacy_log", None)  # Older records cannot authorize an automatic return.
             if len(raw) > 8192 or not self._valid(value):
                 raise ValueError("Invalid lighting recovery state")
             self.state = value
@@ -42,7 +45,7 @@ class LightingRecovery:
     @classmethod
     def _valid(cls, value):
         keys = {"version", "status", "revision", "token_hash", "label", "request_id",
-                "heartbeat_at", "acknowledged_at", "recovered_at", "reason", "updated_at"}
+                "heartbeat_at", "acknowledged_at", "recovered_at", "reason", "updated_at", "legacy_log"}
         if not isinstance(value, dict) or set(value) != keys:
             return False
         if type(value["version"]) is not int or value["version"] != 1:
@@ -63,6 +66,8 @@ class LightingRecovery:
         if value["status"] == "recovering" and value["acknowledged_at"] is None:
             return False
         if value["updated_at"] is None:
+            return False
+        if value["legacy_log"] is not None and not cls._valid_log_position(value["legacy_log"]):
             return False
         return all(value[key] is None or (type(value[key]) in (float, int) and 0 <= value[key] < 1e15)
                    for key in ("heartbeat_at", "acknowledged_at", "recovered_at", "updated_at"))
@@ -116,8 +121,8 @@ class LightingRecovery:
         if not hmac.compare_digest(self._token(token), self.state["token_hash"]):
             raise ValueError("Experiment token does not match the current handoff")
 
-    def begin_write(self, request_id):
-        if self.state["status"] != "normal":
+    def begin_write(self, request_id, returning=False):
+        if self.state["status"] != "normal" and not (returning is True and self.state["status"] == "recovering"):
             raise RuntimeError("Lighting ownership or an earlier command is unresolved")
         self._save(status="writing", request_id=self._text(request_id, 160, "request ID"))
 
@@ -159,15 +164,36 @@ class LightingRecovery:
             raise RuntimeError("No matching experiment owns the lights")
         self.acknowledge(owner_closed=owner_closed, pending_clear=pending_clear)
 
-    def enter_legacy(self):
+    @staticmethod
+    def _valid_log_position(value):
+        return (isinstance(value, dict) and set(value) == {"device", "inode", "size"}
+                and all(type(v) is int and v >= 0 for v in value.values()))
+
+    def enter_legacy(self, log_position=None):
         if self.state["status"] != "normal":
             raise RuntimeError("Lighting ownership must be resolved before opening Legacy")
-        self._save(status="legacy")
+        if log_position is not None and not self._valid_log_position(log_position):
+            raise ValueError("Invalid Legacy log checkpoint")
+        self._save(status="legacy", legacy_log=dict(log_position) if log_position is not None else None)
 
-    def leave_legacy(self, idle_confirmed=False, owner_closed=False, pending_clear=False):
-        if self.state["status"] != "legacy" or idle_confirmed is not True:
-            raise RuntimeError("Confirm the original controller is idle before returning to Beta")
-        self.acknowledge(owner_closed=owner_closed, pending_clear=pending_clear)
+    def legacy_log_unchanged(self, log_position, current_new_bytes):
+        saved = self.state["legacy_log"]
+        if not self._valid_log_position(saved) or not self._valid_log_position(log_position):
+            return False
+        if isinstance(current_new_bytes, str):
+            current_new_bytes = current_new_bytes.encode("utf-8")
+        if not isinstance(current_new_bytes, bytes):
+            return False
+        if any(saved[key] != log_position[key] for key in ("device", "inode")) or log_position["size"] - saved["size"] != len(current_new_bytes):
+            return False
+        return not any(marker in current_new_bytes for marker in (
+            b"Exception in Tkinter callback", b"Traceback", b"ROSException", b"ServiceException"))
+
+    def leave_legacy(self, idle_confirmed=False, callback_clean=False):
+        if (self.state["status"] != "legacy" or idle_confirmed is not True
+                or callback_clean is not True or not self._valid_log_position(self.state["legacy_log"])):
+            raise RuntimeError("Confirm the original controller is idle and its callback log is clean")
+        self._save(status="recovering", acknowledged_at=self.clock())
 
     def acknowledge(self, owner_closed=False, pending_clear=False):
         """Local staff must confirm process/handler checks outside this guard."""
@@ -183,7 +209,7 @@ class LightingRecovery:
         if self.state["status"] == "recovering":
             self._save(status="normal", recovered_at=self.clock())
 
-    def public(self, helper_alive=False):
+    def public(self):
         status = self.state["status"]
         heartbeat = self.state["heartbeat_at"]
         stale = status == "reserved" and (heartbeat is None or self.clock() - heartbeat > 60 or self.clock() < heartbeat)

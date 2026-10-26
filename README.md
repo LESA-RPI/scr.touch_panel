@@ -11,7 +11,7 @@ Earlier navigation, reliability and Legacy-parity changes are reviewed in
 [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1). An installed cabinet may
 run a different commit; check its release identity before maintenance.
 
-The current source version is **0.2.4**, owned by
+The current source version is **0.2.5**, owned by
 [app/panel_version.py](app/panel_version.py).
 It is for About and internal development/GitHub tracking; everyday headers say
 Beta. Legacy is the preserved older baseline for backtracking, identified by Git
@@ -48,10 +48,11 @@ moves equipment or grants permission. Room tools keeps detailed controls togethe
 The header identifies Beta and provides a direct Legacy shortcut. It preserves
 current light settings and waits for the Beta helper to release control and stop
 before showing the original application. Website controls pause while Legacy is
-open. Home returns to Beta navigation, but Legacy retains lighting ownership until
-the room host checks its programmes and pending requests and completes local
-recovery. An idle original interface alone cannot establish that a remote command
-has finished. Legacy remains available for ordinary room control.
+open. Home checks the original interface, stops its Sun/Circ programmes and reads
+all ten lights before automatically returning Beta and website controls to Ready.
+Current light levels are preserved. If the original interface check fails before
+handoff, Legacy keeps ownership and can be reopened. An uncertain programme stop
+or lighting result blocks further control until the room host checks it.
 Room tools opens each tool directly beside the sidebar and
 remembers the last tool. Experiment mode runs instructions and panel annotations;
 its recorder is not connected.

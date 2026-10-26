@@ -14,7 +14,7 @@ DEMO = (
         "Room controls",
         "home",
         "Home opens the everyday room page. Opening a page does not change the lights.\n\n"
-        "Legacy opens the unchanged original application. It keeps lighting ownership when you return Home. Use Legacy for room control until the room host checks its programmes and pending requests and reconnects Beta.\n\n"
+        "Legacy opens the unchanged original application. Home checks the connection and stops its Sun/Circ programmes before automatically returning Beta controls to Ready, keeping current light levels. If the check fails, use Legacy or ask the room host.\n\n"
         "Lift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller.",
     ),
     (

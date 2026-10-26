@@ -19,6 +19,19 @@ class Programmes:
         pytest.fail("A connection check must not start a programme")
 
 
+class LegacyProgrammes:
+    def __init__(self, stop=None):
+        self.requests, self.on_stop = [], stop
+
+    def stop(self):
+        self.requests.append("stop")
+        if self.on_stop:
+            self.on_stop()
+
+    def start(self, name):
+        pytest.fail("Returning from Legacy must not start a programme")
+
+
 def observer(room, **kwargs):
     return adapter.Lights(room.call, observe_only=True, programmes=Programmes(),
                           sleep=lambda seconds: None, **kwargs)
@@ -170,6 +183,135 @@ def test_check_timeout_blocks_bounded_trial_from_automatic_restore():
     with pytest.raises(ValueError, match="unknown"):
         lights.release()
     assert len(room.writes) == 1
+
+
+@pytest.mark.parametrize("preset", ["Off", "Fid", None])
+def test_legacy_return_stops_programmes_and_reads_exactly_twice_without_changing_scene(preset):
+    room = Room()
+    room.state = (dict.fromkeys(room.state, adapter.setter_words(adapter.PRESETS[preset]))
+                  if preset else
+                  {xy: tuple(index * 1000 + channel for channel in range(8))
+                   for index, xy in enumerate(sorted(room.state))})
+    original, calls = dict(room.state), []
+    programmes = LegacyProgrammes()
+
+    def call(name, *args):
+        calls.append((name, args))
+        assert programmes.requests == ["stop"]
+        return room.call(name, *args)
+
+    lights = adapter.Lights(call, keep_settings=True, programmes=programmes,
+                            sleep=lambda seconds: None)
+    result = lights.return_legacy()
+    assert result["state"] == "ready" and result["manual_blocked"] is False
+    assert result["baseline"] == preset and result["fixtures"] == 10
+    assert result["power"] == ("off" if preset == "Off" else "on")
+    assert result["fixture_words"] == [[list(xy), list(values)]
+                                        for xy, values in sorted(original.items())]
+    assert calls.count(("get_lights", ())) == 2
+    assert all(calls.count(("get_sources", xy)) == 2 for xy in adapter.COORDINATES)
+    assert len(calls) == 22 and not room.writes
+    assert lights.release()["preserved"] and room.state == original
+
+
+@pytest.mark.parametrize("persistent, observing, configured", [
+    (False, False, True), (True, True, True), (True, False, False),
+])
+def test_legacy_return_requires_persistent_writable_configured_status(
+    persistent, observing, configured,
+):
+    room, programmes = Room(), LegacyProgrammes()
+    lights = adapter.Lights(room.call, keep_settings=persistent, observe_only=observing,
+                            programmes=programmes if configured else None)
+    with pytest.raises(ValueError, match="requires"):
+        lights.return_legacy()
+    assert lights.failed and not room.writes and not programmes.requests
+    if observing:
+        assert lights.release()["preserved"]
+    else:
+        with pytest.raises(ValueError, match="unknown"):
+            lights.release()
+
+
+def test_legacy_return_lost_stop_response_latches_failure_without_fixture_reads_or_retry():
+    room = Room()
+
+    def timeout():
+        raise TimeoutError("Status stop response lost")
+
+    programmes = LegacyProgrammes(timeout)
+    reads = []
+
+    def call(name, *args):
+        reads.append(name)
+        return room.call(name, *args)
+
+    lights = adapter.Lights(call, keep_settings=True, programmes=programmes)
+    with pytest.raises(TimeoutError, match="response lost"):
+        lights.return_legacy()
+    with pytest.raises(ValueError, match="requires"):
+        lights.return_legacy()
+    with pytest.raises(ValueError, match="unknown"):
+        lights.release()
+    assert programmes.requests == ["stop"] and reads == [] and not room.writes
+
+
+def test_legacy_return_unstable_readback_fails_without_retry_or_restore():
+    room, scans = Room(), []
+
+    def call(name, *args):
+        if name == "get_lights":
+            scans.append(True)
+            if len(scans) == 2:
+                room.state[min(room.state)] = (1,) * 8
+        return room.call(name, *args)
+
+    programmes = LegacyProgrammes()
+    lights = adapter.Lights(call, keep_settings=True, programmes=programmes,
+                            sleep=lambda seconds: None)
+    with pytest.raises(ValueError, match="still changing"):
+        lights.return_legacy()
+    assert lights.failed and lights.baseline is None
+    with pytest.raises(ValueError, match="unknown"):
+        lights.release()
+    assert programmes.requests == ["stop"] and len(scans) == 2 and not room.writes
+
+
+def test_legacy_return_read_timeout_never_retries_stop_or_changes_fixtures():
+    room, reads = Room(), []
+
+    def call(name, *args):
+        reads.append(name)
+        raise TimeoutError("Fixture readback expired")
+
+    programmes = LegacyProgrammes()
+    lights = adapter.Lights(call, keep_settings=True, programmes=programmes,
+                            sleep=lambda seconds: None)
+    with pytest.raises(TimeoutError):
+        lights.return_legacy()
+    assert lights.failed and programmes.requests == ["stop"]
+    assert reads == ["get_lights"] and not room.writes
+
+
+@pytest.mark.parametrize("code, name", [(500, "sun"), (202, "other")])
+def test_legacy_return_rejects_unmatched_or_failed_http_stop(monkeypatch, code, name):
+    import urllib.request
+
+    requests = []
+
+    def open_request(request, timeout):
+        requests.append(request.full_url)
+        return SimpleNamespace(getcode=lambda: code,
+                               read=lambda size: json.dumps({"name": name}).encode(),
+                               close=lambda: None)
+
+    monkeypatch.setattr(urllib.request, "urlopen", open_request)
+    room = Room()
+    programmes = adapter.StatusProgrammes("http://status.invalid")
+    lights = adapter.Lights(room.call, keep_settings=True, programmes=programmes)
+    with pytest.raises(ValueError, match="accept|match"):
+        lights.return_legacy()
+    assert lights.failed and len(requests) == 1 and not room.writes
 
 
 @pytest.mark.parametrize("mode", ["stable", "changing", "timeout", "budget"])

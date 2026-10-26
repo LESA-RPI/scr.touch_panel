@@ -943,7 +943,7 @@ function system(parent) {
     el('h3', 'Panel views'),
     el(
       'p',
-      'Legacy opens the original application with its original controls. After returning Home, use Legacy for room control until the room host checks its programmes and pending requests and reconnects Beta.',
+      'Legacy opens the original application with its original controls. Home checks the connection and stops Sun/Circ before automatically returning Beta controls to Ready, keeping current light levels. If the check fails, use Legacy or ask the room host.',
       'muted',
     ),
     viewActions,
@@ -1254,7 +1254,7 @@ function sync() {
           : 'waiting';
   const panelMessage =
     state?.mode === 'original'
-      ? 'The touch panel is showing Legacy, the separate original application. Website lighting is paused. Home opens Beta navigation; the room host must check Legacy before reconnecting Beta lighting.'
+      ? 'The touch panel is showing Legacy, the separate original application. Website lighting is paused. Return Home to check the connection and automatically restore Beta controls when confirmed.'
       : state?.mode === 'black'
         ? 'The touch panel is blank. Return it to Home to use lighting.'
         : state?.mode === 'experiment' && !state.experiment?.running && !state.can_control
@@ -1358,7 +1358,7 @@ function sync() {
           ? 'Instructions are running. Pause Experiment mode before using lighting.'
           : !state.can_control && ['original', 'black', 'experiment'].includes(state.mode)
             ? state.mode === 'original'
-              ? 'Use Legacy on the touch panel for lighting. The room host must check Legacy before reconnecting Beta lighting.'
+              ? 'Use Legacy on the touch panel, or return Home for connection checks before Beta lighting becomes Ready.'
               : 'Return the touch panel to Home to use lighting.'
             : s.programme
               ? 'Manual lighting stops programmes before applying.'

@@ -802,7 +802,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             button.pack(fill="both", expand=True)
             self.navigation_buttons.append(button)
         self.label(
-            row, "Original application below · Home opens Beta; staff returns lighting ownership", 16, True
+            row, "Original application below · Home checks the connection and returns to Beta", 16, True
         ).pack(side="left", fill="y")
 
     def add_connection_badge(self, parent, legacy=False, column=None):
@@ -897,12 +897,12 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             return
         if self.mode == "original" and mode != "original" and self.args.live_lights:
             if not self.worker:
-                self.start_worker()
+                self.start_worker(legacy_return=True) if getattr(self, "legacy_returning", False) else self.start_worker()
             else:
                 self.light_state = "connecting"
                 self.request("acquire")
         if mode == "original" and getattr(self.args, "live_lights", False) and recovery is not None and recovery.state["status"] == "normal" and self.worker is None:
-            recovery.enter_legacy()
+            recovery.enter_legacy(log_position=self.original_log_position())
         if self.mode == "original" and mode != "original" and self.keep_switcher:
             self.trial_deadline = (
                 monotonic() + self.args.duration if self.args.duration else None
@@ -1943,11 +1943,12 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 }
             )
 
-    def start_worker(self, observe_only=False):
+    def start_worker(self, observe_only=False, legacy_return=False):
         if self.ownership_blocked() and self.recovery.state["status"] != "recovering" and not observe_only:
             self.lighting_feedback(self.recovery_snapshot().get("detail", "Lighting needs staff attention."))
             return
         self.observing = observe_only
+        self.legacy_returning = legacy_return
         path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "scr_touch_panel_lights.py"
         )
@@ -2017,11 +2018,11 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             "sent_monotonic_s": monotonic(),
         }
         self.emit("light_requested", request=item)
-        if action in ("cct", "channels", "gradient", "programme", "blind"):
+        if action in ("cct", "channels", "gradient", "programme", "blind", "return_legacy"):
             recovery = getattr(self, "recovery", None)
             if recovery is not None:
                 try:
-                    recovery.begin_write(item["request_id"])
+                    recovery.begin_write(item["request_id"], returning=action == "return_legacy")
                 except (RuntimeError, ValueError) as error:
                     self.status_text.set(str(error))
                     return False
@@ -2205,7 +2206,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                     self.worker_ready = True
                     self.adapter_metadata(response)
                     self.request(
-                        "release" if self.release_target or self.closing else ("check" if getattr(self, "observing", False) else "acquire")
+                        "release" if self.release_target or self.closing else ("check" if getattr(self, "observing", False) else "return_legacy" if getattr(self, "legacy_returning", False) else "acquire")
                     )
                     continue
                 if (
@@ -2215,6 +2216,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                     continue
                 expected = {
                     "acquire": ("ready", "failed"),
+                    "return_legacy": ("ready", "failed"),
                     "check": ("checked", "failed"),
                     "release": ("released", "failed"),
                     "cct": ("completed", "failed"),

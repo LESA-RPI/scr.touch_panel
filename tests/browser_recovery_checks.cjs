@@ -122,5 +122,17 @@ function website() {
   assert.equal(legacyHeld.elements.get('connection').textContent, 'Legacy still owns lighting');
   assert.equal(legacyHeld.elements.get('check-connection').hidden, true);
   assert.match(legacyHeld.elements.get('recovery-detail').textContent, /Use Legacy for room controls/);
+  const legacyNormal = website();
+  legacyNormal.state({mode: 'original', lighting_recovery: {status: 'legacy', title: 'Legacy controls are open',
+    detail: 'Return Home for automatic connection checks.', can_check: false, write_blocked: true}});
+  await legacyNormal.run('refresh()');
+  assert.match(legacyNormal.elements.get('panel-mode-message').textContent, /automatically restore Beta controls when confirmed/);
+  assert.doesNotMatch(legacyNormal.elements.get('panel-mode-message').textContent, /room host must/);
+  legacyNormal.state({mode: 'room', can_control: true, lights: {state: 'ready'},
+    lighting_recovery: {status: 'normal', title: 'Lighting ready', detail: 'Current lighting is preserved.', can_check: true}});
+  await legacyNormal.run('refresh()');
+  assert.equal(legacyNormal.elements.get('connection').textContent, 'Ready');
+  assert.equal(legacyNormal.actions.find(b => b.dataset.action === 'off').disabled, false);
+  assert.equal(legacyNormal.requests.length, 0, 'Rendering a confirmed normal return sends no command');
   console.log('Browser recovery states, ownership guards and read-only checks passed');
 })().catch(error => {console.error(error); process.exitCode = 1;});
