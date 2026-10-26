@@ -37,9 +37,7 @@ SUPPORT = (
     (
         "Lighting",
         "room",
-        "Ready means the lighting adapter is available. Sending means a request is awaiting readback.\n\n"
-        "If Lighting result unconfirmed appears, do not repeat the command. Check connection reads current settings without changing them or clearing an uncertain result. An experiment reservation cannot be overridden here.\n\n"
-        "If the connection stays unavailable, ask the room host to check it.",
+        "Check connection reads current settings without changing the lights. If a result is unconfirmed, do not repeat the command; ask the room host. Experiment controls return after cleanup.",
         "",
     ),
     (
