@@ -45,6 +45,8 @@ PAGE_REFERENCES = (
     "blind_buttons",
     "blind_status_label",
     "light_feedback_card",
+    "recovery_label",
+    "recovery_button",
     "weather_symbol",
     "weather_symbol_size",
     "weather_symbol_key",

@@ -501,6 +501,8 @@ class Handler(BaseHTTPRequestHandler):
             value = json.loads(self.rfile.read(length))
             if not isinstance(value, dict):
                 raise ValueError("Invalid command")
+            if set(value) != {"id", "revision", "action", "arguments"}:
+                raise ValueError("Only browser control commands are accepted")
         except ValueError:
             self.respond(400, b"Invalid command")
             return

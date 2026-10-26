@@ -13,6 +13,7 @@ let state = null,
 let powerChoice = null,
   powerRequest = null,
   unknownSession = null, // panel session that was running when a receipt became unknown
+  unknownAction = null,
   reachable = true; // false when this website's own server does not answer
 const paths = {
   home: 'M3 10 12 3l9 7v11h-6v-7H9v7H3Z',
@@ -69,8 +70,18 @@ function link(text, hash, kind) {
   if (kind) a.prepend(icon(kind));
   return a;
 }
+function canCheckConnection() {
+  return state?.available && reachable && state?.lighting_recovery?.can_check &&
+    !['reserved', 'releasing', 'returning', 'checking'].includes(state.lighting_recovery.status);
+}
 function command(action, args = {}, revision = state?.revision) {
-  if (posting || unknown || !state?.available) {
+  const checking = action === 'check_connection';
+  if (
+    posting ||
+    (!checking && unknown) ||
+    !state?.available ||
+    (checking && !canCheckConnection())
+  ) {
     // Not sent: put sliders and number boxes back to the confirmed values.
     dragging = false;
     rangeRevision = null;
@@ -105,8 +116,15 @@ function command(action, args = {}, revision = state?.revision) {
         ![202, 400, 403, 405, 408, 409].includes(response.status) ||
         (reply.ok && (response.status !== 202 || reply.id !== id))
       ) {
+        if (checking) {
+          message(
+            'Connection check could not be confirmed. No light change was sent. Check the touch panel.',
+          );
+          return false;
+        }
         unknown = id;
         unknownSession = sentSession;
+        unknownAction = action;
         message(
           action === 'power'
             ? 'Power request status is unknown. Check the touch panel before trying again.'
@@ -118,6 +136,12 @@ function command(action, args = {}, revision = state?.revision) {
         if (action === 'power') powerRequest = null;
         message(reply.detail || 'Command was not accepted.');
         return false;
+      }
+      if (checking) {
+        message(
+          'Connection check requested. Current lighting is checked without changing it.', true,
+        );
+        return true;
       }
       if (action === 'power') {
         powerRequest.accepted = true;
@@ -147,8 +171,15 @@ function command(action, args = {}, revision = state?.revision) {
       return true;
     })
     .catch(() => {
+      if (checking) {
+        message(
+          'Connection check could not be confirmed. No light change was sent. Check the touch panel.',
+        );
+        return false;
+      }
       unknown = id;
       unknownSession = sentSession;
+      unknownAction = action;
       message(
         action === 'power'
           ? 'Power request status is unknown. Check the touch panel before trying again.'
@@ -226,6 +257,79 @@ function feedback(parent) {
   box.append(current, recent);
   parent.append(box);
 }
+function recoveryNotice(parent, always = false) {
+  const notice = el('section', undefined, 'lighting-recovery');
+  notice.id = 'lighting-recovery';
+  notice.dataset.always = String(always);
+  notice.setAttribute('role', 'status');
+  notice.setAttribute('aria-live', 'polite');
+  notice.setAttribute('aria-atomic', 'true');
+  notice.setAttribute('aria-labelledby', 'recovery-title');
+  const title = el('h3'),
+    detail = el('p'),
+    staff = el('p', undefined, 'subtle');
+  title.id = 'recovery-title';
+  detail.id = 'recovery-detail';
+  staff.id = 'recovery-staff';
+  staff.textContent = always
+    ? 'Staff: stop the experiment and confirm no lighting request is pending before recovering the connection at the panel.'
+    : 'If lighting stays unavailable, ask the room host for help.';
+  const check = button('Check connection', () => command('check_connection'), {
+    action: 'check_connection',
+  });
+  check.id = 'check-connection';
+  check.setAttribute('aria-describedby', 'recovery-detail');
+  notice.append(title, detail, staff, check);
+  parent.append(notice);
+}
+function recoveryStatus() {
+  if (!reachable)
+    return {
+      status: 'offline',
+      title: 'Website offline',
+      detail: 'This website cannot reach the panel. Check your network or use the touch panel in the room. This page reconnects automatically.',
+    };
+  if (!state?.available)
+    return {
+      status: 'offline',
+      title: state ? 'Panel unavailable' : 'Connecting to the panel',
+      detail: state?.detail || 'Waiting for the touch panel. Controls become available when it answers.',
+    };
+  const recovery = state.lighting_recovery;
+  if (unknown)
+    return {
+      ...recovery,
+      status: 'needs_staff',
+      title: ['on', 'off', 'cct', 'channels', 'preset', 'gradient', 'programme'].includes(unknownAction)
+        ? 'Lighting result unconfirmed'
+        : 'Command receipt unconfirmed',
+      detail: 'This website could not confirm the last command. Do not repeat it. ' +
+        (canCheckConnection()
+          ? 'Check connection reads the current lighting without resending the command.'
+          : 'Ask the room host to verify the current lighting and connection.'),
+      needs_staff: true,
+    };
+  if (recovery) return recovery;
+  // Older owners still explain failure without suggesting a write or a restart.
+  if (state.lights?.state === 'failed')
+    return {
+      status: 'needs_staff',
+      title: 'Lighting result unconfirmed',
+      detail: 'The last lighting result could not be confirmed. Light changes are paused to avoid repeating a command.',
+      needs_staff: true,
+    };
+  return { status: 'normal', title: 'Lighting ready', detail: 'Everyday lighting controls are available.' };
+}
+function syncRecovery(recovery) {
+  const notice = $('lighting-recovery');
+  if (!notice) return;
+  notice.hidden = recovery.status === 'normal' && notice.dataset.always !== 'true';
+  notice.dataset.state = recovery.status;
+  update('recovery-title', recovery.title);
+  update('recovery-detail', recovery.detail);
+  $('recovery-staff').hidden = !recovery.needs_staff;
+  $('check-connection').hidden = !canCheckConnection();
+}
 function home(root) {
   const row = el('div', undefined, 'room-layout'),
     left = el('section'),
@@ -274,6 +378,7 @@ function home(root) {
     if (!isBlind) group.append(el('small', 'Standard room lighting'));
     groups.append(group);
   }
+  recoveryNotice(left);
   left.append(groups);
   feedback(left);
   right.append(el('p', 'Troy, NY', 'eyebrow'));
@@ -537,6 +642,7 @@ function tools(root, page) {
   }
 }
 function lighting(detail, tab) {
+  recoveryNotice(detail);
   const tabs = el('nav', undefined, 'lighting-tabs');
   tabs.setAttribute('aria-label', 'Lighting');
   for (const [label, key] of content.lighting_tabs || [
@@ -808,6 +914,7 @@ function guide(root, index) {
   root.append(nav);
 }
 function system(parent) {
+  recoveryNotice(parent, true);
   const cards = el('div', undefined, 'health-grid');
   for (const [id, title] of [
     ['panel-health', 'Panel health'],
@@ -830,17 +937,13 @@ function system(parent) {
   views.id = 'panel-view-controls';
   const viewActions = el('div', undefined, 'row');
   viewActions.append(
-    button('Show Legacy view', () => command('legacy'), { action: 'legacy' }),
-    button('Open Original fallback', () => command('original_fallback'), {
-      action: 'original_fallback',
-    }),
+    button('Open Legacy', () => command('legacy'), { action: 'legacy' }),
   );
   views.append(
     el('h3', 'Panel views'),
-    el('p', 'Legacy uses the same controller and keeps current settings.', 'muted'),
     el(
       'p',
-      'Original fallback opens the separate original application after controller release. Website controls pause until it returns.',
+      'Legacy opens the original application with its original controls. After returning Home, use Legacy for room control until the room host checks its programmes and pending requests and reconnects Beta.',
       'muted',
     ),
     viewActions,
@@ -1089,7 +1192,22 @@ function update(id, text) {
 function sync() {
   const p = state?.preferences || {},
     s = state?.lights || {},
-    available = state?.available === true;
+    available = state?.available === true,
+    recovery = recoveryStatus(),
+    reserved = ['reserved', 'releasing', 'returning', 'checking'].includes(
+      state?.lighting_recovery?.status,
+    ),
+    lightingBlocked = reserved || state?.lighting_recovery?.write_blocked === true;
+  const recoveryLabel = {
+    writing: 'Sending',
+    reserved: 'Lighting reserved',
+    releasing: 'Returning lighting',
+    returning: 'Returning lighting',
+    checking: 'Checking lighting',
+    needs_staff: recovery.title || 'Lighting needs attention',
+    offline: 'Lighting unavailable',
+    legacy: 'Legacy',
+  }[recovery.status];
   const version =
     String(state?.app_version || content.app_version || '').match(/^\d+\.\d+\.\d+/)?.[0] || '';
   update('app-version', version ? 'Version ' + version : '');
@@ -1112,29 +1230,31 @@ function sync() {
           : !available
             ? 'Panel unavailable'
             : state.mode === 'original'
-              ? 'Original fallback'
+              ? 'Legacy'
               : state.mode === 'classic' && !state.busy
-                ? 'Legacy'
-                : state.busy
-                  ? 'Sending'
-                  : state.can_control
-                    ? 'Ready'
-                    : s.state === 'failed'
-                      ? 'Uncertain'
-                      : 'Controls unavailable',
+                ? 'Classic view'
+                : recovery.status !== 'normal'
+                  ? recoveryLabel || 'Lighting unavailable'
+                  : state.busy
+                    ? 'Sending'
+                    : state.can_control
+                      ? 'Ready'
+                      : s.state === 'failed'
+                        ? 'Uncertain'
+                        : 'Controls unavailable',
   );
   // Colour the header status: ready, waiting (connecting/sending/Legacy) or problem.
   $('connection').dataset.state =
     state === null && reachable
       ? 'waiting'
-      : !available || s.state === 'failed'
+      : !available || !reachable || ['needs_staff', 'offline'].includes(recovery.status)
         ? 'problem'
-        : state.can_control
+        : state.can_control && !lightingBlocked && recovery.status === 'normal'
           ? 'ready'
           : 'waiting';
   const panelMessage =
     state?.mode === 'original'
-      ? 'The touch panel is showing Original fallback, the separate original application. Return it to Home to use website controls.'
+      ? 'The touch panel is showing Legacy, the separate original application. Website lighting is paused. Home opens Beta navigation; the room host must check Legacy before reconnecting Beta lighting.'
       : state?.mode === 'black'
         ? 'The touch panel is blank. Return it to Home to use lighting.'
         : state?.mode === 'experiment' && !state.experiment?.running && !state.can_control
@@ -1142,6 +1262,7 @@ function sync() {
           : '';
   $('legacy-banner').hidden = !(available && panelMessage);
   update('panel-mode-message', panelMessage);
+  syncRecovery(recovery);
   if ($('blind-group')) {
     $('blind-group').hidden = p.blinds_display === 'hidden';
     $('essentials').classList.toggle('single', p.blinds_display === 'hidden');
@@ -1167,12 +1288,18 @@ function sync() {
     const a = b.dataset.action,
       lighting = ['on', 'off', 'cct', 'preset', 'channels', 'gradient'].includes(a),
       session = ['start', 'pause', 'previous', 'next', 'mark'].includes(a);
+    if (a === 'check_connection') {
+      b.disabled = posting || !canCheckConnection();
+      continue;
+    }
     b.disabled =
       posting ||
       Boolean(unknown) ||
       !available ||
       state.busy ||
-      (['original_fallback', 'blank', 'clock_view'].includes(a) && state.experiment?.running) ||
+      (['legacy', 'original_fallback', 'blank', 'clock_view'].includes(a) &&
+        (state.experiment?.running || reserved)) ||
+      ((lighting || a === 'programme') && lightingBlocked) ||
       (a === 'programme'
         ? state.can_programme === false || !s.capabilities?.programmes ||
           (b.dataset.programme !== 'Stop' && !state.can_control)
@@ -1185,11 +1312,16 @@ function sync() {
               : session
                 ? !state.can_session
                 : false);
+    if (lighting || a === 'programme') {
+      if (b.disabled && recovery.status !== 'normal')
+        b.setAttribute?.('aria-describedby', 'recovery-title recovery-detail');
+      else b.removeAttribute?.('aria-describedby');
+    }
   }
   for (const input of document.querySelectorAll('[data-range]')) {
     const number = $('value-' + input.dataset.range);
     input.disabled = number.disabled =
-      posting || Boolean(unknown) || !available || !state.can_control;
+      posting || Boolean(unknown) || !available || lightingBlocked || !state.can_control;
     if (!dragging) {
       const k = input.dataset.range,
         value = k.startsWith('channel') ? s.channels?.[Number(k.split('-')[1])] : s[k];
@@ -1208,27 +1340,29 @@ function sync() {
   for (const b of document.querySelectorAll('[data-action=on],[data-action=off]'))
     b.classList.toggle(
       'selected',
-      available && !posting && !unknown && s.power === b.dataset.action && state.can_control,
+      available && !posting && !unknown && !lightingBlocked && s.power === b.dataset.action && state.can_control,
     );
   for (const b of document.querySelectorAll('[data-preset]')) {
     const selected =
-      available && !posting && !unknown && s.scene === b.dataset.preset && state.can_control;
+      available && !posting && !unknown && !lightingBlocked && s.scene === b.dataset.preset && state.can_control;
     b.classList.toggle('selected', selected);
     b.setAttribute('aria-pressed', String(selected));
   }
   update(
     'light-message',
     !available
-      ? !reachable
-        ? 'This website is not answering. Check the network, then reload the page.'
-        : state?.detail || 'Panel unavailable. Controls are disabled.'
-      : state.experiment?.running
-        ? 'Instructions are running. Pause Experiment mode before using lighting.'
-        : !state.can_control && ['original', 'black', 'experiment'].includes(state.mode)
-          ? 'Return the touch panel to Home to use lighting.'
-          : s.programme
-            ? 'Manual lighting stops programmes before applying.'
-            : s.message || 'Lighting unavailable.',
+      ? recovery.title + '. ' + recovery.detail
+      : recovery.status !== 'normal'
+        ? 'Light changes are paused. See the connection notice above.'
+        : state.experiment?.running
+          ? 'Instructions are running. Pause Experiment mode before using lighting.'
+          : !state.can_control && ['original', 'black', 'experiment'].includes(state.mode)
+            ? state.mode === 'original'
+              ? 'Use Legacy on the touch panel for lighting. The room host must check Legacy before reconnecting Beta lighting.'
+              : 'Return the touch panel to Home to use lighting.'
+            : s.programme
+              ? 'Manual lighting stops programmes before applying.'
+              : s.message || 'Lighting unavailable.',
   );
   update(
     'light-recent',
@@ -1456,7 +1590,8 @@ async function refresh() {
       // The panel restarted, so the old receipt can no longer be found. The panel now owns
       // the current light state; show it rather than locking this page indefinitely.
       unknown = null;
-      message('The panel restarted. Check the current settings before trying again.');
+      unknownAction = null;
+      message('The panel restarted. Review the current lighting before making a change.');
     }
     const receipt = unknown && state.receipts?.find((r) => r.id === unknown);
     if (receipt) {
@@ -1472,6 +1607,7 @@ async function refresh() {
         }
       } else message('The panel received the command. Check its current confirmation below.');
       unknown = null;
+      unknownAction = null;
     }
     if (powerRequest && state.power?.phase === 'failed') {
       powerRequest = null;

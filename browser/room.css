@@ -290,6 +290,35 @@ svg {
 .feedback p + p {
   margin-top: 6px;
 }
+.lighting-recovery {
+  border: 1px solid var(--warning, #875709);
+  border-left-width: 4px;
+  background: var(--surface);
+  padding: 16px 18px;
+  margin-bottom: 20px;
+}
+.lighting-recovery[hidden],
+.lighting-recovery [hidden] {
+  display: none;
+}
+.lighting-recovery h3 {
+  font-size: 22px;
+}
+.lighting-recovery p {
+  margin-top: 8px;
+  font-size: 16px;
+}
+.lighting-recovery button {
+  margin-top: 14px;
+}
+.lighting-recovery[data-state='normal'] {
+  border-color: var(--border);
+}
+@media (max-width: 650px) {
+  .lighting-recovery button {
+    width: 100%;
+  }
+}
 .clock {
   font-size: clamp(48px, 6vw, 86px);
   line-height: 1.2;

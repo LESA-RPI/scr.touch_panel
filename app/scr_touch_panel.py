@@ -75,9 +75,10 @@ from panel_views import PanelViews
 from panel_screensaver import PanelScreensaver
 from panel_guidance import PanelGuidance
 from panel_classic import PanelClassic
+from panel_recovery import PanelRecovery
 
 
-class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
+class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelRecovery):
     def __init__(self, args):
         self.args, self.profile = args, profile(args.profile)
         saved, preference_error = load_preferences(
@@ -161,6 +162,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
         self.power_cleanup_confirmed = self.power_checkpoint_saved = False
         self.power_dialog, self.power_buttons = None, []
         self.last_heartbeat, self.request_seq = -10, 0
+        self.init_recovery()
         self.journal = EventJournal(args.journal, sys.stdout)
         self.pending_annotation = None
         self.root = tk.Tk()
@@ -383,9 +385,10 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
         if not hasattr(self.light_text, "get") or self.light_text.get() != text:
             self.light_text.set(text)
         if hasattr(self, "feedback_message"):
+            recovery = self.recovery_snapshot() if self.args.live_lights else {"status": "normal"}
             set_changed(
                 self.feedback_message,
-                self.light_message.replace(" input / level ", " · level "),
+                recovery["title"] if recovery["status"] not in ("normal", "writing") else self.light_message.replace(" input / level ", " · level "),
             )
             set_changed(
                 self.feedback_detail,
@@ -426,6 +429,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
         detail = self.label(content, size=14, muted=True)
         detail.config(textvariable=self.feedback_detail)
         self.wrap_label(detail).pack(fill="x", pady=(4, 0))
+        self.recovery_contents(content)
         self.refresh_confirmation_age()
 
     def update_power_highlights(self):
@@ -673,7 +677,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
         navigation.pack_propagate(False)
         for column, text, action in [
             (0, "Home", self.open_home),
-            (2, "Legacy", lambda: self.show("classic")),
+            (2, "Legacy", lambda: self.show("original")),
         ]:
             slot = tk.Frame(navigation, bg=self.bg, width=140, height=64)
             slot.grid(row=0, column=column, padx=(0, 12) if column == 0 else 0)
@@ -769,7 +773,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
         self.navigation_buttons.append(home)
         mode = tk.Label(
             navigation,
-            text="Original fallback",
+            text="Legacy",
             font=(FONT, 20),
             bg=self.control,
             fg=self.ink,
@@ -798,7 +802,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
             button.pack(fill="both", expand=True)
             self.navigation_buttons.append(button)
         self.label(
-            row, "Original application below · Home returns to the shared controls", 16, True
+            row, "Original application below · Home opens Beta; staff returns lighting ownership", 16, True
         ).pack(side="left", fill="y")
 
     def add_connection_badge(self, parent, legacy=False, column=None):
@@ -817,6 +821,15 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
 
     def update_connection_badges(self):
         text, kind, colour = connection(self.light_state, self.args.live_lights)
+        if self.args.live_lights:
+            status = self.recovery_snapshot()["status"]
+            text, kind, colour = {
+                "reserved": ("Reserved", "experiment", "waiting"),
+                "releasing": ("Checking", "clock", "waiting"),
+                "returning": ("Checking", "clock", "waiting"),
+                "needs_staff": ("Check", "link-off", "warning"),
+                "legacy": ("Legacy", "original", "neutral"),
+            }.get(status, (text, kind, colour))
         if hasattr(self, "connection_text"):
             set_changed(self.connection_text, text)
         colours = {
@@ -842,6 +855,15 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
 
     def show(self, mode, advanced_page=None):
         if self.release_target is not None or self.closing or self.power_busy():
+            return
+        if getattr(self, "legacy_probe", None) is not None:
+            return
+        recovery = getattr(self, "recovery", None)
+        if mode == "original" and self.ownership_blocked() and recovery.state["status"] != "legacy":
+            self.status_text.set(self.recovery_snapshot()["detail"])
+            return
+        if self.mode == "original" and mode != "original" and recovery is not None and recovery.state["status"] == "legacy" and self.args.live_lights:
+            self.begin_legacy_return(mode, advanced_page)
             return
         if getattr(self, "running", False) and mode in ("original", "black", "visitor"):
             self.status_text.set("Pause the instructions before switching the panel.")
@@ -879,6 +901,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
             else:
                 self.light_state = "connecting"
                 self.request("acquire")
+        if mode == "original" and getattr(self.args, "live_lights", False) and recovery is not None and recovery.state["status"] == "normal" and self.worker is None:
+            recovery.enter_legacy()
         if self.mode == "original" and mode != "original" and self.keep_switcher:
             self.trial_deadline = (
                 monotonic() + self.args.duration if self.args.duration else None
@@ -925,7 +949,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
 
     def update_navigation_buttons(self):
         """Make a pending handoff visible instead of accepting ignored touches."""
-        busy = bool(self.release_target or self.closing or self.power_busy())
+        busy = bool(self.release_target or self.closing or self.power_busy() or getattr(self, "legacy_probe", None))
         state = "disabled" if busy else "normal"
         buttons = getattr(self, "navigation_buttons", []) + [getattr(self, "original_fallback_button", None)]
         for button in buttons:
@@ -1121,6 +1145,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
             or self.closing
             or getattr(self, "running", False)
             or self.mode == "original"
+            or self.ownership_blocked()
         )
         return blind_readiness(
             getattr(self, "blinds_enabled", False),
@@ -1156,6 +1181,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
             and self.worker and self.worker.poll() is None
             and not self.pending and not self.release_target and not self.closing
             and not self.running and self.mode not in ("original", "black")
+            and not self.ownership_blocked()
             and self.light_state != "disconnected"
             and (self.light_state != "failed" or not self.light_changes_requested)
         )
@@ -1309,6 +1335,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
     def apply(self, action, immediate=False, **arguments):
         if (
             self.mode in ("original", "black")
+            or self.ownership_blocked()
             or self.light_state not in ("ready", "applying")
             or self.release_target
             or self.closing
@@ -1352,6 +1379,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
             or intent[2] != self.view_generation
             or self.mode in ("original", "black")
             or self.light_state != "ready"
+            or self.ownership_blocked()
             or self.release_target
             or self.closing
             or getattr(self, "running", False)
@@ -1375,6 +1403,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
 
     def update_light_buttons(self):
         self.update_navigation_buttons()
+        self.update_recovery_view()
+        if hasattr(self, "connection_badges"):
+            self.update_connection_badges()
         for button in self.light_buttons:
             if button.winfo_exists():
                 button.config(
@@ -1383,6 +1414,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
                         if self.light_state in ("ready", "applying")
                         and (not getattr(button, "_gradient", False)
                              or getattr(self, "light_capabilities", {}).get("gradient"))
+                        and not self.ownership_blocked()
                         and not self.release_target
                         and not self.closing
                         and not getattr(self, "running", False)
@@ -1478,6 +1510,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
             self.mode != "original"
             and not self.running
             and self.light_state == "ready"
+            and not self.ownership_blocked()
             and self.worker is not None
             and not any(
                 (
@@ -1910,7 +1943,11 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
                 }
             )
 
-    def start_worker(self):
+    def start_worker(self, observe_only=False):
+        if self.ownership_blocked() and self.recovery.state["status"] != "recovering" and not observe_only:
+            self.lighting_feedback(self.recovery_snapshot().get("detail", "Lighting needs staff attention."))
+            return
+        self.observing = observe_only
         path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "scr_touch_panel_lights.py"
         )
@@ -1929,6 +1966,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
         ]
         if self.keep_switcher:
             command.append("--keep-settings")
+        if observe_only:
+            command.append("--observe-only")
         if getattr(self.args, "status_url", None):
             command.extend(["--status-url", self.args.status_url])
         self.release_confirmed = self.light_changes_requested = False
@@ -1944,6 +1983,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
         except OSError:
             self.worker = None
             self.light_state = "failed"
+            recovery = getattr(self, "recovery", None)
+            if recovery is not None and recovery.state["status"] == "recovering":
+                recovery.mark_uncertain("The lighting helper could not start after ownership was returned.")
             self.status_text.set("Lighting helper could not start. Check System & help.")
             self.lighting_feedback("Lighting unavailable; helper could not start.")
             return
@@ -1976,6 +2018,13 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
         }
         self.emit("light_requested", request=item)
         if action in ("cct", "channels", "gradient", "programme", "blind"):
+            recovery = getattr(self, "recovery", None)
+            if recovery is not None:
+                try:
+                    recovery.begin_write(item["request_id"])
+                except (RuntimeError, ValueError) as error:
+                    self.status_text.set(str(error))
+                    return False
             # A lost pipe response must never permit an unverified controller handoff.
             self.light_changes_requested = True
         elif action == "release":
@@ -1985,6 +2034,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
             self.worker.stdin.flush()
         except (IOError, OSError) as error:
             self.light_state = "failed"
+            recovery = getattr(self, "recovery", None)
+            if recovery is not None and not recovery.error and recovery.state["status"] in ("writing", "releasing"):
+                recovery.mark_uncertain("The controller response was lost. Check the previous operation.")
             self.cancel_intent()
             self.status_text.set("Light adapter disconnected: " + str(error))
             return False
@@ -2019,6 +2071,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
             self.status_text.set("Panel journal unavailable: " + error)
 
     def fail_worker(self, message):
+        recovery = getattr(self, "recovery", None)
+        if recovery is not None and not recovery.error and recovery.state["status"] in ("writing", "releasing", "recovering"):
+            recovery.mark_uncertain("Lighting confirmation was lost. Check the previous controller.")
         self.cancel_intent()
         self.pending = None
         self.light_state = "failed"
@@ -2036,6 +2091,33 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
     def poll_worker(self):
         if self.closed:
             return
+        try:
+            self.poll_worker_once()
+        except Exception as error:
+            self.light_state = "failed"
+            self.pending = None
+            recovery = getattr(self, "recovery", None)
+            if recovery is not None and not recovery.error:
+                try:
+                    recovery.mark_uncertain("Lighting recovery could not be confirmed. Ask the room host.")
+                except (RuntimeError, ValueError):
+                    pass
+            self.status_text.set("Lighting needs staff attention. No command will be repeated.")
+            worker = self.worker
+            if worker and not worker.stdin.closed:
+                try:
+                    worker.stdin.close()
+                except (IOError, OSError):
+                    pass
+            self.emit("lighting_recovery_error", detail=str(error)[:240])
+        finally:
+            if not self.closed:
+                self.root.after(100, self.poll_worker)
+
+    def poll_worker_once(self):
+        if self.closed:
+            return
+        self.poll_legacy_return()
         if (
             getattr(self, "mode", None) == "health"
             and getattr(self, "health_pending", None) is not None
@@ -2123,7 +2205,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
                     self.worker_ready = True
                     self.adapter_metadata(response)
                     self.request(
-                        "release" if self.release_target or self.closing else "acquire"
+                        "release" if self.release_target or self.closing else ("check" if getattr(self, "observing", False) else "acquire")
                     )
                     continue
                 if (
@@ -2133,6 +2215,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
                     continue
                 expected = {
                     "acquire": ("ready", "failed"),
+                    "check": ("checked", "failed"),
                     "release": ("released", "failed"),
                     "cct": ("completed", "failed"),
                     "channels": ("completed", "failed"),
@@ -2151,6 +2234,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
                 self.light_state = {
                     "completed": "ready",
                     "released": "disconnected",
+                    "checked": "failed" if self.ownership_blocked() else "ready",
                 }.get(state, state)
                 detail = response.get("detail", "Lighting ready.")
                 if state == "failed":
@@ -2183,7 +2267,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
                     self.confirmed_power = None
                     self.confirmed_scene = None
                 self.lighting_feedback(detail)
-                self.status_text.set("" if state in ("ready", "completed") else detail)
+                if hasattr(self, "recovery"):
+                    self.recovery_result(completed_request, response)
+                self.status_text.set("" if state in ("ready", "completed", "checked") else detail)
                 if action == "release":
                     self.release_confirmed = state == "released" and (
                         response.get("preserved") is True
@@ -2213,6 +2299,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
                     self.dispatch_intent()
                 self.update_light_buttons()
             if worker.poll() is not None:
+                recovery = getattr(self, "recovery", None)
+                if recovery is not None and not recovery.error and recovery.state["status"] in ("writing", "releasing", "recovering") and not (self.release_target == "experiment" and self.release_confirmed):
+                    recovery.mark_uncertain("The lighting helper stopped before ownership or a command was confirmed.")
                 if self.pending or self.light_state != "disconnected":
                     self.cancel_intent()
                     self.pending = None
@@ -2225,6 +2314,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
                     )
                 self.worker = None
                 target, self.release_target = self.release_target, None
+                if hasattr(self, "recovery"):
+                    self.recovery_exit(target, worker.returncode)
                 if self.closing:
                     self.finish_close()
                     return
@@ -2242,7 +2333,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
                 elif target == "power":
                     self.power_after_release(worker.returncode)
                 self.update_light_buttons()
-        self.root.after(100, self.poll_worker)
 
     def begin_hold(self, event):
         self.cancel_hold()
@@ -2300,6 +2390,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
         set_changed(self.visitor_date, time.strftime("%A, %d %B %Y"))
         set_changed(self.preference_text, self.preference_summary())
         self.update_connection_badges()
+        self.update_recovery_view()
         self.update_navigation_buttons()
         self.refresh_confirmation_age()
         self.update_idle()
@@ -2334,7 +2425,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
             "escape",
             "window_close",
         ):
-            self.show("classic")
+            self.show("original")
             return
         if self.power_busy() and self.power.phase != "executing":
             self.power.fail("Power action cancelled while the panel is closing.")
@@ -2363,6 +2454,15 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic):
 
     def finish_close(self):
         if not self.closed:
+            probe = getattr(self, "legacy_probe", None)
+            if probe is not None:
+                if probe.poll() is None:
+                    probe.kill()
+                    self.root.after(50, self.finish_close)
+                    return
+                probe.stdout.close()
+                probe.stderr.close()
+                self.legacy_probe = None
             if getattr(self, "preferences", None):
                 self.preferences.close()
                 if not self.preferences.done.is_set():
@@ -2543,6 +2643,7 @@ def main(argv=None):
         action="store_true",
         help="Local 1280x800 review without screen-size enforcement",
     )
+    parser.add_argument("--lighting-state", help="Private persistent lighting ownership state; separate from appearance")
     args = parser.parse_args(argv)
     if (
         (args.weather_latitude is None) != (args.weather_longitude is None)

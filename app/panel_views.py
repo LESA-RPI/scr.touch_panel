@@ -91,6 +91,8 @@ class PanelViews:
         self.wrap_label(date).pack(fill="x", pady=(0, 6))
         self.weather_contents(right, compact=True)
         self.update_light_buttons()
+        if self.ownership_blocked():
+            self.status_text.set("Lighting ownership needs to return before these controls can be used.")
 
     def advanced_view(self):
         shell = self.body

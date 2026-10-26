@@ -67,7 +67,7 @@ Requests have:
 }
 ```
 
-Actions are `acquire`, `cct`, `channels`, `gradient`, `programme`, `blind`,
+Actions are `acquire`, `check`, `cct`, `channels`, `gradient`, `programme`, `blind`,
 `release` and `heartbeat`.
 Channels takes eight integer percentages in installed channel order:
 Blue 1, Blue 2, Blue 3, Lime, Amber, Orange, Red 1, Red 2.
@@ -92,13 +92,13 @@ acknowledge service acceptance, not measured physical position. This is availabl
 only through the persistent shared owner; an uncertain result disables further
 commands until checked.
 
-Replies echo `version` and `request_id`. States are `ready`, `completed`,
+Replies echo `version` and `request_id`. States are `ready`, `checked`, `completed`,
 `released` or `failed`. Success includes fixture count and relevant baseline,
 words or release flags. Persistent `--keep-settings` acquisition admits any stable
 snapshot and reports its confirmed `power`; `baseline` is null for a custom mix.
 Its release returns `preserved: true, restored: false` without a fixture setter.
-Normal Beta/Legacy navigation retains the same helper without any release/acquire
-cycle. Preserving release applies to Original fallback, shutdown and parent loss. Bounded trials
+Ordinary Beta navigation retains the same helper. Preserving release applies to
+Legacy, experiment handoff, shutdown and parent loss. Bounded trials
 omit that flag, require an exactly restorable preset and retain `restored: true`
 on successful cleanup. Failure includes detail and whether outcome is unknown.
 Unknown extra fields are ignored; unsupported versions are refused.
@@ -113,6 +113,57 @@ service graph through one XML-RPC call, then exits without a ROS node or fixture
 queries. The UI bounds that subprocess, refreshes only while System is visible
 and labels the result as advertised service availability. It does not query TOF,
 blinds, HVAC or acquisition data, and does not assess IRMA recorder health.
+
+`check` has empty arguments and performs stable read-only scans of all ten lights.
+Its `checked` reply reports current settings; it never applies a scene, repeats a
+setter or proves that a remote handler has finished. An uncertain write stays
+quarantined until explicit local ownership reconciliation and fresh acquisition.
+
+## Lighting ownership and recovery
+
+The panel persists its lighting ownership guard before writes and handoffs. An
+interrupted write or release becomes uncertain on restart; an active experiment
+reservation survives restart. Missing heartbeats are advisory after 60 seconds,
+never automatic permission to reclaim the lights. Persistence failures block writes.
+Private tokens are hashed in the durable state and absent from public snapshots.
+
+The existing same-user, mode-0600 Unix socket accepts a private envelope with
+exactly `op: "lighting_handoff"`, `id`, `revision`, `action`, and `arguments`.
+IDs, revisions, bounded queueing and receipts use the existing bridge rules.
+The ordinary HTTP gateway rejects this envelope and cannot invoke these actions:
+
+| Action | Exact arguments | Completion condition |
+|---|---|---|
+| `reserve` | `token`, `label` | Preserving helper release and successful exact helper exit; then reserved |
+| `heartbeat` | `token` | Matching active reservation updated; no fixture query |
+| `finish` | `token`, `owner_closed: true`, `pending_clear: true` | Matching reservation, fresh acquisition and normal Ready controls |
+| `recover` | `owner_closed: true`, `pending_clear: true` | Local staff reconciliation, fresh acquisition and normal Ready controls |
+
+Tokens contain 16–128 ASCII letters, digits, underscores or hyphens. Labels are
+1–80 characters without control characters; use a generic public label without
+participant information. A fresh token is required for each experiment. The two
+acknowledgements assert completed operator checks: previous lighting workers and
+programmes have stopped and no remote lighting handler or request remains pending.
+After Legacy use, its original UI must remain covered while these checks and
+recovery run; the preserved original app remains available as the fallback. Neither local process
+exit nor stable fixture readback establishes both facts by itself.
+
+`app/lighting_handoff.py` is the private CLI. It reads status with `op: "read"`,
+submits an ownership request once, and polls up to 45 seconds for its completion.
+Reserve/heartbeat return zero only when reserved; finish/recover return zero only
+when normal, `can_control` is true and lighting is Ready after two matching
+all-ten-fixture scans. Acceptance alone is not completion. A timeout or lost reply
+does not grant ownership and must not trigger a repeated request or light write.
+See [operation and recovery](../WORKFLOWS.md#experiments-and-returning-everyday-control).
+
+The public `lighting_recovery` snapshot contains `status`, `title`, `detail`,
+`can_check`, `needs_staff`, `write_blocked`, `heartbeat_stale` and a generic `label`.
+States are `normal`, `writing`, `releasing`, `reserved`, `checking`, `returning`,
+`needs_staff`, `offline` and `legacy`. Public `check_connection` with empty arguments is
+read-only and cannot override ownership or clear the durable uncertain-write latch.
+The website also retains an unknown command receipt until the owner supplies its
+receipt or a new owner session, and never resends that command. Its own network
+loss is displayed separately from room lighting unavailability.
 
 ## Optional weather details
 
@@ -143,23 +194,28 @@ clients query receipts and never automatically repeat commands.
 The shared actions cover on/off, CCT/level, eight channels, admitted presets, Gradient,
 original programme requests, permitted whole-room blinds,
 instruction start/pause/previous/next/known annotations, panel appearance/clock/
-weather/idle preferences, blind permission/visibility, Home, Legacy, Original fallback, clock view and
+weather/idle preferences, blind permission/visibility, Home, Legacy, Check connection, clock view and
 blank display. All inputs are bounded enums or integers. Lighting requires ready
-readback, no pending/queued/held touch and no running instructions. Original fallback,
-blank and uncertain states block lighting. Ordinary Beta pages, including Guide,
+readback, no pending/queued/held touch and no running instructions. Legacy,
+experiment reservation, blank and uncertain states block lighting. Ordinary Beta pages, including Guide,
 Settings, About and paused Experiment mode, do not restrict lighting availability.
 Panel and browser use these same study guards.
 Acceptance is not lighting confirmation, annotation persistence or recording.
 
-`legacy` with empty arguments selects `Panel.mode == "classic"`, the familiar
-Legacy layout inside the existing Panel/Tk process. It retains the same command
-owner, helper PID, ROS initialization and programme state. It is presentation only,
-including while instructions run; instruction guards still prevent actuator commands.
-`original_fallback` with empty arguments selects `mode == "original"` through the
-existing guarded helper-release path. That mode opens the untouched separate
-original application, blocks website control, and is identified as Original fallback.
-The normal Legacy action never launches or acquires a second controller. This is
-an in-process shared view, not a new standalone headless control service.
+`legacy` with empty arguments selects `Panel.mode == "original"` through the
+guarded preserving-release path. `original_fallback` remains a compatibility alias
+for the same action. After confirmed release and successful helper exit, the
+unchanged original app is shown behind a 144-pixel navigation strip. Its original
+callbacks and device behaviour remain intact; Beta and website actuators pause.
+Running instructions, experiment ownership and uncertain results block entry.
+Returning to Home covers original input and obtains a bounded idle acknowledgement
+from the exact original Tk process. It returns Beta navigation while retaining
+the persisted `legacy` ownership block; there is no automatic Beta acquisition.
+An idle acknowledgement cannot prove original programmes or remote requests have
+ended. The same Legacy app can be reopened for ordinary room control. Staff must
+verify original programmes, workers and pending handlers have stopped, then use
+local `recover` before two stable all-ten-fixture scans enable Beta. Neither path
+restores an old scene or restarts ROS/Status.
 
 Blind readiness separates the short user-facing `detail` (Disabled, Busy or Ready)
 from a diagnostic `reason`. When no controller is connected, settings show one
@@ -168,7 +224,7 @@ connection remain independent; unlocking never connects a controller or moves bl
 
 `blinds_enabled` accepts a boolean `value`; `blind` accepts only a `name` of
 `lift`, `open` or `close`. The owner rechecks the saved permission, controller
-connection and busy/Original-fallback/experiment guards at dispatch. Visibility does not
+connection and busy/Legacy/experiment guards at dispatch. Visibility does not
 grant permission. The existing helper advertises connection when the whole-room
 lift/tilt services are present and persistent control owns the resource. Tk
 enqueues work without blocking for movement. The browser updates permission
@@ -196,7 +252,7 @@ references are display/copy text, never command actions.
 
 Pi power actions use `power` with exactly `operation` (`reboot` or `shutdown`)
 and `confirmed: true`. They share the existing network and revision checks.
-The owner refuses busy, running-instruction, Original-fallback and uncertain-light states,
+The owner refuses busy, running-instruction, Legacy, experiment-reserved and uncertain-light states,
 then requires confirmed ownership release, helper exit, saved preferences and a durable
 power-request record before one fixed OS command. Existing noninteractive
 permission and OS inhibitors are respected; no new privilege rule or automatic
@@ -207,8 +263,8 @@ describe availability and About information without changing schema version 1.
 `app/design_tokens.py` owns theme roles. `app/export_room_content.py` exports the
 panel-owned guide/help and Lucide paths for browser fallback and offline demos.
 The website reads guide/help only from that export. The live snapshot supplies
-current preferences, controls, receipts and experiment state. Normal Beta and
-Legacy layouts currently share the owner; Original fallback is the separate app.
+current preferences, controls, receipts and experiment state. Beta and the website
+share the owner; Legacy hands control to the unchanged separate original app.
 
 `app/help_reference.py` owns each command step's computer, effect, purpose,
 expected result and exact copy text. A help topic exports its `reference` object
