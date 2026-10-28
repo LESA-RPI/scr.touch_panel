@@ -11,7 +11,7 @@ Earlier navigation, reliability and Legacy-parity changes are reviewed in
 [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1). An installed cabinet may
 run a different commit; check its release identity before maintenance.
 
-The current source version is **0.2.5**, owned by
+The current source version is **0.2.6**, owned by
 [app/panel_version.py](app/panel_version.py).
 It is for About and internal development/GitHub tracking; everyday headers say
 Beta. Legacy is the preserved older baseline for backtracking, identified by Git
@@ -73,6 +73,9 @@ the feedback area; the footer is reserved for explanations, progress and problem
 Room tools keeps its sidebar in place while changing tools. Unchanged clock/status
 values do not trigger another redraw. Resource checks run in the background so
 slow reads do not hold up touches.
+Lighting recovery saves also run in the background; commands and controller
+handoffs still wait for durable confirmation before proceeding. Slow storage
+does not permit retries or bypass uncertain-result checks.
 Home, the screen saver and Lighting tabs reuse their existing widgets when you
 return. Readback, availability and slider bindings refresh before controls are
 shown; this does not cache lighting commands or bypass controller checks.
@@ -186,6 +189,10 @@ journals have `recording: false`; recorder integration needs a separate adapter.
 
 General panel code belongs here. Project-X owns its optional recorder integration.
 The browser and touch interface share one command owner and experiment ownership.
+On phones, the website keeps Home, Room tools and Demo & guide in a bottom
+navigation bar. Compact tool selection, scrollable lighting tabs and scene rows
+leave more room for controls. Changing pages returns to the top; pending messages
+remain visible above navigation without changing the panel's page.
 The optional gateway permits controls from the configured trusted subnet; it has
 no separate staff sign-in. Guide/help content, appearance roles and common actions
 come from the panel. Browsing the website never wakes or switches the panel;
