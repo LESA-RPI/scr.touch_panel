@@ -243,8 +243,13 @@ function layout() {
     (view === 'home' ? '' : (heading?.textContent || '') + ' · ') + 'Smart Conference Room';
   if (navigating && heading) {
     heading.tabIndex = -1;
+    window.scrollTo?.({ top: 0, left: 0, behavior: 'instant' });
     heading.focus({ preventScroll: true });
   }
+  if (phoneLayout.matches)
+    root.querySelector('.lighting-tabs a[aria-current="page"]')?.scrollIntoView?.({
+      block: 'nearest', inline: 'nearest',
+    });
   sync();
 }
 function feedback(parent) {
@@ -660,15 +665,16 @@ function lighting(detail, tab) {
     detail.append(el('p', 'Original scene names and mixtures from Legacy.', 'muted'));
     const grid = el('div', undefined, 'scene-grid');
     for (const scene of content.scenes || []) {
-      const card = el('section', undefined, 'card'),
+      const card = el('section', undefined, 'card scene-card'),
         b = button('Apply scene', () => command('preset', { name: scene.id }), {
           action: 'preset',
         });
       b.dataset.preset = scene.id;
+      b.setAttribute('aria-label', 'Apply ' + scene.label + ' scene');
       card.append(el('h3', scene.label), el('p', scene.detail, 'muted'), b);
       grid.append(card);
     }
-    const gradient = el('section', undefined, 'card');
+    const gradient = el('section', undefined, 'card scene-card');
     gradient.id = 'gradient-controls';
     gradient.hidden = !state?.lights?.capabilities?.gradient;
     const apply = button('Apply gradient', () => command('gradient'), {
