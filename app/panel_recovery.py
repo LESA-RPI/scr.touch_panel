@@ -16,7 +16,7 @@ class PanelRecovery:
         if self.args.live_lights and self.keep_switcher and not path:
             socket = getattr(self.args, "control_socket", None)
             path = (socket + ".lighting.json") if socket else str(Path.home() / ".cache/scr-panel/lighting-ownership.json")
-        self.recovery = LightingRecovery(path)
+        self.recovery = LightingRecovery(path, background=True)
         self.observing = False
         self.recovery_check_at = None
         self.reservation_token = None
@@ -29,7 +29,7 @@ class PanelRecovery:
     def ownership_blocked(self):
         recovery = getattr(self, "recovery", None)
         # The current write may finish, but no new actuator may start while it is pending.
-        return bool(recovery and recovery.state["status"] not in ("normal", "writing"))
+        return bool(recovery and (recovery.error or recovery.pending or recovery.state["status"] not in ("normal", "writing")))
 
     def recovery_snapshot(self):
         recovery = getattr(self, "recovery", None)
@@ -38,6 +38,8 @@ class PanelRecovery:
         result = recovery.public()
         if self.mode == "original":
             result.update(status="legacy", title="Legacy controls are open", detail="The original room app controls the lights. Return Home to use Beta.", can_check=False, write_blocked=True)
+        elif self.recovery.pending and not self.recovery.error:
+            result.update(status="writing", title="Saving lighting recovery", detail="Controls return after the recovery record is saved.", can_check=False, write_blocked=True)
         elif self.recovery.state["status"] == "legacy":
             result.update(status="needs_staff", title="Legacy still owns lighting", detail="Use Legacy for room controls. Before Beta reconnects, the room host must check that Legacy programmes and pending commands have stopped.", can_check=False, needs_staff=True, write_blocked=True)
         elif getattr(self, "legacy_returning", False) and result["status"] in ("recovering", "writing"):
@@ -82,17 +84,23 @@ class PanelRecovery:
                     "releasing": "Waiting for the panel controller to finish and stop.",
                     "returning": "Reading current settings before everyday controls return.",
                 }.get(state["status"], detail)
-            label.config(text=(state.get("title", "") + ". " if card._system else "") + detail)
+            text = (state.get("title", "") + ". " if card._system else "") + detail
+            if label.cget("text") != text:
+                label.config(text=text)
             if not card._system and (not self.args.live_lights or state["status"] in ("normal", "writing")):
-                card.pack_forget()
-            else:
+                if card.winfo_manager():
+                    card.pack_forget()
+            elif not card.winfo_manager():
                 card.pack(fill="x", pady=(6, 0))
         button = getattr(self, "recovery_button", None)
         if button is not None and button.winfo_exists():
-            button.config(state="normal" if state["can_check"] else "disabled")
+            style = "normal" if state["can_check"] else "disabled"
+            if button.cget("state") != style:
+                button.config(state=style)
             if state["can_check"]:
-                button.pack(anchor="w", pady=(6, 0))
-            else:
+                if not button.winfo_manager():
+                    button.pack(anchor="w", pady=(6, 0))
+            elif button.winfo_manager():
                 button.pack_forget()
 
     def check_connection(self):
@@ -194,7 +202,7 @@ class PanelRecovery:
         self.show(target[0], advanced_page=target[1])
 
     def handoff(self, action, args):
-        if self.closing or self.release_target or self.pending or self.queued_intent or self.press_active or self.running or self.power_busy() or self.mode == "original" or self.legacy_probe is not None:
+        if self.closing or self.release_target or self.pending or self.queued_intent or self.press_active or self.running or self.power_busy() or self.mode == "original" or self.legacy_probe is not None or self.recovery.pending:
             raise RuntimeError("Finish the current panel action before changing lighting ownership.")
         if action == "reserve":
             if not self.keep_switcher or not self.worker or self.light_state != "ready" or self.programme:

@@ -5,7 +5,9 @@ import hmac
 import json
 import os
 import re
+import queue
 import tempfile
+import threading
 import time
 
 from preferences import sync_directory
@@ -16,8 +18,11 @@ class LightingRecovery:
 
     STATUSES = ("normal", "writing", "uncertain", "releasing", "reserved", "recovering", "legacy")
 
-    def __init__(self, path=None, clock=time.time):
+    def __init__(self, path=None, clock=time.time, background=False):
         self.path, self.clock, self.error = os.fspath(path) if path else None, clock, None
+        self.saves = None
+        self.settled = threading.Event()
+        self.settled.set()
         self.state = {"version": 1, "status": "normal", "revision": 0,
                       "token_hash": "", "label": "", "request_id": "",
                       "heartbeat_at": None, "acknowledged_at": None,
@@ -41,6 +46,30 @@ class LightingRecovery:
         except (OSError, ValueError, TypeError, RecursionError, RuntimeError) as error:
             self.error = str(error) or "Lighting recovery state could not be read"
             self.state["status"] = "uncertain"
+        if background and self.path and not self.error:
+            self.saves = queue.Queue(maxsize=16)
+            self.save_lock = threading.Lock()
+            self.save_count = 0
+            threading.Thread(target=self._write_saves, name="scr-lighting-recovery", daemon=True).start()
+
+    @property
+    def pending(self):
+        return not self.settled.is_set()
+
+    def _write_saves(self):
+        # FIFO: never coalesce away an unresolved-write or ownership checkpoint.
+        while True:
+            value = self.saves.get()
+            try:
+                if not self.error:
+                    self._persist(value)
+            except Exception as error:
+                self.error = str(error) or "Lighting recovery state could not be saved"
+            finally:
+                with self.save_lock:
+                    self.save_count -= 1
+                    if not self.save_count:
+                        self.settled.set()
 
     @classmethod
     def _valid(cls, value):
@@ -80,6 +109,26 @@ class LightingRecovery:
         if self.path is None:
             self.state = value
             return
+        if self.saves is not None:
+            with self.save_lock:
+                try:
+                    self.saves.put_nowait(value)
+                except queue.Full:
+                    self.error = "Lighting recovery save queue is full"
+                    raise RuntimeError(self.error)
+                self.save_count += 1
+                self.settled.clear()
+            self.state = value
+            return
+        try:
+            self._persist(value)
+            self.state = value
+        except (OSError, ValueError) as error:
+            self.error = str(error) or "Lighting recovery state could not be saved"
+            self.state["status"] = "uncertain"
+            raise RuntimeError("Lighting recovery state could not be saved") from error
+
+    def _persist(self, value):
         temporary = None
         try:
             directory = os.path.dirname(os.path.abspath(self.path))
@@ -93,11 +142,6 @@ class LightingRecovery:
             os.replace(temporary, self.path)
             temporary = None
             sync_directory(directory)
-            self.state = value
-        except (OSError, ValueError) as error:
-            self.error = str(error) or "Lighting recovery state could not be saved"
-            self.state["status"] = "uncertain"
-            raise RuntimeError("Lighting recovery state could not be saved") from error
         finally:
             if temporary:
                 try:
@@ -209,7 +253,10 @@ class LightingRecovery:
             self._save(status="normal", recovered_at=self.clock())
 
     def public(self):
-        status = self.state["status"]
+        status = "uncertain" if self.error else self.state["status"]
+        # No client may treat an optimistic in-memory transition as durable.
+        if self.pending and not self.error:
+            status = {"normal": "writing", "reserved": "releasing", "legacy": "releasing"}.get(status, status)
         heartbeat = self.state["heartbeat_at"]
         stale = status == "reserved" and (heartbeat is None or self.clock() - heartbeat > 60 or self.clock() < heartbeat)
         titles = {"normal": "Lighting ready", "writing": "Changing lighting",
@@ -224,6 +271,6 @@ class LightingRecovery:
                    "legacy": "The original room app controls the lights. Return Home to use Beta."}
         return {"status": status, "title": titles[status], "detail": details[status],
                 "label": self.state["label"] if status in ("releasing", "reserved") else "",
-                "can_check": not self.error and status in ("normal", "uncertain", "recovering"),
+                "can_check": not self.error and not self.pending and status in ("normal", "uncertain", "recovering"),
                 "needs_staff": bool(self.error) or status == "uncertain" or stale,
-                "write_blocked": bool(self.error) or status != "normal", "heartbeat_stale": stale}
+                "write_blocked": bool(self.error) or self.pending or status != "normal", "heartbeat_stale": stale}

@@ -107,6 +107,12 @@ Only one request is in flight. Requests are capped at 4096 bytes; buffers at
 8192 bytes. Requests older than the ten-second lease are refused. Both processes
 use the same host monotonic clock. Initialization is the only unsolicited message.
 Recovery receipts include baseline and request/result records.
+Runtime ownership checkpoints are saved by one background writer in FIFO order.
+Public readiness, actuator dispatch and Legacy takeover wait for those saves;
+in-memory state alone cannot authorize a command or an experiment reservation.
+A pre-dispatch save timeout cancels the unsent request; late completion does not
+send it. Helper input uses bounded nonblocking writes on Linux, failing closed
+when its pipe is full. Power execution waits for recovery storage as well.
 
 The same helper has a separate `--status-only` command. It reads the ROS master's
 service graph through one XML-RPC call, then exits without a ROS node or fixture

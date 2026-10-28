@@ -2,8 +2,10 @@
 
 from io import BytesIO
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
+import threading
 
 import pytest
 
@@ -451,3 +453,150 @@ def test_return_mode_survives_actual_helper_initialization_until_matching_respon
     assert recoverable.pending is None
     assert recoverable.recovery.state["status"] == "normal"
     assert [json.loads(line)["action"] for line in worker.stdin.getvalue().splitlines()] == ["return_legacy"]
+
+
+def test_slow_recovery_save_keeps_polling_and_never_dispatches_early(recoverable, monkeypatch, tmp_path):
+    guard = recoverable.recovery = LightingRecovery(tmp_path / "background.json", background=True)
+    entered, release = threading.Event(), threading.Event()
+    persist = guard._persist
+
+    def stalled(value):
+        entered.set()
+        assert release.wait(3)
+        persist(value)
+
+    monkeypatch.setattr(guard, "_persist", stalled)
+    worker = live_helper(recoverable)
+    monkeypatch.setattr(panel.select, "select", lambda *unused: ([], [], []))
+    try:
+        assert recoverable.request("channels", {"values": [0] * 8})
+        assert entered.wait(1)
+        assert guard.pending and recoverable.ownership_blocked()
+        assert worker.stdin.getvalue() == b""
+        # The owner can continue servicing its event loop while storage is stalled.
+        REAL_POLL_WORKER(recoverable)
+        assert any(args[0] == 100 for args in recoverable.scheduled)
+        assert worker.stdin.getvalue() == b""
+        assert panel_remote.snapshot(recoverable)["busy"]
+    finally:
+        release.set()
+    assert guard.settled.wait(2)
+    REAL_POLL_WORKER(recoverable)
+    requests = [json.loads(line) for line in worker.stdin.getvalue().splitlines()]
+    assert [r["action"] for r in requests] == ["channels"]
+    assert json.loads(Path(guard.path).read_text())["status"] == "writing"
+
+
+@pytest.mark.parametrize("failure", ("failed", "stalled"))
+def test_failed_or_timed_out_background_save_never_sends_later(recoverable, monkeypatch, tmp_path, failure):
+    guard = recoverable.recovery = LightingRecovery(tmp_path / "background.json", background=True)
+    entered, release = threading.Event(), threading.Event()
+
+    def persist(value):
+        entered.set()
+        assert release.wait(3)
+        if failure == "failed":
+            raise OSError("storage unavailable")
+
+    monkeypatch.setattr(guard, "_persist", persist)
+    worker = live_helper(recoverable)
+    monkeypatch.setattr(panel.select, "select", lambda *unused: ([], [], []))
+    try:
+        assert recoverable.request("channels", {"values": [0] * 8})
+        assert entered.wait(1)
+        if failure == "stalled":
+            recoverable.unsent_request_at -= 11
+            REAL_POLL_WORKER(recoverable)
+    finally:
+        release.set()
+    assert guard.settled.wait(2)
+    REAL_POLL_WORKER(recoverable)
+    assert worker.stdin.closed
+    assert recoverable.unsent_request is None and recoverable.pending is None
+    assert recoverable.ownership_blocked()
+
+
+@pytest.mark.parametrize("timed_out", (False, True))
+def test_legacy_input_waits_for_background_handoff_save(recoverable, monkeypatch, tmp_path, timed_out):
+    guard = recoverable.recovery = LightingRecovery(tmp_path / "background.json", background=True)
+    entered, release = threading.Event(), threading.Event()
+    persist = guard._persist
+
+    def stalled(value):
+        entered.set()
+        assert release.wait(3)
+        persist(value)
+
+    monkeypatch.setattr(guard, "_persist", stalled)
+    monkeypatch.setattr(recoverable, "original_log_position", lambda: dict(device=1, inode=2, size=0))
+    rendered = []
+    monkeypatch.setattr(recoverable, "render", lambda: rendered.append(recoverable.mode))
+    monkeypatch.setattr(recoverable, "cancel_hold", lambda: None)
+    monkeypatch.setattr(recoverable, "update_navigation_buttons", lambda: None)
+    try:
+        recoverable.show("original")
+        assert entered.wait(1)
+        assert recoverable.mode == "room" and not rendered
+        assert recoverable.release_target == "legacy_save"
+        if timed_out:
+            recoverable.legacy_save_started -= 11
+            REAL_POLL_WORKER(recoverable)
+            assert recoverable.release_target is None and not rendered
+    finally:
+        release.set()
+    assert guard.settled.wait(2)
+    REAL_POLL_WORKER(recoverable)
+    if timed_out:
+        recoverable.show("original")
+        assert not rendered and recoverable.mode == "room"
+    else:
+        assert rendered == ["original"] and recoverable.mode == "original"
+
+
+def test_background_confirmation_refreshes_controls_only_after_save(recoverable, monkeypatch, tmp_path):
+    guard = recoverable.recovery = LightingRecovery(tmp_path / "background.json", background=True)
+    guard.begin_write("confirmed-command")
+    assert guard.settled.wait(2)
+    recoverable.light_state = "ready"
+    entered, release = threading.Event(), threading.Event()
+    persist = guard._persist
+    enabled = []
+    monkeypatch.setattr(recoverable, "update_light_buttons", lambda: enabled.append(not recoverable.ownership_blocked()))
+
+    def stalled(value):
+        entered.set()
+        assert release.wait(3)
+        persist(value)
+
+    monkeypatch.setattr(guard, "_persist", stalled)
+    try:
+        guard.confirm_write("confirmed-command")
+        assert entered.wait(1)
+        REAL_POLL_WORKER(recoverable)
+        assert enabled[-1] is False
+    finally:
+        release.set()
+    assert guard.settled.wait(2)
+    REAL_POLL_WORKER(recoverable)
+    assert enabled[-1] is True
+
+
+@pytest.mark.skipif(os.name != "posix", reason="Linux helper pipe")
+def test_full_helper_pipe_fails_closed_without_blocking(recoverable):
+    read_fd, write_fd = os.pipe()
+    os.set_blocking(write_fd, False)
+    with os.fdopen(write_fd, "wb", buffering=0) as pipe:
+        try:
+            while True:
+                os.write(write_fd, b"x" * 4096)
+        except BlockingIOError:
+            pass
+        try:
+            worker = live_helper(recoverable)
+            worker.stdin = pipe
+            assert not recoverable.request("channels", {"values": [0] * 8})
+            assert recoverable.pending is None
+            assert recoverable.recovery_snapshot()["needs_staff"]
+            assert LightingRecovery(recoverable.recovery.path).public()["write_blocked"]
+        finally:
+            os.close(read_fd)

@@ -189,6 +189,26 @@ def test_home_explains_why_running_instructions_disable_lighting(view):
     assert all(button.cget("state") == "disabled" for button in view.light_buttons)
 
 
+def test_unchanged_controls_and_recovery_do_not_schedule_geometry_work(view, monkeypatch):
+    view.open_advanced("system")
+    view.root.update()
+    view.update_light_buttons()
+    changes = []
+    widgets = [view.recovery_label, view.recovery_button, *view.light_buttons]
+    for widget in widgets:
+        original = widget.config
+
+        def configure(*args, _original=original, **kwargs):
+            changes.append(kwargs)
+            return _original(*args, **kwargs)
+
+        monkeypatch.setattr(widget, "config", configure)
+    for unused in range(3):
+        view.update_light_buttons()
+        view.root.update()
+    assert not changes
+
+
 @pytest.mark.parametrize("mode", ["original", "black", "visitor"])
 def test_native_display_switches_require_paused_instructions(mode):
     view = panel.Panel.__new__(panel.Panel)

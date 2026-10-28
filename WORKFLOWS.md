@@ -77,8 +77,19 @@ writes and automatic trial restoration. Never retry
 an uncertain write. Inspect the private `.lights-*.jsonl` receipt and coordinate
 with staff before controlling again.
 
-Deadlines do not bound filesystem stalls. An initializing helper is cancelled
-after 30 seconds without sending a lighting command. The normal UI
+Deadlines do not bound filesystem stalls.
+
+Recovery checkpoints use one ordered background writer. The UI remains responsive
+while saving; a command is not dispatched until its checkpoint is durable, and
+Legacy input remains covered until its handoff is saved. A save taking more than
+ten seconds before dispatch or Legacy handoff blocks that action without a later
+retry. Confirmations and experiment ownership remain unavailable until saved.
+Power actions also wait for recovery saves. Never remove durability checks to
+improve speed. The private journal records widget-update time as `render_ms` and
+rate-limited callback delays over 200 ms; these are not physical touch latency.
+
+An initializing helper is cancelled after 30 seconds without sending a lighting
+command. The normal UI
 waits for ownership release for Legacy, experiment handoff, shutdown and power actions;
 a process exit alone cannot confirm an in-flight
 lighting result. A helper still initializing can be cancelled without a write.

@@ -21,7 +21,7 @@ import threading
 import time
 import traceback
 import uuid
-from io import BytesIO
+from io import BytesIO, FileIO
 from scr_touch_panel_lights import PRESETS, setter_words
 from event_journal import EventJournal
 from preferences import Preferences, load as load_preferences
@@ -290,10 +290,11 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             else:
                 self.repeat(self.poll_control, 80)
 
-    def repeat(self, step, delay):
+    def repeat(self, step, delay, due=None):
         """Run one loop step, then schedule the next unless it returned False or the
         panel closed. An unexpected error is logged once per step; the loop goes on."""
         again = True
+        started = monotonic()
         try:
             again = step() is not False
         except Exception:
@@ -302,7 +303,21 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 failed.add(step.__name__)
                 traceback.print_exc()
         if again and not self.closed:
-            self.root.after(delay, lambda: self.repeat(step, delay))
+            self.note_slow_ui(step.__name__, started, due)
+            next_due = monotonic() + delay / 1000
+            self.root.after(delay, lambda: self.repeat(step, delay, next_due))
+
+    def note_slow_ui(self, step, started, due=None):
+        now = monotonic()
+        duration, lateness = now - started, max(0, started - due) if due else 0
+        previous = self.__dict__.setdefault("slow_ui_reported", {})
+        if max(duration, lateness) >= 0.2 and now - previous.get(step, -30) >= 30:
+            previous[step] = now
+            try:
+                self.emit("slow_ui_callback", callback=step,
+                          duration_ms=round(duration * 1000, 1), delay_ms=round(lateness * 1000, 1))
+            except Exception:
+                pass  # Optional timing diagnostics must never end a UI loop.
 
     def poll_control(self):
         if self.closed or self.closing or self.control_bridge is None:
@@ -492,6 +507,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             and self.light_state in ("ready", "disconnected")
             and not self.running
             and not self.power_busy()
+            and not self.ownership_blocked()
             and not any(
                 (
                     self.pending,
@@ -859,7 +875,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         if getattr(self, "legacy_probe", None) is not None:
             return
         recovery = getattr(self, "recovery", None)
-        if mode == "original" and self.ownership_blocked() and recovery.state["status"] != "legacy":
+        if mode == "original" and self.ownership_blocked() and (recovery.state["status"] != "legacy" or recovery.error or recovery.pending):
             self.status_text.set(self.recovery_snapshot()["detail"])
             return
         if self.mode == "original" and mode != "original" and recovery is not None and recovery.state["status"] == "legacy" and self.args.live_lights:
@@ -903,6 +919,12 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 self.request("acquire")
         if mode == "original" and getattr(self.args, "live_lights", False) and recovery is not None and recovery.state["status"] == "normal" and self.worker is None:
             recovery.enter_legacy(log_position=self.original_log_position())
+            if recovery.pending:
+                self.release_target = "legacy_save"
+                self.legacy_save_started = monotonic()
+                self.status_text.set("Saving lighting handoff before opening Legacy…")
+                self.update_light_buttons()
+                return
         if self.mode == "original" and mode != "original" and self.keep_switcher:
             self.trial_deadline = (
                 monotonic() + self.args.duration if self.args.duration else None
@@ -943,9 +965,10 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             )
             if mode in messages:
                 self.status_text.set(messages[mode])
+        render_started = monotonic()
         self.render()
         self.update_navigation_buttons()
-        self.emit("mode_changed", target=mode)
+        self.emit("mode_changed", target=mode, render_ms=round(1000 * (monotonic() - render_started), 1))
 
     def update_navigation_buttons(self):
         """Make a pending handoff visible instead of accepting ignored touches."""
@@ -957,7 +980,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 button.config(state=state)
         button = getattr(self, "legacy_button", None)
         if button is not None and button.winfo_exists():
-            text = "Opening" if self.release_target == "original" else "Legacy"
+            text = "Opening" if self.release_target in ("original", "legacy_save") else "Legacy"
             if button.cget("text") != text:
                 button.config(text=text)
 
@@ -1203,10 +1226,13 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         readiness = self.blind_state()
         for button in getattr(self, "blind_buttons", []):
             if button.winfo_exists():
-                button.config(state="normal" if readiness["available"] else "disabled")
+                style = "normal" if readiness["available"] else "disabled"
+                if button.cget("state") != style:
+                    button.config(state=style)
         label = getattr(self, "blind_status_label", None)
         if label is not None and label.winfo_exists():
-            label.config(text=readiness["detail"])
+            if label.cget("text") != readiness["detail"]:
+                label.config(text=readiness["detail"])
 
     def adapter_metadata(self, response):
         previous = getattr(self, "blinds_connected", False)
@@ -1371,7 +1397,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
 
     def dispatch_intent(self):
         self.intent_timer = None
-        if self.pending:
+        if self.pending or getattr(getattr(self, "recovery", None), "pending", False):
             return
         intent, self.queued_intent = self.queued_intent, None
         if (
@@ -1408,19 +1434,19 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             self.update_connection_badges()
         for button in self.light_buttons:
             if button.winfo_exists():
-                button.config(
-                    state=(
-                        "normal"
-                        if self.light_state in ("ready", "applying")
-                        and (not getattr(button, "_gradient", False)
-                             or getattr(self, "light_capabilities", {}).get("gradient"))
-                        and not self.ownership_blocked()
-                        and not self.release_target
-                        and not self.closing
-                        and not getattr(self, "running", False)
-                        else "disabled"
-                    )
+                style = (
+                    "normal"
+                    if self.light_state in ("ready", "applying")
+                    and (not getattr(button, "_gradient", False)
+                         or getattr(self, "light_capabilities", {}).get("gradient"))
+                    and not self.ownership_blocked()
+                    and not self.release_target
+                    and not self.closing
+                    and not getattr(self, "running", False)
+                    else "disabled"
                 )
+                if button.cget("state") != style:
+                    button.config(state=style)
         self.update_power_highlights()
         self.update_blind_buttons()
         for button in getattr(self, "programme_buttons", []):
@@ -1428,7 +1454,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 allowed = self.programme_available() and (
                     self.light_state != "failed" or getattr(button, "_programme", None) == "Stop"
                 )
-                button.config(state="normal" if allowed else "disabled")
+                style = "normal" if allowed else "disabled"
+                if button.cget("state") != style:
+                    button.config(state=style)
 
     def start_preview(self):
         if self.power_busy():
@@ -1666,9 +1694,10 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             )
         if power.phase == "saving":
             preferences = getattr(self, "preferences", None)
-            if self.journal.error or (preferences and preferences.error):
+            recovery = getattr(self, "recovery", None)
+            if self.journal.error or (preferences and preferences.error) or (recovery and recovery.error):
                 power.fail("Local state could not be saved. Power action cancelled.")
-            elif self.power_checkpoint_saved and (
+            elif self.power_checkpoint_saved and not (recovery and recovery.pending) and (
                 preferences is None or preferences.settled.is_set()
             ):
                 power.execute()
@@ -1980,8 +2009,14 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 stdout=subprocess.PIPE,
                 stderr=sys.stderr,
                 close_fds=True,
+                bufsize=0,
             )
+            if isinstance(self.worker.stdin, FileIO) and sys.platform.startswith("linux"):
+                os.set_blocking(self.worker.stdin.fileno(), False)
         except OSError:
+            if self.worker is not None:
+                self.worker.stdin.close()
+                self.worker.terminate()  # No acquire or hardware command was sent.
             self.worker = None
             self.light_state = "failed"
             recovery = getattr(self, "recovery", None)
@@ -2002,8 +2037,10 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.blinds_connected = False
 
     def request(self, action, arguments=None):
+        recovery = getattr(self, "recovery", None)
         if (
             self.pending
+            or (recovery is not None and recovery.error)
             or not self.worker
             or self.worker.poll() is not None
             or not getattr(self, "worker_ready", False)
@@ -2019,7 +2056,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         }
         self.emit("light_requested", request=item)
         if action in ("cct", "channels", "gradient", "programme", "blind", "return_legacy"):
-            recovery = getattr(self, "recovery", None)
             if recovery is not None:
                 try:
                     recovery.begin_write(item["request_id"], returning=action == "return_legacy")
@@ -2030,9 +2066,24 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             self.light_changes_requested = True
         elif action == "release":
             self.release_confirmed = False
+        self.pending = item
+        if recovery is not None and recovery.pending:
+            self.unsent_request = item
+            self.unsent_request_at = monotonic()
+            return True
+        return self.send_request(item)
+
+    def write_helper(self, value):
+        raw = (json.dumps(value) + "\n").encode("utf-8")
+        # One small atomic pipe write; a stuck helper must never block Tk.
+        if len(raw) > 4096 or self.worker.stdin.write(raw) != len(raw):
+            raise OSError("Lighting helper pipe is busy")
+        self.worker.stdin.flush()
+
+    def send_request(self, item):
+        item["sent_monotonic_s"] = monotonic()
         try:
-            self.worker.stdin.write((json.dumps(item) + "\n").encode("utf-8"))
-            self.worker.stdin.flush()
+            self.write_helper(item)
         except (IOError, OSError) as error:
             self.light_state = "failed"
             recovery = getattr(self, "recovery", None)
@@ -2040,8 +2091,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 recovery.mark_uncertain("The controller response was lost. Check the previous operation.")
             self.cancel_intent()
             self.status_text.set("Light adapter disconnected: " + str(error))
+            self.pending = None
             return False
-        self.pending = item
         return True
 
     def poll_journal(self):
@@ -2077,6 +2128,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             recovery.mark_uncertain("Lighting confirmation was lost. Check the previous controller.")
         self.cancel_intent()
         self.pending = None
+        self.unsent_request = None
         self.light_state = "failed"
         self.worker_ready = False
         self.worker_buffer = ""
@@ -2092,11 +2144,13 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
     def poll_worker(self):
         if self.closed:
             return
+        started = monotonic()
         try:
             self.poll_worker_once()
         except Exception as error:
             self.light_state = "failed"
             self.pending = None
+            self.unsent_request = None
             recovery = getattr(self, "recovery", None)
             if recovery is not None and not recovery.error:
                 try:
@@ -2113,6 +2167,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             self.emit("lighting_recovery_error", detail=str(error)[:240])
         finally:
             if not self.closed:
+                self.note_slow_ui("poll_worker", started, getattr(self, "worker_poll_due", None))
+                self.worker_poll_due = monotonic() + 0.1
                 self.root.after(100, self.poll_worker)
 
     def poll_worker_once(self):
@@ -2128,6 +2184,25 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.poll_power()
         self.poll_status()
         self.poll_weather()
+        recovery = getattr(self, "recovery", None)
+        if recovery is not None:
+            if self.release_target == "legacy_save" and recovery.pending and monotonic() - self.legacy_save_started > 10:
+                self.release_target = None
+                recovery.mark_uncertain("Legacy handoff could not be saved in time. Ask the room host.")
+                self.fail_worker("Lighting handoff save did not finish. Legacy remains covered; ask staff.")
+            if self.release_target == "legacy_save" and not recovery.pending:
+                self.release_target = None
+                if recovery.error:
+                    self.fail_worker("Lighting handoff could not be saved. Ask the room host.")
+                else:
+                    self.show("original")
+            unsent = getattr(self, "unsent_request", None)
+            if unsent is not None:
+                if recovery.error or monotonic() - self.unsent_request_at > 10:
+                    self.fail_worker("Lighting recovery save did not finish. No command was sent; ask staff.")
+                elif not recovery.pending:
+                    self.unsent_request = None
+                    self.send_request(unsent)
         worker = self.worker
         if worker:
             if (
@@ -2147,19 +2222,11 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 and monotonic() - self.last_heartbeat >= 2
             ):
                 try:
-                    worker.stdin.write(
-                        (
-                            json.dumps(
-                                {
-                                    "version": 1,
-                                    "action": "heartbeat",
-                                    "sent_monotonic_s": monotonic(),
-                                }
-                            )
-                            + "\n"
-                        ).encode("utf-8")
-                    )
-                    worker.stdin.flush()
+                    self.write_helper({
+                        "version": 1,
+                        "action": "heartbeat",
+                        "sent_monotonic_s": monotonic(),
+                    })
                     self.last_heartbeat = monotonic()
                 except (IOError, OSError):
                     pass
@@ -2321,6 +2388,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                         "Disconnected. Last result below is historical; ask staff."
                     )
                 self.worker = None
+                self.unsent_request = None
                 target, self.release_target = self.release_target, None
                 if hasattr(self, "recovery"):
                     self.recovery_exit(target, worker.returncode)
@@ -2341,6 +2409,16 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 elif target == "power":
                     self.power_after_release(worker.returncode)
                 self.update_light_buttons()
+        if not self.pending and getattr(self, "queued_intent", None) and self.intent_timer is None:
+            self.dispatch_intent()
+        if recovery is not None:
+            saved = (recovery.pending, recovery.error, recovery.state["revision"])
+            if saved != getattr(self, "recovery_displayed", None):
+                self.recovery_displayed = saved
+                if recovery.error:
+                    self.fail_worker("Lighting recovery could not be saved. Controls disabled; ask staff.")
+                else:
+                    self.update_light_buttons()
 
     def begin_hold(self, event):
         self.cancel_hold()
@@ -2462,6 +2540,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
 
     def finish_close(self):
         if not self.closed:
+            if getattr(getattr(self, "recovery", None), "pending", False):
+                self.root.after(50, self.finish_close)
+                return
             probe = getattr(self, "legacy_probe", None)
             if probe is not None:
                 if probe.poll() is None:

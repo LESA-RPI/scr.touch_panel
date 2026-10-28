@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 
 import pytest
+import threading
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "app"))
 import lighting_recovery
@@ -20,6 +21,34 @@ LOG_POSITION = {"device": 5, "inode": 17, "size": 100}
 def reserve(guard, token=TOKEN):
     guard.begin_reservation(token, LABEL)
     guard.reserve(token, released=True, helper_exited=True)
+
+
+def test_background_checkpoints_remain_ordered_and_block_until_durable(tmp_path, monkeypatch):
+    guard = LightingRecovery(tmp_path / "background.json", background=True)
+    entered, release = threading.Event(), threading.Event()
+    written = []
+    persist = guard._persist
+
+    def stalled(value):
+        entered.set()
+        assert release.wait(3)
+        persist(value)
+        written.append(value["status"])
+
+    monkeypatch.setattr(guard, "_persist", stalled)
+    try:
+        guard.begin_write("one-command")
+        assert entered.wait(1)
+        guard.confirm_write("one-command")
+        assert guard.state["status"] == "normal"
+        assert guard.pending and guard.public()["write_blocked"]
+        assert not guard.public()["can_check"]
+    finally:
+        release.set()
+    assert guard.settled.wait(2)
+    assert written == ["writing", "normal"]
+    assert not guard.public()["write_blocked"]
+    assert LightingRecovery(guard.path).state["status"] == "normal"
 
 
 def test_full_handoff_requires_preserved_release_exit_owner_closure_and_acquire(tmp_path):

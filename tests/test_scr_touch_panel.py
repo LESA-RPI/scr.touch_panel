@@ -548,7 +548,7 @@ def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch
     confirmed_at = state.confirmed_at
     monkeypatch.setattr(panel, "monotonic", lambda: confirmed_at + 61)
     raw = []
-    state.emit = lambda event, **values: raw.append(values["result"])
+    state.emit = lambda event, **values: raw.append(values["result"]) if event == "light_result" else None
     state.cancel_intent = lambda: None
     state.pending = {
         "request_id": "two",
