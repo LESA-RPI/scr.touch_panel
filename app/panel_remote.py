@@ -2,6 +2,7 @@
 
 import time
 from panel_version import VERSION, BUILD_COMMIT
+from room_controls import ROOM_NETWORK_NAME
 
 
 def snapshot(panel):
@@ -29,6 +30,7 @@ def snapshot(panel):
         "version": 1,
         "app_version": VERSION,
         "build_commit": BUILD_COMMIT,
+        "network_name": ROOM_NETWORK_NAME,
         "power": getattr(panel, "power_snapshot", lambda: None)(),
         "session": panel.run_id,
         "timezone": panel.args.timezone,
@@ -91,6 +93,7 @@ def snapshot(panel):
         },
         "experiment": {
             "profile": panel.profile,
+            "can_load_profile": getattr(panel, "can_load_profile", lambda: False)(),
             "running": panel.running,
             "stage": panel.stage,
             "elapsed_s": int(elapsed),
@@ -105,6 +108,7 @@ def snapshot(panel):
         ),
         "health": panel.health_cache,
         "room_status": panel.room_status,
+        "room_diagnostics": getattr(panel, "room_diagnostics", lambda: {})(),
         "blinds_enabled": panel.blinds_enabled,
         "blinds": panel.blind_state(),
     }
@@ -115,12 +119,20 @@ def execute(panel, request):
     state = snapshot(panel)
     if action.startswith("handoff_"):
         return panel.handoff(action[len("handoff_"):], args)
+    if action == "refresh_status":
+        if not panel.refresh_status():
+            raise RuntimeError("Room service checks are unavailable or already running.")
+        panel.activity()
+        return {"ok": True, "code": 202,
+                "detail": "Checking advertised room services. No sensor data is queried."}
     if state["busy"]:
         raise RuntimeError(
             "The panel is busy. Wait for the current touch or command to finish."
         )
     if action == "check_connection":
         panel.check_connection()
+    elif action == "profile":
+        panel.load_profile(args["value"])
     elif action in ("on", "off", "preset", "cct", "channels", "gradient"):
         if not state["can_control"]:
             raise RuntimeError(

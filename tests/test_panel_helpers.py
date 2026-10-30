@@ -12,6 +12,22 @@ import scr_touch_panel as panel
 from test_scr_touch_panel import journal_panel
 
 
+@pytest.mark.parametrize("resources", [{}, {"error": "Resource query unavailable"}])
+def test_room_service_status_refreshes_independently_of_panel_resource_errors(resources):
+    state = panel.Panel.__new__(panel.Panel)
+    state.mode, state.theme, state.health_rendered = "health", "light", None
+    state.health_cache, state.room_status = resources, "Checking advertised services"
+    state.refresh_resources = lambda: None
+    services = []
+    state.services_label = SimpleNamespace(config=lambda **value: services.append(value["text"]))
+    state.health_details = SimpleNamespace(config=lambda **value: None)
+    state.update_health()
+    state.room_status = "Lighting service: missing"
+    state.update_health()
+    state.update_health()
+    assert services == ["Checking advertised services", "Lighting service: missing"]
+
+
 def test_status_helper_launch_failure_is_reported_without_raising(monkeypatch):
     state = panel.Panel.__new__(panel.Panel)
     state.args = SimpleNamespace(expected_master="http://approved-room-master")

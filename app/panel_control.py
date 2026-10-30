@@ -12,6 +12,7 @@ import stat
 import threading
 import time
 from room_controls import PRESETS, BLIND_ACTIONS
+from panel_common import validate_profile
 
 
 def command(value):
@@ -36,6 +37,7 @@ def command(value):
         "on": (),
         "off": (),
         "check_connection": (),
+        "refresh_status": (),
         "home": (),
         "legacy": (),
         "original_fallback": (),
@@ -46,6 +48,7 @@ def command(value):
         "previous": (),
         "next": (),
         "mark": ("label",),
+        "profile": ("value",),
         "cct": ("cct", "intensity"),
         "preset": ("name",),
         "channels": ("values",),
@@ -100,6 +103,8 @@ def command(value):
         )
     if action == "mark":
         valid = isinstance(args["label"], str) and 1 <= len(args["label"]) <= 100
+    if action == "profile":
+        validate_profile(args["value"])
     if action == "power":
         valid = (
             args["operation"] in ("reboot", "shutdown") and args["confirmed"] is True
@@ -176,8 +181,8 @@ class Bridge:
             def handle(self):
                 self.connection.settimeout(3)
                 try:
-                    raw = self.rfile.readline(4097)
-                    if len(raw) > 4096 or not raw.endswith(b"\n"):
+                    raw = self.rfile.readline(32769)
+                    if len(raw) > 32768 or not raw.endswith(b"\n"):
                         return
                     request = json.loads(raw)
                     if request == {"op": "read"}:
@@ -187,8 +192,11 @@ class Bridge:
                                 bool(reply) and time.monotonic() - bridge.at < 2
                             )
                     else:
+                        private = isinstance(request, dict) and request.get("op") == "lighting_handoff"
+                        if private and len(raw) > 4096:
+                            raise ValueError("Private ownership request is too large")
                         item = {
-                            "value": handoff_command(request) if isinstance(request, dict) and request.get("op") == "lighting_handoff" else command(request),
+                            "value": handoff_command(request) if private else command(request),
                             "deadline": time.monotonic() + 2,
                             "done": threading.Event(),
                             "cancelled": False,
@@ -206,7 +214,7 @@ class Bridge:
                     self.wfile.write(
                         json.dumps(reply, allow_nan=False).encode() + b"\n"
                     )
-                except (OSError, ValueError, queue.Full):
+                except (OSError, ValueError, RecursionError, queue.Full):
                     self.wfile.write(
                         b'{"ok":false,"code":400,"detail":"Invalid or busy command"}\n'
                     )

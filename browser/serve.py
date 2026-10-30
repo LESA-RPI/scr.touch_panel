@@ -239,9 +239,10 @@ def bounded_graph(master):
 
 class Snapshot:
     def __init__(
-        self, label, master=None, weather_location=None, timezone="America/New_York"
+        self, label, master=None, weather_location=None, timezone="America/New_York", controller=None
     ):
         self.label, self.master, self.timezone = label, master, timezone
+        self.controller = controller
         self.lock = threading.Lock()
         self.data = None
         self.sample_time = self.graph_time = None
@@ -290,7 +291,38 @@ class Snapshot:
         host = host_status()
         graph = {"state": "unconfigured", "observed_at": None, "services": []}
         graph_time = self.graph_time
-        if self.master:
+        if self.controller is not None:
+            graph["state"] = "unavailable"
+            try:
+                owner = self.controller.read()
+                room = owner.get("room_diagnostics")
+                if owner.get("available") is not True or not isinstance(room, dict):
+                    raise ValueError("Panel room diagnostics unavailable")
+                state, services = room.get("state"), room.get("services")
+                age, observed = room.get("age_s"), room.get("observed_at")
+                if state not in ("available", "unavailable", "unconfigured") or not isinstance(services, list) or len(services) > 20:
+                    raise ValueError("Invalid panel service observation")
+                if any(not isinstance(row, dict) or not isinstance(row.get("name"), str)
+                       or not 1 <= len(row["name"]) <= 60 or row.get("state") not in ("listed", "missing")
+                       for row in services) or len({row["name"] for row in services}) != len(services):
+                    raise ValueError("Invalid panel service rows")
+                if age is None:
+                    if services or observed is not None or state == "available":
+                        raise ValueError("Undated panel service observation")
+                elif type(age) not in (int, float) or not 0 <= age < 1e15 or not isinstance(observed, str) or not 1 <= len(observed) <= 80:
+                    raise ValueError("Invalid panel service age")
+                else:
+                    self.last_graph = [
+                        {"name": "Time-of-flight" if row["name"] == "TOF" else row["name"],
+                         "state": "advertised" if row["state"] == "listed" else "not_advertised"}
+                        for row in services
+                    ]
+                    graph_time, self.last_graph_utc = time.monotonic() - age, observed
+                graph["state"] = state
+            except (OSError, ValueError, TypeError, AttributeError):
+                pass  # An unavailable owner never triggers another ROS check.
+            graph.update(services=self.last_graph or [], observed_at=self.last_graph_utc)
+        elif self.master:
             try:
                 self.last_graph = bounded_graph(self.master)
                 graph_time, self.last_graph_utc = time.monotonic(), utc()
@@ -398,7 +430,7 @@ class Handler(BaseHTTPRequestHandler):
             self.body_consumed = True
             try:
                 length = int(self.headers.get("Content-Length", "0"))
-                if 0 < length <= 4096 and not self.headers.get("Transfer-Encoding"):
+                if 0 < length <= 32768 and not self.headers.get("Transfer-Encoding"):
                     self.rfile.read(length)
             except (ValueError, OSError):
                 pass
@@ -491,7 +523,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             length = int(self.headers.get("Content-Length", "0"))
             if (
-                not 1 <= length <= 4096
+                not 1 <= length <= 32768
                 or len(self.headers.get_all("Content-Length", [])) != 1
                 or self.headers.get("Transfer-Encoding")
                 or self.headers.get("Content-Type") != "application/json"
@@ -503,7 +535,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError("Invalid command")
             if set(value) != {"id", "revision", "action", "arguments"}:
                 raise ValueError("Only browser control commands are accepted")
-        except ValueError:
+        except (ValueError, RecursionError):
             self.respond(400, b"Invalid command")
             return
         except OSError:
@@ -590,19 +622,20 @@ def main():
         if args.weather_latitude is None
         else (args.weather_latitude, args.weather_longitude)
     )
-    snapshot = Snapshot(args.label, args.master, location, args.timezone)
-    snapshot.collect()
-    server = RoomServer((args.bind, args.port), Handler)
-    server.allowed_clients = allowed
-    server.expected_host = "%s:%d" % server.server_address
-    server.snapshot = snapshot
-    server.controller = None
+    controller = None
     if args.panel_control_socket:
         from controller import Controller
 
         if not Path(args.panel_control_socket).is_absolute():
             parser.error("Panel socket path must be absolute")
-        server.controller = Controller(args.panel_control_socket)
+        controller = Controller(args.panel_control_socket)
+    snapshot = Snapshot(args.label, args.master, location, args.timezone, controller)
+    snapshot.collect()
+    server = RoomServer((args.bind, args.port), Handler)
+    server.allowed_clients = allowed
+    server.expected_host = "%s:%d" % server.server_address
+    server.snapshot = snapshot
+    server.controller = controller
     stopped = threading.Event()
     worker = threading.Thread(target=snapshot.run, args=(stopped,), daemon=True)
     worker.start()

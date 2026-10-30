@@ -1,6 +1,7 @@
 """Shared room-control labels and readiness. No hardware access or discovery."""
 
 from scr_touch_panel_lights import PRESETS
+import os
 
 LIGHTING_TABS = (
     ("White light", "white"),
@@ -72,3 +73,8 @@ def blind_readiness(enabled, connected, busy=False):
 # Room website shown as a QR code on the panel's About page. After changing it,
 # regenerate the image: npx qrcode -o assets/website-qr.png -w 200 -q 2 "<address>"
 WEBSITE_URL = "http://192.168.0.28:8768/"
+# The room host confirmed this name. Other deployments can override it privately.
+DEFAULT_ROOM_NETWORK_NAME = "SCR_AP"
+ROOM_NETWORK_NAME = os.environ.get("SCR_ROOM_NETWORK_NAME", DEFAULT_ROOM_NETWORK_NAME).strip()
+# Native panel display only: never export this value to browser content or state.
+ROOM_NETWORK_PASSWORD = os.environ.get("SCR_ROOM_NETWORK_PASSWORD", "")

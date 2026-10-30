@@ -155,6 +155,11 @@ def profile(path):
     if path:
         with open(path) as stream:
             value = json.load(stream)
+    return validate_profile(value)
+
+
+def validate_profile(value):
+    """Validate instruction data from a startup file or a session-only import."""
     if not isinstance(value, dict) or set(value) - set(DEFAULT_PROFILE):
         raise ValueError("Profile permits title, sensors, stages and annotations only")
     merged = dict(DEFAULT_PROFILE)
@@ -176,6 +181,7 @@ def profile(path):
             or len(set(items)) != len(items)
         ):
             raise ValueError("Provide distinct, short %s labels" % key)
+        merged[key] = list(items)
     return merged
 
 

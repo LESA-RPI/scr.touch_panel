@@ -316,7 +316,7 @@ def test_http_gateway_cannot_relay_private_experiment_or_staff_operations(server
         ("{}", {"X-SCR-Token": "é"}, 403),
         ("{}", {"Transfer-Encoding": "chunked"}, 400),
         ("{}", {"Content-Length": "-1"}, 400),
-        ("x" * 4097, {}, 400),
+        ("x" * 32769, {}, 400),
         ("{", {}, 400),
         ("[]", {}, 400),
     ],

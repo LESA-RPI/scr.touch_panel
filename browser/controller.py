@@ -11,7 +11,7 @@ class Controller:
 
     def exchange(self, value):
         raw = json.dumps(value, allow_nan=False).encode() + b"\n"
-        if len(raw) > 4096:
+        if len(raw) > 32768:
             raise ValueError("Command too large")
         with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
             deadline = time.monotonic() + 2.8

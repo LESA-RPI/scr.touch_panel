@@ -1,6 +1,7 @@
 """Real HTTP and private socket transport, with a mocked room controller only."""
 
 import json
+import socket
 from pathlib import Path
 import sys
 import threading
@@ -34,6 +35,7 @@ def owner_socket(tmp_path, monkeypatch):
     owner = SimpleNamespace(
         idle_active=False,
         preset=preset,
+        load_profile=lambda value: calls.append(value),
         pending=None,
         emit=lambda *a, **kw: None,
         activity=lambda *a: None,
@@ -119,6 +121,35 @@ def test_socket_timeout_expires_without_late_write_or_automatic_retry(
     while not bridge.requests.empty() and time.monotonic() < limit:
         time.sleep(0.01)
     assert bridge.requests.empty() and not calls
+
+
+def test_maximum_unicode_profile_crosses_http_and_socket_without_device_actions(server, owner_socket):
+    bridge, calls, current, paused = owner_socket
+    server.controller = Controller(str(bridge.path))
+    headers = {"Origin": "http://" + server.expected_host,
+               "X-SCR-Token": server.control_nonce, "Content-Type": "application/json"}
+    profile = {"title": "😀" * 100, "sensors": "😀" * 100,
+               "stages": ["😀" * 58 + "%02d" % i for i in range(20)],
+               "annotations": ["😀" * 19 + str(i) for i in range(4)]}
+    payload = json.dumps(dict(id="profile-command-0001", revision="current", action="profile",
+                              arguments={"value": profile}))
+    assert 4096 < len(payload) < 32768
+    code, raw, unused = request(server, "POST", "/api/command", headers, payload)
+    assert code == 202 and json.loads(raw)["ok"]
+    assert calls == [profile]
+
+
+def test_private_handoff_keeps_its_smaller_envelope_limit(owner_socket):
+    bridge, calls, current, paused = owner_socket
+    value = dict(op="lighting_handoff", id="private-request-001", revision="current",
+                 action="heartbeat", arguments={"token": "private-token-123456"})
+    raw = b" " * 4096 + json.dumps(value).encode() + b"\n"
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+        connection.settimeout(3)
+        connection.connect(str(bridge.path))
+        connection.sendall(raw)
+        reply = json.loads(connection.makefile("rb").readline(4097))
+    assert reply["code"] == 400 and not calls
 
 
 def test_power_replay_keeps_original_receipt_after_owner_state_changes():

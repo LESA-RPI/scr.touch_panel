@@ -67,6 +67,7 @@ from panel_common import (
     light_selection,
     monotonic,
     profile,
+    validate_profile,
     scheduled_theme,
     set_changed,
 )
@@ -105,6 +106,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.advanced_page, self.last_advanced_page = None, "lighting"
         self.lighting_tab = "white"
         self.guide_page, self.support_page = -1, 0
+        self.guide_section = "room"
         self.support_commands_visible = False
         self.support_step = 0
         self.started, self.run_id, self.sequence = monotonic(), uuid.uuid4().hex, 0
@@ -124,6 +126,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.help_on = getattr(args, "tips", "on") == "on"
         self.status_worker, self.status_started, self.room_status_at = None, None, -60
         self.room_status = "Room services: not checked"
+        self.room_status_state = "unavailable"
+        self.room_services = []
+        self.room_status_observed = self.room_status_good_at = None
         self.closed, self.closing = False, None
         self.stage, self.running, self.elapsed, self.run_started = 0, False, 0.0, None
         self.keep_switcher = getattr(args, "keep_switcher", False)
@@ -171,22 +176,12 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.icon_cache = {}
         self.body_cache, self.detail_cache = {}, {}
         self.body_key = self.advanced_detail_key = None
-        for key, size, width in [
-            ("title", 27, 1200),
-            ("sensors", 18, 1130),
-            ("annotations", 19, 270),
-        ]:
-            labels = self.profile[key] if key == "annotations" else [self.profile[key]]
-            if any(
-                Font(root=self.root, font=(FONT, size)).measure(label) > width
-                for label in labels
-            ):
-                self.root.destroy()
-                if self.journal:
-                    self.journal.close()
-                raise ValueError(
-                    "Shorten profile %s text to fit the touch layout" % key
-                )
+        try:
+            self.check_profile_fit(self.profile)
+        except ValueError:
+            self.root.destroy()
+            self.journal.close()
+            raise
         self.root.title("LESA Smart Conference Room · Beta")
         if (self.root.winfo_screenwidth(), self.root.winfo_screenheight()) != (
             1280,
@@ -1232,8 +1227,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                     button.config(state=style)
         label = getattr(self, "blind_status_label", None)
         if label is not None and label.winfo_exists():
-            if label.cget("text") != readiness["detail"]:
-                label.config(text=readiness["detail"])
+            text = readiness["detail"] if readiness["available"] else readiness["reason"]
+            if label.cget("text") != text:
+                label.config(text=text)
 
     def adapter_metadata(self, response):
         previous = getattr(self, "blinds_connected", False)
@@ -1460,6 +1456,60 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 style = "normal" if allowed else "disabled"
                 if button.cget("state") != style:
                     button.config(state=style)
+
+    def check_profile_fit(self, value):
+        for key, size, width in [
+            ("title", 27, 1200),
+            ("sensors", 18, 1130),
+            ("annotations", 19, 180 if len(value["annotations"]) == 4 else 270),
+        ]:
+            labels = value[key] if key == "annotations" else [value[key]]
+            if any(
+                Font(root=self.root, font=(FONT, size)).measure(label) > width
+                for label in labels
+            ):
+                raise ValueError("Shorten profile %s text to fit the touch layout" % key)
+        stage_font = Font(root=self.root, font=(FONT, 24))
+        sample = tk.Label(
+            self.root, font=stage_font, wraplength=860,
+            padx=0, pady=0, borderwidth=0, highlightthickness=0,
+        )
+        try:
+            for instruction in value["stages"]:
+                sample.config(text=instruction)
+                if sample.winfo_reqheight() > 2 * stage_font.metrics("linespace"):
+                    raise ValueError("Shorten profile instruction text to fit two touch-panel lines")
+        finally:
+            sample.destroy()
+
+    def can_load_profile(self):
+        return not (
+            self.mode in ("original", "black")
+            or self.running
+            or self.ownership_blocked()
+            or self.power_busy()
+            or any(
+                getattr(self, name, None)
+                for name in (
+                    "closed", "closing", "pending", "pending_annotation",
+                    "queued_intent", "intent_timer", "slider_drag", "release_target",
+                    "press_active", "legacy_probe",
+                )
+            )
+        )
+
+    def load_profile(self, value):
+        value = validate_profile(value)
+        self.check_profile_fit(value)
+        if not self.can_load_profile():
+            raise RuntimeError("Pause instructions and finish the current panel action before loading a setup.")
+        self.profile = value
+        self.stage, self.elapsed, self.run_started = 0, 0.0, None
+        self.annotation_text.set("Instructions reset. Recorder not connected.")
+        self.status_text.set("Study setup loaded for this panel session. Instructions are paused.")
+        self.emit("profile_loaded", profile=value)
+        if self.mode == "experiment":
+            self.render()
 
     def start_preview(self):
         if self.power_busy():
@@ -1772,14 +1822,17 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         if self.mode != "health":
             return
         self.refresh_resources()
+        if getattr(self, "system_diagnostics_visible", False):
+            self.update_room_diagnostics()
+            return
         h = self.health_cache
         key = (tuple(sorted(h.items())), self.room_status, self.theme)
         if key == self.health_rendered:
             return
         self.health_rendered = key
+        self.services_label.config(text=self.room_status)
         if not h:
             self.health_details.config(text="Checking panel resources…")
-            self.services_label.config(text=self.room_status)
             return
         if "error" in h:
             self.health_details.config(
@@ -1803,16 +1856,56 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 else self.muted
             ),
         )
-        self.services_label.config(text=self.room_status)
+
+    def room_diagnostics(self):
+        configured = bool(
+            getattr(self.args, "expected_master", None)
+            and sys.platform.startswith("linux")
+        )
+        checking = getattr(self, "status_worker", None) is not None
+        state = getattr(self, "room_status_state", "unavailable") if configured else "unconfigured"
+        observed = getattr(self, "room_status_good_at", None)
+        detail = (
+            "Checking advertised room services. No sensor data is queried."
+            if checking
+            else "Room service checks are not configured on this panel."
+            if not configured
+            else "The latest service check failed. Previous results retain their age."
+            if state == "unavailable" and observed is not None
+            else "Room services have not been checked successfully."
+            if state == "unavailable"
+            else "Service registrations only. They do not confirm live sensor data or recording."
+        )
+        return {
+            "state": state,
+            "services": [dict(row) for row in getattr(self, "room_services", [])],
+            "observed_at": getattr(self, "room_status_observed", None),
+            "age_s": None if observed is None else max(0, monotonic() - observed),
+            "checking": checking,
+            "can_check": bool(configured and not checking
+                              and not getattr(self, "closed", False)
+                              and not getattr(self, "closing", None)
+                              and not self.power_busy()),
+            "detail": detail,
+        }
+
+    def refresh_status(self):
+        """An explicit metadata read reuses the normal worker and its cache."""
+        if not self.room_diagnostics()["can_check"]:
+            return False
+        return self.start_status()
 
     def start_status(self):
+        if getattr(self, "status_worker", None) is not None:
+            return False
         self.room_status_at = monotonic()
         master = getattr(self.args, "expected_master", None)
         if not master or not sys.platform.startswith("linux"):
+            self.room_status_state = "unconfigured"
             self.room_status = (
                 "Room service availability: no approved master configured."
             )
-            return
+            return False
         path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "scr_touch_panel_lights.py"
         )
@@ -1825,17 +1918,20 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             )
         except OSError:
             self.status_worker = None
+            self.room_status_state = "unavailable"
             self.room_status = "Room service availability could not be checked. No sensor data was queried."
-            return
+            return False
         self.status_started = monotonic()
         self.room_status = "Checking advertised room services..."
+        return True
 
     def poll_status(self):
         worker = self.status_worker
         if not worker:
             return
         age = monotonic() - self.status_started
-        if worker.poll() is None:
+        returncode = worker.poll()
+        if returncode is None:
             if age > 7:
                 worker.kill()
             elif age > 5:
@@ -1843,18 +1939,30 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             return
         try:
             raw = worker.stdout.read(4097)
-            if len(raw) > 4096:
-                raise ValueError("Status reply too large")
+            if len(raw) > 4096 or returncode != 0:
+                raise ValueError("Status probe failed or reply too large")
             result = json.loads(raw.decode("utf-8"))
+            if not isinstance(result, dict) or type(result.get("version")) is not int or result["version"] != 1:
+                raise ValueError("Invalid service availability version")
             services = result["services"]
             if not isinstance(services, list) or len(services) > 20 or any(
                 not isinstance(item, (list, tuple))
                 or len(item) != 2
                 or not isinstance(item[0], str)
+                or not 1 <= len(item[0]) <= 60
                 or not isinstance(item[1], bool)
                 for item in services
             ):
                 raise ValueError("Invalid service availability reply")
+            if len({name for name, present in services}) != len(services):
+                raise ValueError("Duplicate service availability rows")
+            self.room_services = [
+                {"name": name, "state": "listed" if present else "missing"}
+                for name, present in services
+            ]
+            self.room_status_good_at = monotonic()
+            self.room_status_observed = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            self.room_status_state = "available"
             self.room_status = (
                 "ROS master reachable / advertised services at "
                 + time.strftime("%H:%M:%S")
@@ -1865,6 +1973,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 for name, present in services
             )
         except (IOError, OSError, ValueError, KeyError, TypeError, RecursionError):
+            self.room_status_state = "unavailable"
             self.room_status = "Room service availability could not be checked. No sensor data was queried."
         worker.stdout.close()
         worker.stderr.close()
