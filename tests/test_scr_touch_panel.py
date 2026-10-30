@@ -715,7 +715,19 @@ def test_idle_guards_and_wake_do_not_dispatch_a_touch(monkeypatch):
     assert panel.confirmation_age(500, None) == ""
 
 
-def test_home_power_requires_confirmed_readback_and_clears_during_changes():
+def capture_lighting_feedback(state):
+    values = {}
+    state.args = SimpleNamespace(live_lights=False)
+    state.light_message, state.confirmed_at = "Settings confirmed.", 0
+    for name in ("light_text", "feedback_message", "feedback_detail"):
+        setattr(state, name, SimpleNamespace(
+            get=lambda name=name: values.get(name, ""),
+            set=lambda value, name=name: values.__setitem__(name, value),
+        ))
+    return values
+
+
+def test_home_power_confirmation_stays_in_dated_feedback_during_changes(monkeypatch):
     assert panel.confirmed_power({"state": "ready", "baseline": "Off"}) == "off"
     assert panel.confirmed_power({"state": "ready", "baseline": "Fid"}) == "on"
     assert panel.confirmed_power({"state": "completed", "words": [0] * 8}) == "off"
@@ -730,13 +742,10 @@ def test_home_power_requires_confirmed_readback_and_clears_during_changes():
     ):
         assert panel.confirmed_power(reply) is None
     state = panel.Panel.__new__(panel.Panel)
+    monkeypatch.setattr(panel, "monotonic", lambda: 60)
     state.light_state, state.confirmed_power = "ready", "off"
+    state.confirmed_light = "Off scene"
     state.pending = state.queued_intent = state.release_target = state.closing = None
-    state.accent, state.selected_ink, state.accent_pressed = (
-        panel.ACCENT,
-        "white",
-        "#10575e",
-    )
     state.control, state.ink, state.icon_colour, state.border = (
         "neutral",
         "ink",
@@ -754,31 +763,32 @@ def test_home_power_requires_confirmed_readback_and_clears_during_changes():
         (buttons[0], "on", "Lights on"),
         (buttons[1], "off", "Lights off"),
     ]
-    state.update_power_highlights()
-    assert (
-        buttons[0].options["bg"] == "neutral"
-        and buttons[1].options["bg"] == panel.ACCENT
-    )
-    assert buttons[1].options["activeforeground"] == buttons[1].options["fg"] == "white"
+    feedback = capture_lighting_feedback(state)
+    state.refresh_confirmation_age()
+    assert feedback["feedback_detail"] == "Last confirmed: Lights off · Off scene / 1 min ago"
+    assert [button.options["text"] for button in buttons] == ["Lights on", "Lights off"]
+    assert all(button.options["bg"] == "neutral" and button.options["fg"] == "ink" for button in buttons)
     for field in ("pending", "queued_intent", "release_target", "closing"):
         setattr(state, field, True)
-        state.update_power_highlights()
+        state.light_message = "Waiting for lighting confirmation."
+        state.refresh_confirmation_age()
+        assert feedback["feedback_message"] == "Waiting for lighting confirmation."
+        assert feedback["feedback_detail"].startswith("Last confirmed: Lights off · Off scene")
         assert all(button.options["bg"] == "neutral" for button in buttons)
         setattr(state, field, None)
     state.light_state = "failed"
-    state.update_power_highlights()
+    state.light_message = "Result unconfirmed. Controls disabled."
+    state.refresh_confirmation_age()
+    assert feedback["feedback_message"] == "Result unconfirmed. Controls disabled."
+    assert feedback["feedback_detail"] == "Last confirmed: Lights off · Off scene / 1 min ago"
     assert all(button.options["bg"] == "neutral" for button in buttons)
 
 
-def test_scene_highlight_uses_exact_confirmed_words_and_clears_for_custom_or_uncertain():
+def test_scene_confirmation_uses_exact_words_and_keeps_action_labels_neutral(monkeypatch):
     state = panel.Panel.__new__(panel.Panel)
+    monkeypatch.setattr(panel, "monotonic", lambda: 60)
     state.light_state = "ready"
     state.pending = state.queued_intent = state.release_target = state.closing = None
-    state.accent, state.selected_ink, state.accent_pressed = (
-        panel.ACCENT,
-        "white",
-        "#10575e",
-    )
     state.control, state.ink, state.border = "neutral", "ink", "border"
     buttons = []
     for name in ("Fid", "Sat", "Dul"):
@@ -786,15 +796,17 @@ def test_scene_highlight_uses_exact_confirmed_words_and_clears_for_custom_or_unc
         button.config = lambda button=button, **kw: setattr(button, "options", kw)
         buttons.append((button, name))
     state.scene_buttons = buttons
+    feedback = capture_lighting_feedback(state)
     for name, preset in adapter.PRESETS.items():
         assert panel.confirmed_scene({"state": "ready", "baseline": name}) == name
         reply = {"state": "completed", "words": list(adapter.setter_words(preset))}
         state.confirmed_scene = panel.confirmed_scene(reply)
         assert state.confirmed_scene == name
-        state.update_power_highlights()
-        assert [
-            label for button, label in buttons if button.options["bg"] == panel.ACCENT
-        ] == ([] if name == "Off" else [name])
+        state.confirmed_light = name + " scene"
+        state.refresh_confirmation_age()
+        assert feedback["feedback_detail"] == "Last confirmed: %s scene / 1 min ago" % name
+        assert [button.options["text"] for button, label in buttons] == ["Fid", "Sat", "Dul"]
+        assert all(button.options["bg"] == "neutral" for button, label in buttons)
     custom = list(adapter.setter_words(adapter.PRESETS["Fid"]))
     custom[0] += 1  # Even a one-word difference is not the known scene.
     for reply in (
@@ -807,16 +819,19 @@ def test_scene_highlight_uses_exact_confirmed_words_and_clears_for_custom_or_unc
     ):
         state.confirmed_scene = panel.confirmed_scene(reply)
         assert state.confirmed_scene is None
-        state.update_power_highlights()
+        state.confirmed_light = "Custom eight-channel mix"
+        state.refresh_confirmation_age()
+        assert "Custom eight-channel mix" in feedback["feedback_detail"]
         assert all(button.options["bg"] == "neutral" for button, name in buttons)
     state.confirmed_scene = "Sat"
     for field in ("pending", "queued_intent", "release_target", "closing"):
         setattr(state, field, True)
-        state.update_power_highlights()
+        state.refresh_confirmation_age()
+        assert feedback["feedback_detail"].startswith("Last confirmed:")
         assert all(button.options["bg"] == "neutral" for button, name in buttons)
         setattr(state, field, None)
     state.light_state = "failed"
-    state.update_power_highlights()
+    state.refresh_confirmation_age()
     assert all(button.options["bg"] == "neutral" for button, name in buttons)
 
 

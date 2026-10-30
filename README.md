@@ -31,7 +31,8 @@ Home is the default screen. **Lights on applies Fid** on both Beta and the websi
 The former On setting (3500 K, level 1000) is available as **Warm white** under
 Room tools → Lighting → White light. Fid remains in Scenes, marked as the same
 setting as Lights on.
-Demo & guide separates **Explore the room** from **Using the controls**.
+Demo & guide shows **Room tour** and **Control help** together, with direct topic
+links and a clear return to each list.
 The tour explains the ten lights and eight channels, COMBO distance/colour sensing,
 IRMA distance arrays and the separate Color network. Its ceiling schematic lets
 visitors select a sensor family; positions are a dated reference, not live status.
@@ -83,11 +84,10 @@ Light buttons queue immediately on release; sliders send after your touch settle
 Large values show your selection; the feedback
 area shows the last confirmed controller settings and their age. **Ready** means
 the lighting adapter is available. It does not confirm every room sensor is healthy
-or measure physical brightness. The selected Home button reflects the last
-confirmed On/Off readback through a coloured highlight; neither is selected while a
-request is pending or uncertain.
-Lighting → Scenes highlights the preset matching the confirmed drive words.
-A custom mix clears the preset highlight. Routine Ready confirmations stay in
+or measure physical brightness. Home and Lighting state the last confirmed power
+and settings in words, with the age of that readback. Pending or uncertain results
+remain explicit. A custom mix is described as custom rather than a saved scene.
+Routine Ready confirmations stay in
 the feedback area; the footer is reserved for explanations, progress and problems.
 Room tools keeps its sidebar in place while changing tools. Unchanged clock/status
 values do not trigger another redraw. Resource checks run in the background so
@@ -124,14 +124,15 @@ Home without activating controls. Screen & controls offers **Preview screen save
 for the same screen; there is no separate clock/weather page.
 Control icons use a consistent Lucide outline
 family; weather uses thin, coordinated variants. Dark backgrounds and ordinary
-surfaces stay neutral gray. Both themes use restrained teal controls, warm weather
-accents and distinct green/amber status colours. Selected controls retain readable text while pressed.
+surfaces stay neutral gray. Navigation uses words, position and type weight;
+controls use quiet neutral fills. Colour is reserved for data, weather and status.
+Saved preferences use a single current-value menu instead of rows of switches.
 The original LESA logo stays
-consistent in both themes. Room tools uses the sidebar height and hides its footer
-shortcut while open.
+consistent in both themes. Room tools and Guide keep their footer shortcuts in
+the same positions while browsing.
 Flat sliders share a 48-pixel touch area, a visible grip and pressed/focus feedback.
 Related buttons share widths and spacing; lighting results appear
-in a compact outlined card with the historical readback kept separate.
+in a compact feedback area with the historical readback kept separate.
 **Room tools → Screen**
 offers Off, 1, 5 or 15 minutes. Idle does not interrupt Experiment mode, Legacy, held
 touches, pending commands or uncertain lighting. Preferences save appearance and

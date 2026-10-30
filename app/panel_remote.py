@@ -47,6 +47,7 @@ def snapshot(panel):
             "programme_confirmed": False,
             "state": panel.light_state,
             "power": panel.confirmed_power if lighting else None,
+            "confirmed_power": panel.confirmed_power,
             "scene": panel.confirmed_scene if lighting else None,
             "cct": panel.cct.get(),
             "intensity": panel.intensity.get(),

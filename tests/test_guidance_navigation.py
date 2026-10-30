@@ -32,10 +32,21 @@ def test_guide_links_open_pages_and_return_to_same_topic(view, index):
         view.root.update()
         assert view.mode == "guide" and view.guide_page == index
     all_topics, = [w for w in widgets(view.body)
-                   if w.winfo_class() == "Button" and w.cget("text") == "All topics"]
+                   if w.winfo_class() == "Button" and w.cget("text") == (
+                       "Room tour topics" if DEMO[index]["section"] == "room" else "Control help topics"
+                   )]
     all_topics.invoke()
     view.root.update()
     assert view.guide_page == -1
+    overview = [w for w in widgets(view.body)
+                if w.winfo_class() == "Button" and "\n" in w.cget("text")]
+    assert {w.cget("text") for w in overview} == {
+        topic["title"] + "\n" + topic["caption"] for topic in DEMO
+    }
+    assert all(w.winfo_ismapped() and w.winfo_height() >= 44 for w in overview)
+    assert {"Room tour", "Control help"}.issubset({
+        w.cget("text") for w in widgets(view.body) if w.winfo_class() == "Label"
+    })
 
 
 def test_guide_light_actions_keep_shared_requests_and_one_feedback_card(view):
@@ -74,9 +85,11 @@ def test_guide_light_actions_retain_control_and_capability_guards(view, guard):
     view.root.update()
     assert len(view.light_buttons) == 2
     assert view.light_feedback_card.winfo_height() >= view.light_feedback_card.winfo_reqheight()
+    assert all(w.winfo_height() >= 44 for w in widgets(view.body)
+               if w.winfo_class() == "Button" and w.winfo_ismapped())
     recovery = view.recovery_snapshot()
     if recovery["can_check"] and recovery["status"] not in ("normal", "writing"):
-        assert view.recovery_button.winfo_ismapped()
+        assert view.recovery_button.winfo_ismapped() and view.recovery_button.winfo_height() >= 44
     for index, button in enumerate(view.light_buttons):
         disabled = guard != "unsupported-gradient" or index == 1
         assert button.cget("state") == ("disabled" if disabled else "normal")

@@ -101,7 +101,7 @@ def test_remote_light_action_is_blocked_when_owner_busy_uncertain_legacy_or_stud
     assert execute(owner, envelope("on"))["ok"] and sent == ["existing owner"]
 
 
-def test_theme_text_contrast_neutral_dark_surfaces_and_semantic_accents():
+def test_theme_text_contrast_and_neutral_dark_surfaces():
     def rgb(value):
         return [int(value[i : i + 2], 16) / 255 for i in (1, 3, 5)]
 
@@ -139,7 +139,6 @@ def test_theme_text_contrast_neutral_dark_surfaces_and_semantic_accents():
         len(set(rgb(THEMES["dark"][key]))) == 1
         for key in ("bg", "surface", "control", "border", "pressed")
     )
-    assert len(set(rgb(THEMES["dark"]["accent"]))) > 1
 
 
 def test_blind_permission_is_strict_and_independent_of_visibility_and_connection():
@@ -167,11 +166,11 @@ def test_blind_permission_is_strict_and_independent_of_visibility_and_connection
         assert command(envelope("blind", {"name": name}))
         assert not state.blind_command(name)
     assert state.blind_state()["detail"] == "Disabled"
-    assert state.blind_state()["reason"] == "Controls locked in settings"
+    assert state.blind_state()["reason"] == "Locked in settings"
     state.blinds_enabled = True
     assert not state.blind_command("open")
     assert state.blind_state()["detail"] == "Disabled"
-    assert state.blind_state()["reason"] == "Controller not connected"
+    assert state.blind_state()["reason"] == "Not connected"
     state.blind_controller = SimpleNamespace(connected=True, submit=calls.append)
     for field, value in [
         ("pending", {}),
@@ -275,7 +274,9 @@ def test_remote_lighting_uses_current_owner_without_changing_beta_page(remote_ow
 def test_remote_lighting_keeps_safety_locks_on_every_beta_page(remote_owner, field, value):
     remote_owner.mode = "guide"
     setattr(remote_owner, field, value)
-    assert snapshot(remote_owner)["can_control"] is False
+    state = snapshot(remote_owner)
+    assert state["can_control"] is False and state["lights"]["power"] is None
+    assert state["lights"]["confirmed_power"] == "on"
     with pytest.raises(RuntimeError):
         execute(remote_owner, envelope("on"))
     assert not remote_owner.calls

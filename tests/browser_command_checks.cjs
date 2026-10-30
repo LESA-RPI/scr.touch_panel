@@ -62,6 +62,53 @@ function diagnosticsWebsite(respond) {
   return site;
 }
 
+function preferencesWebsite(page) {
+  let site;
+  site = website((request, context) => {
+    context.preferenceRequest = request;
+    vm.runInContext('state.preferences[preferenceRequest.action] = preferenceRequest.arguments.value;', context);
+    return {status:202, ok:true, json:async () => ({ok:true, code:202, id:request.id})};
+  }, () => JSON.parse(site.run('JSON.stringify(state)')));
+  site.context.settingsPage = page;
+  site.run(`
+    const preferenceNodes = [], preferenceIds = new Map();
+    function preferenceDescendants(node) {return [node, ...node.children.flatMap(preferenceDescendants)];}
+    function preferenceNode(tag) {
+      const node = {tagName:tag, children:[], dataset:{}, style:{}, textContent:'', value:'',
+        get options() {return this.children;},
+        get id() {return this.elementId;}, set id(value) {this.elementId = value; preferenceIds.set(value, this);},
+        append(...children) {this.children.push(...children); this.attach();},
+        prepend(...children) {this.children.unshift(...children); this.attach();},
+        attach() {this.children.forEach((child, index) => {child.parentElement = this; child.previousElementSibling = this.children[index - 1];});},
+        setAttribute(name, value) {this[name] = value;},
+        querySelector(tag) {return preferenceDescendants(this).find(child => child.tagName === tag) || null;},
+      };
+      preferenceNodes.push(node);
+      return node;
+    }
+    const originalGet = document.getElementById;
+    document.getElementById = id => preferenceIds.get(id) || originalGet(id);
+    document.createElement = preferenceNode;
+    document.createElementNS = (namespace, tag) => ({...preferenceNode(tag), namespaceURI:namespace});
+    document.querySelectorAll = selector => selector === '[data-action]'
+      ? preferenceNodes.filter(node => node.dataset.action)
+      : selector === '[data-preference]'
+        ? preferenceNodes.filter(node => node.dataset.preference)
+        : selector === '[data-auto-schedule]'
+          ? preferenceNodes.filter(node => node.dataset.autoSchedule)
+          : [];
+    state = {available:true, session:'owner-one', revision:'one', csrf:'local',
+      preferences:{theme:'light', tips:true, clock:'12', temperature:'f', idle:300, blinds_display:'disabled', blinds_enabled:false},
+      lights:{}, blinds:{connected:true, reason:'Controls locked in settings'}};
+    view = 'tools-' + settingsPage;
+    const settingsRoot = preferenceNode('main');
+    tools(settingsRoot, settingsPage);
+    sync = shippedSync;
+    sync();
+  `);
+  return site;
+}
+
 (async () => {
   for (const [status, body] of [[503,{ok:false,code:503,detail:'Receipt unknown; do not retry.'}], [200,{}], [202,{ok:true,code:202,id:'other-command'}]]) {
     const site = website(() => ({status, ok:status<400, json:async () => body}));
@@ -168,19 +215,38 @@ function diagnosticsWebsite(respond) {
     const anchors = ['#home', '#tools-lighting', '#guide'].map(hash => ({
       hash, setAttribute(name, value) {this[name] = value;},
     }));
-    const main = {replaceChildren() {}, querySelector() {return null;}};
+    let displayedHeading = null, displayedTab = null, displayedSectionHeading = null, focusedHeading = null, sectionScrolls = 0;
+    function pageHeading(text) {
+      return {textContent:text, setAttribute(name, value) {this[name] = value;}, focus() {focusedHeading = this;}, scrollIntoView() {sectionScrolls++;}};
+    }
+    const main = {replaceChildren() {displayedHeading = displayedTab = displayedSectionHeading = null;}, querySelector(selector) {
+      return selector === '.lighting-tabs a[aria-current="page"]' ? displayedTab
+        : selector === '#guide-controls-topics' ? displayedSectionHeading : displayedHeading;
+    }};
     const originalGet = document.getElementById;
     document.getElementById = id => id === 'app' ? main : originalGet(id);
     document.querySelectorAll = selector => selector === '.header a' ? anchors : [];
     location = {hash:'#tools-lighting-scenes', pathname:'/'};
-    home = tools = guide = () => {};
+    home = () => {displayedHeading = pageHeading('Lights');};
+    tools = (root, page) => {
+      displayedHeading = pageHeading(page.startsWith('lighting') ? 'Lighting' : 'System & help');
+      if (page === 'lighting-scenes') displayedTab = {textContent:'Scenes'};
+    };
+    guide = (root, index) => {
+      displayedHeading = pageHeading(index >= 0 ? 'Sensors in the ceiling' : 'Demo & guide');
+      if (index < 0) displayedSectionHeading = pageHeading('Control help');
+    };
     view = '';
     layout();
   `);
   assert.equal(navigation.run('anchors[1]["aria-current"]'), 'page');
+  assert.equal(navigation.run('document.title'), 'Lighting · Scenes · Smart Conference Room');
+  assert.equal(navigation.run('displayedHeading["aria-label"]'), 'Lighting · Scenes');
   navigation.run("location.hash = '#guide-1'; layout();");
   assert.equal(navigation.run('anchors[1].hash'), '#tools-lighting-scenes', 'Guide browsing retains the last Lighting tab');
   assert.equal(navigation.run('anchors[2]["aria-current"]'), 'page');
+  assert.equal(navigation.run('document.title'), 'Sensors in the ceiling · Smart Conference Room');
+  assert.equal(navigation.run('focusedHeading'), navigation.run('displayedHeading'), 'Page focus follows the actual topic heading');
   navigation.run('location.hash = anchors[1].hash; layout();');
   assert.equal(navigation.run('view'), 'tools-lighting-scenes');
   assert.equal(navigation.run('anchors[2].hash'), '#guide-1', 'Opening a tool preserves the last guide topic');
@@ -193,6 +259,12 @@ function diagnosticsWebsite(respond) {
   assert.equal(navigation.run('anchors[0]["aria-current"]'), 'page');
   navigation.run("location.hash = '#guide'; layout(); location.hash = '#home'; layout();");
   assert.equal(navigation.run('anchors[2].hash'), '#guide', 'All topics becomes the remembered guide destination');
+  navigation.run("location.hash = '#guide-controls'; layout();");
+  assert.equal(navigation.run('focusedHeading.textContent'), 'Control help', 'A control-help return focuses its heading on the shared index');
+  assert.equal(navigation.run('sectionScrolls'), 1);
+  navigation.run("view = ''; layout();");
+  assert.equal(navigation.run('focusedHeading.textContent'), 'Control help', 'An initial legacy control-help route also has a visible focused destination');
+  assert.equal(navigation.run('sectionScrolls'), 2);
   assert.equal(navigation.commands.length, 0);
 
   const guideContent = website(() => {throw Error('Guide links must not send commands');});
@@ -211,23 +283,35 @@ function diagnosticsWebsite(respond) {
     document.createElement = guideNode;
     document.createElementNS = (namespace, tag) => ({...guideNode(tag), namespaceURI:namespace});
     function descendants(node) {return [node, ...node.children.flatMap(descendants)];}
-    const topicLinks = [];
-    for (const section of ['room', 'controls']) {
-      const topicIndex = guideNode('main');
-      guide(topicIndex, -1, section);
-      topicLinks.push(...descendants(topicIndex).filter(node => node.className === 'topic'));
-    }
+    const topicIndex = guideNode('main');
+    guide(topicIndex, -1);
+    const topicLinks = descendants(topicIndex).filter(node => node.className === 'topic');
+    const oldControlIndex = guideNode('main');
+    guide(oldControlIndex, -1, 'controls');
   `);
   const sharedTopics = guideContent.context.generatedContent.guide;
   assert.equal(guideContent.run('topicLinks.length'), sharedTopics.length);
+  assert.deepEqual(Array.from(guideContent.run("descendants(topicIndex).filter(node => node.tagName === 'h3')"), node => node.textContent), ['Room tour', 'Control help']);
+  assert.equal(guideContent.run("descendants(oldControlIndex).filter(node => node.className === 'topic').length"), sharedTopics.length, 'The old section route retains every topic in the shared index');
+  assert.equal(guideContent.run("descendants(topicIndex).some(node => node.className === 'guide-sections')"), false, 'The index does not require a section-selector step');
   for (const [index, topic] of sharedTopics.entries()) {
     assert.equal(guideContent.run(`topicLinks.filter(node => node.href === '#guide-${index}').length`), 1);
-    assert.equal(guideContent.run(`topicLinks.find(node => node.href === '#guide-${index}').children.find(node => node.tagName === 'small').textContent`), topic.caption);
+    assert.equal(guideContent.run(`descendants(topicLinks.find(node => node.href === '#guide-${index}')).find(node => node.tagName === 'small').textContent`), topic.caption);
     guideContent.run(`const topic${index} = guideNode('main'); guide(topic${index}, ${index});`);
+    const section = topic.section || 'controls';
+    const sectionTopics = sharedTopics.filter(item => (item.section || 'controls') === section);
+    const position = sectionTopics.indexOf(topic);
+    const heading = guideContent.run(`descendants(topic${index}).filter(node => node.tagName === 'h2')`);
+    assert.equal(heading.length, 1);
+    assert.equal(heading[0].textContent, topic.title, 'Each leaf has its actual topic as the page heading');
+    assert.match(guideContent.run(`topic${index}.children[0].textContent`), new RegExp((section === 'controls' ? 'Control help' : 'Room tour') + '.*' + (position + 1) + ' of ' + sectionTopics.length));
+    const back = guideContent.run(`descendants(topic${index}).find(node => node.tagName === 'a' && node.textContent === '${section === 'controls' ? 'Control help topics' : 'Room tour topics'}')`);
+    assert.equal(back.href, section === 'controls' ? '#guide-controls' : '#guide');
     const destinations = guideContent.run(`descendants(topic${index}).filter(node => node.className === 'topic-destination')`);
     assert.deepEqual(Array.from(destinations, node => [node.textContent, node.href]),
       topic.links.map(destination => [destination.label, '#' + (destination.page === 'home' ? 'home' : 'tools-' + destination.page)]));
     assert.equal(destinations.every(node => node.onclick === undefined), true, 'Guide destinations use ordinary navigation links');
+    assert.equal(topic.links.every(destination => destination.label.startsWith('Open ')), true, 'Navigation labels distinguish opening a page from applying a room action');
   }
   assert.equal(guideContent.commands.length, 0);
   guideContent.context.ceilingReference = JSON.parse(fs.readFileSync(path.join(__dirname, '../app/ceiling_map.json'), 'utf8'));
@@ -282,22 +366,81 @@ function diagnosticsWebsite(respond) {
       dataset:{action}, classList:{toggle(name, value) {this[name] = Boolean(value);}},
       setAttribute(name, value) {this[name] = value;}, removeAttribute(name) {delete this[name];},
     }));
-    document.querySelectorAll = selector => selector === '[data-action=on],[data-action=off]' ? powerButtons : [];
-    state = {available:true, can_control:true, lights:{power:'on'}, blinds:{reason:'Controls locked in settings'}};
+    const sceneButton = {dataset:{action:'preset', preset:'Fid'},
+      classList:{toggle(name, value) {this[name] = Boolean(value);}},
+      setAttribute(name, value) {this[name] = value;}, removeAttribute(name) {delete this[name];},
+    };
+    document.querySelectorAll = selector => selector === '[data-action=on],[data-action=off]' ? powerButtons
+      : selector === '[data-preset]' ? [sceneButton]
+      : selector === '[data-action]' ? [...powerButtons, sceneButton] : [];
+    state = {available:true, can_control:true, lights:{power:'on', confirmed_power:'on', scene:'Fid', recent:'Fid', confirmed_age_s:12}, blinds:{reason:'Locked in settings'}};
     shippedSync();
   `);
-  assert.equal(homeState.run("$('blind-status').textContent"), 'Controls locked in settings');
-  assert.equal(homeState.run('powerButtons[0]["aria-pressed"]'), 'true');
-  assert.equal(homeState.run('powerButtons[1]["aria-pressed"]'), 'false');
-  homeState.run("state.blinds.reason = 'Controller not connected'; posting = true; shippedSync();");
-  assert.equal(homeState.run("$('blind-status').textContent"), 'Controller not connected');
-  assert.equal(homeState.run('powerButtons[0]["aria-pressed"]'), 'false', 'Pending writes clear the announced selection');
-  homeState.run("posting = false; state.lights.power = 'off'; state.lighting_recovery = {write_blocked:true}; shippedSync();");
-  assert.equal(homeState.run('powerButtons[1]["aria-pressed"]'), 'false', 'Uncertain lighting does not announce a selected button');
-  homeState.run('state.lighting_recovery = {}; state.blinds.available = true; shippedSync();');
+  assert.equal(homeState.run("$('blind-status').textContent"), 'Locked in settings');
+  assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Lights on · Fid · just now');
+  assert.equal(homeState.run('powerButtons.some(button => button["aria-pressed"] !== undefined || button.classList.selected)'), false, 'Lighting commands remain ordinary action buttons');
+  assert.equal(homeState.run('sceneButton["aria-pressed"]'), undefined);
+  assert.equal(homeState.run('sceneButton.classList.selected'), undefined);
+  homeState.run("state.blinds.reason = 'Not connected'; posting = true; state.lights.power = null; state.lights.message = 'Selected: Off / waiting to send'; shippedSync();");
+  assert.equal(homeState.run("$('blind-status').textContent"), 'Not connected');
+  assert.equal(homeState.run('powerButtons.every(button => button.disabled) && sceneButton.disabled'), true);
+  assert.equal(homeState.run("$('light-message').textContent"), 'Selected: Off / waiting to send');
+  assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Lights on · Fid · just now', 'A pending selection cannot replace historical confirmation');
+  homeState.run("posting = false; state.can_control = false; state.lighting_recovery = {status:'needs_staff', write_blocked:true}; state.lights.confirmed_age_s = 180; shippedSync();");
+  assert.equal(homeState.run('powerButtons.every(button => button.disabled) && sceneButton.disabled'), true);
+  assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Lights on · Fid · 3 min ago', 'Uncertainty preserves separately aged confirmed readback');
+  homeState.run("state.lighting_recovery = {status:'normal'}; state.can_control = true; state.lights.power = state.lights.confirmed_power = 'off'; state.lights.recent = 'Off'; state.blinds.available = true; shippedSync();");
   assert.equal(homeState.run("$('blind-status').textContent"), 'Ready');
-  assert.equal(homeState.run('powerButtons[1]["aria-pressed"]'), 'true');
+  assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Lights off · Off · 3 min ago');
+  homeState.run('state.lights.power = state.lights.confirmed_power = null; shippedSync();');
+  assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Off · 3 min ago', 'Unknown confirmed power does not invent an On or Off state');
+  assert.equal(homeState.run('powerButtons.some(button => button["aria-pressed"] !== undefined || button.classList.selected) || sceneButton["aria-pressed"] !== undefined || Boolean(sceneButton.classList.selected)'), false);
   assert.equal(homeState.commands.length, 0);
+
+  for (const [page, action, option, value, label] of [
+    ['appearance', 'theme', '2', 'auto', 'Theme'],
+    ['appearance', 'tips', '1', false, 'Touch tips'],
+    ['clock', 'clock', '1', '24', 'Clock'],
+    ['clock', 'temperature', '0', 'c', 'Temperature'],
+    ['screen', 'idle', '0', 0, 'Screen saver'],
+    ['screen', 'blinds_display', '1', 'hidden', 'Blinds on Home'],
+  ]) {
+    const preference = preferencesWebsite(page);
+    preference.context.preferenceAction = action;
+    preference.run("const select = preferenceNodes.find(node => node.dataset.preference === preferenceAction);");
+    assert.equal(preference.run("select['aria-label']"), label);
+    preference.run(`select.value = '${option}';`);
+    await preference.run('select.onchange()');
+    assert.equal(preference.commands.length, 1);
+    assert.equal(preference.commands[0].action, action);
+    assert.equal(preference.commands[0].arguments.value, value, 'Native options retain the command value type');
+    assert.equal(preference.run('select.value'), option, 'The select reflects the confirmed preference');
+  }
+  const autoTheme = preferencesWebsite('appearance');
+  assert.equal(autoTheme.run("preferenceNodes.filter(node => node.dataset.autoSchedule).every(node => node.hidden)"), true);
+  autoTheme.run("state.preferences.theme = 'auto'; sync();");
+  assert.equal(autoTheme.run("preferenceNodes.filter(node => node.dataset.autoSchedule).some(node => node.hidden)"), false);
+  autoTheme.run("state.preferences.theme = 'dark'; sync();");
+  assert.equal(autoTheme.run("preferenceNodes.filter(node => node.dataset.autoSchedule).every(node => node.hidden)"), true);
+  const guardedPreference = preferencesWebsite('appearance');
+  guardedPreference.run("unknown = 'pending-light'; sync(); const themeSelect = preferenceNodes.find(node => node.dataset.preference === 'theme'); themeSelect.value = '1';");
+  assert.equal(guardedPreference.run('themeSelect.disabled'), true);
+  await guardedPreference.run('themeSelect.onchange()');
+  assert.equal(guardedPreference.commands.length, 0);
+  assert.equal(guardedPreference.run('themeSelect.value'), '0', 'An unsent preference returns to its confirmed value');
+  assert.equal(guardedPreference.run('unknown'), 'pending-light');
+  const blindPermission = preferencesWebsite('screen');
+  assert.equal(blindPermission.run("$('blind-lock').textContent"), 'Unlock blind controls');
+  await blindPermission.run("$('blind-lock').onclick()");
+  assert.equal(blindPermission.commands[0].arguments.value, true);
+  assert.equal(blindPermission.run("$('blind-lock').textContent"), 'Lock blind controls');
+  await blindPermission.run("$('blind-lock').onclick()");
+  assert.equal(blindPermission.commands[1].arguments.value, false);
+  blindPermission.run('state.blinds.connected = false; sync();');
+  assert.equal(blindPermission.run("$('blind-permission').hidden"), true);
+  assert.equal(blindPermission.run("$('blind-lock').disabled"), true);
+  await blindPermission.run("$('blind-lock').onclick()");
+  assert.equal(blindPermission.commands.length, 2, 'A disconnected adapter cannot be unlocked');
 
   const profile = profileWebsite();
   await profile.run("chooseProfile({title:'Visitor demo', stages:['Sit still', 'Walk'], annotations:['Beginning', 'Finished']})");

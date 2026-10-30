@@ -29,7 +29,6 @@ def test_ceiling_family_selection_uses_reference_positions_without_room_requests
         view.root.update()
         dots = canvas.find_withtag("sensor")
         assert len(dots) == len(family["positions"])
-        assert button.cget("bg") == view.accent
         centers = [(sum(canvas.coords(dot)[::2]) / 2,
                     sum(canvas.coords(dot)[1::2]) / 2) for dot in dots]
         assert all(0 < x < canvas.winfo_width() and 0 < y < canvas.winfo_height()

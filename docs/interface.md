@@ -236,6 +236,11 @@ visibility when this connection changes. Window-group addressing and physical
 position measurement are not implemented.
 
 Lighting navigation contains White light, Scenes, Programmes and Channels.
+`lights.confirmed_power` retains the last readback alongside `recent` and its age,
+including while a command is pending or uncertain. It is historical display data,
+never a readiness signal; guarded `power`, `scene` and `can_control` retain their
+existing semantics. Lighting action buttons use explicit confirmation text instead
+of pressed-state styling.
 `app/room_controls.py` owns their shared labels and descriptions. The gateway
 accepts `gradient` with empty arguments and `programme` with exactly the fixed
 `name` enum above. `lights.capabilities.gradient` and `.programmes` advertise

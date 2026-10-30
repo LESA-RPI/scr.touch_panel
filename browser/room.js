@@ -63,10 +63,6 @@ function button(text, fn, opts = {}) {
   if (opts.icon) n.prepend(icon(opts.icon));
   n.onclick = fn;
   if (opts.action) n.dataset.action = opts.action;
-  if (opts.choice) {
-    n.dataset.choice = opts.choice[0];
-    n.dataset.value = String(opts.choice[1]);
-  }
   return n;
 }
 function link(text, hash, kind) {
@@ -269,12 +265,17 @@ function layout() {
   else home(root);
   if (messageTimer) message('');
   // Keep the tab title and keyboard focus with the page the visitor just opened.
-  const heading = root.querySelector('.tools-layout > section > h2') || root.querySelector('h2');
+  const sectionHeading = view === 'guide-controls' ? root.querySelector('#guide-controls-topics') : null,
+    heading = sectionHeading || root.querySelector('.tools-layout > section > h2') || root.querySelector('h2'),
+    lightingTab = root.querySelector('.lighting-tabs a[aria-current="page"]'),
+    title = lightingTab ? 'Lighting · ' + lightingTab.textContent : heading?.textContent || '';
+  if (heading && lightingTab) heading.setAttribute('aria-label', title);
   document.title =
-    (view === 'home' ? '' : (heading?.textContent || '') + ' · ') + 'Smart Conference Room';
-  if (navigating && heading) {
+    (view === 'home' ? '' : title + ' · ') + 'Smart Conference Room';
+  if ((navigating || sectionHeading) && heading) {
     heading.tabIndex = -1;
-    window.scrollTo?.({ top: 0, left: 0, behavior: 'instant' });
+    if (sectionHeading) heading.scrollIntoView?.({ block: 'start', behavior: 'instant' });
+    else window.scrollTo?.({ top: 0, left: 0, behavior: 'instant' });
     heading.focus({ preventScroll: true });
   }
   if (phoneLayout.matches)
@@ -499,15 +500,22 @@ function setting(parent, title, note) {
   parent.append(row);
   return control;
 }
-// A segmented choice; sync() marks the saved value as selected.
+// Native selects show the saved preference; command values retain their original types.
 function choices(parent, items) {
-  const group = el('div', undefined, 'segmented');
-  group.setAttribute('role', 'group');
-  for (const [label, action, value] of items)
-    group.append(
-      button(label, () => command(action, { value }), { action, choice: [action, value] }),
-    );
-  parent.append(group);
+  const select = el('select', undefined, 'preference-select');
+  select.setAttribute('aria-label', parent.previousElementSibling.querySelector('h3').textContent);
+  select.dataset.action = select.dataset.preference = items[0][1];
+  for (const [index, [label, action, value]] of items.entries()) {
+    const option = el('option', label);
+    option.value = String(index);
+    option.dataset.value = String(value);
+    select.append(option);
+  }
+  select.onchange = () => {
+    const selected = items[Number(select.value)];
+    if (selected) return command(selected[1], { value: selected[2] });
+  };
+  parent.append(select);
 }
 function tools(root, page) {
   let tab = page.startsWith('lighting-') ? page.slice(9) : page === 'scenes' ? 'channels' : 'white';
@@ -546,7 +554,7 @@ function tools(root, page) {
     detail.append(
       el('p', 'Recorder not connected · instructions and panel annotations only', 'muted'),
     );
-    const card = el('div', undefined, 'card'),
+    const card = el('div', undefined, 'card experiment-card'),
       title = el('h3'),
       stage = el('p', undefined, 'session-stage'),
       timer = el('p', undefined, 'timer'),
@@ -595,7 +603,9 @@ function tools(root, page) {
     ]) {
       const control = setting(detail, title, '');
       control.previousElementSibling.querySelector('p').id = 'schedule-' + which;
-      const group = el('div', undefined, 'segmented');
+      control.parentElement.dataset.autoSchedule = 'true';
+      control.parentElement.hidden = state?.preferences?.theme !== 'auto';
+      const group = el('div', undefined, 'row schedule-actions');
       group.append(
         button('−1 h', () => command('schedule', { which, delta: -60 }), { action: 'schedule' }),
         button('+1 h', () => command('schedule', { which, delta: 60 }), { action: 'schedule' }),
@@ -649,10 +659,13 @@ function tools(root, page) {
     const permission = el('div');
     permission.id = 'blind-permission';
     permission.hidden = !state?.blinds?.connected;
-    choices(permission, [
-      ['Locked', 'blinds_enabled', false],
-      ['Unlocked', 'blinds_enabled', true],
-    ]);
+    const lock = button('Unlock blind controls', () => {
+      const enabled = state?.preferences?.blinds_enabled;
+      if (!state?.blinds?.connected || typeof enabled !== 'boolean') return;
+      return command('blinds_enabled', { value: !enabled });
+    }, { action: 'blinds_enabled' });
+    lock.id = 'blind-lock';
+    permission.append(lock);
     blinds.append(permission);
     choices(setting(detail, 'Blinds on Home', 'Show the blind buttons on Home.'), [
       ['Show', 'blinds_display', 'disabled'],
@@ -1039,49 +1052,53 @@ function guide(root, index, section = 'room') {
   if (topics[index]) section = topics[index].section || 'controls';
   const indices = topics.map((topic, i) => (topic.section || 'controls') === section ? i : -1).filter(i => i >= 0),
     allTopics = section === 'controls' ? 'guide-controls' : 'guide';
-  root.append(el('h2', 'Demo & guide'));
   if (index < 0 || !topics[index]) {
+    root.append(el('h2', 'Demo & guide'));
     root.append(
       el('p', 'Explore the room or learn the controls. Browsing starts no equipment.', 'muted'),
     );
-    const sections = el('nav', undefined, 'guide-sections');
-    sections.setAttribute('aria-label', 'Guide sections');
-    for (const [label, key] of content.guide_sections || []) {
-      const a = link(label, key === 'room' ? 'guide' : 'guide-controls');
-      if (key === section) a.setAttribute('aria-current', 'page');
-      sections.append(a);
+    const sections = el('div', undefined, 'guide-topic-sections');
+    for (const [label, key] of content.guide_sections || [['Room tour', 'room'], ['Control help', 'controls']]) {
+      const group = el('section', undefined, 'guide-topic-section'),
+        heading = el('h3', label),
+        list = el('div', undefined, 'topics');
+      heading.id = 'guide-' + key + '-topics';
+      group.setAttribute('aria-labelledby', heading.id);
+      for (const [i, topic] of topics.entries()) {
+        if ((topic.section || 'controls') !== key) continue;
+        const a = link(undefined, 'guide-' + i,
+          { on: 'white', home: 'home', experiment: 'experiment', health: 'system', room: 'white' }[topic.icon]),
+          text = el('span', undefined, 'topic-text'),
+          arrow = el('span', '›', 'topic-arrow');
+        a.className = 'topic';
+        text.append(el('span', topic.title, 'topic-title'));
+        if (topic.caption) text.append(el('small', topic.caption));
+        arrow.setAttribute('aria-hidden', 'true');
+        a.append(text, arrow);
+        list.append(a);
+      }
+      group.append(heading, list);
+      sections.append(group);
     }
     root.append(sections);
-    const grid = el('div', undefined, 'topics');
-    for (const i of indices) {
-      const t = topics[i];
-      const a = link(
-        t.title,
-        'guide-' + i,
-        { on: 'white', home: 'home', experiment: 'experiment', health: 'system', room: 'white' }[
-          t.icon
-        ],
-      );
-      a.className = 'topic';
-      if (t.caption) a.append(el('small', t.caption));
-      grid.append(a);
-    }
-    root.append(grid);
     const network = el('p', undefined, 'subtle');
     network.id = 'network-details';
     root.append(network);
     return;
   }
   const t = topics[index],
+    position = indices.indexOf(index),
     card = el('article', undefined, 'card topic-body'),
     head = el('div', undefined, 'topic-head');
+  root.append(el('p', 'Demo & guide · ' + (section === 'controls' ? 'Control help' : 'Room tour') +
+    ' · ' + (position + 1) + ' of ' + indices.length, 'eyebrow'));
   head.append(
     icon(
       { on: 'white', home: 'home', experiment: 'experiment', health: 'system', room: 'white' }[
         t.icon
       ],
     ),
-    el('h3', t.title),
+    el('h2', t.title),
   );
   card.append(head);
   const destinations = el('nav', undefined, 'row');
@@ -1094,7 +1111,7 @@ function guide(root, index, section = 'room') {
     a.className = 'topic-destination';
     destinations.append(a);
   }
-  if (!t.actions) card.append(destinations);
+  if (!t.actions && destinations.children.length) card.append(destinations);
   if (t.map) ceilingMap(card);
   else {
     if (t.visual) guideVisual(card, t.visual);
@@ -1111,12 +1128,11 @@ function guide(root, index, section = 'room') {
       feedback(card);
     }
     for (const p of paragraphs.slice(1)) card.append(el('p', p));
-    if (t.actions) card.append(destinations);
+    if (t.actions && destinations.children.length) card.append(destinations);
   }
   root.append(card);
   const nav = el('nav', undefined, 'row');
-  const position = indices.indexOf(index);
-  nav.append(link('All topics', allTopics, 'guide'));
+  nav.append(link(section === 'controls' ? 'Control help topics' : 'Room tour topics', allTopics, 'guide'));
   if (position > 0) nav.append(link('Previous', 'guide-' + indices[position - 1]));
   if (position < indices.length - 1) nav.append(link('Next', 'guide-' + indices[position + 1]));
   root.append(nav);
@@ -1207,7 +1223,7 @@ function ceilingMap(parent) {
     buttons.set(family.id, control);
     controls.append(control);
   }
-  section.append(el('h3', map.title), el('p', map.caption, 'muted'), controls, description,
+  section.append(el('p', map.caption, 'muted'), controls, description,
     diagram, el('p', map.orientation, 'muted'), el('p', map.note, 'subtle'),
     el('p', 'Layout reference · ' + map.source.date, 'subtle'));
   parent.append(section);
@@ -1630,6 +1646,7 @@ function sync() {
     state?.blinds?.connected ? state.blinds.reason : content.blinds_unavailable,
   );
   if ($('blind-permission')) $('blind-permission').hidden = !state?.blinds?.connected;
+  update('blind-lock', p.blinds_enabled ? 'Lock blind controls' : 'Unlock blind controls');
   if ($('gradient-controls')) $('gradient-controls').hidden = !s.capabilities?.gradient;
   if ($('programme-controls')) $('programme-controls').hidden = !s.capabilities?.programmes;
   if ($('programmes-unavailable'))
@@ -1657,6 +1674,7 @@ function sync() {
       Boolean(unknown) ||
       !available ||
       state.busy ||
+      (a === 'blinds_enabled' && (!state?.blinds?.connected || typeof p.blinds_enabled !== 'boolean')) ||
       (['legacy', 'original_fallback', 'blank', 'clock_view'].includes(a) &&
         (state.experiment?.running || reserved)) ||
       ((lighting || a === 'programme') && lightingBlocked) ||
@@ -1692,23 +1710,11 @@ function sync() {
       }
     }
   }
-  for (const b of document.querySelectorAll('[data-choice]')) {
-    const chosen = String(p[b.dataset.choice]) === b.dataset.value;
-    b.classList.toggle('selected', chosen);
-    b.setAttribute('aria-pressed', String(chosen));
+  for (const select of document.querySelectorAll('[data-preference]')) {
+    const saved = Array.from(select.options).find(option => option.dataset.value === String(p[select.dataset.preference]));
+    if (saved && select.value !== saved.value) select.value = saved.value;
   }
-  for (const b of document.querySelectorAll('[data-action=on],[data-action=off]')) {
-    const selected =
-      available && !posting && !unknown && !lightingBlocked && s.power === b.dataset.action && state.can_control;
-    b.classList.toggle('selected', selected);
-    b.setAttribute('aria-pressed', String(Boolean(selected)));
-  }
-  for (const b of document.querySelectorAll('[data-preset]')) {
-    const selected =
-      available && !posting && !unknown && !lightingBlocked && s.scene === b.dataset.preset && state.can_control;
-    b.classList.toggle('selected', selected);
-    b.setAttribute('aria-pressed', String(selected));
-  }
+  for (const row of document.querySelectorAll('[data-auto-schedule]')) row.hidden = p.theme !== 'auto';
   update(
     'light-message',
     !available
@@ -1727,7 +1733,8 @@ function sync() {
   );
   update(
     'light-recent',
-    'Recent settings: ' +
+    'Last confirmed: ' +
+      ({on: 'Lights on · ', off: 'Lights off · '}[s.confirmed_power ?? s.power] || '') +
       (s.recent || 'Not checked') +
       (s.confirmed_age_s === null || s.confirmed_age_s === undefined
         ? ''
@@ -2048,6 +2055,9 @@ async function loadContent() {
 }
 (async () => {
   await loadContent();
+  if (content.icons?.tools)
+    for (const a of document.querySelectorAll('.header nav a'))
+      a.prepend(icon(a.hash.startsWith('#guide') ? 'guide' : a.hash.startsWith('#tools-') ? 'tools' : 'home'));
   layout();
   // Poll every second; slow to every 5 s while the website is not answering.
   for (;;) {

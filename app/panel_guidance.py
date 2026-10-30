@@ -112,7 +112,7 @@ class PanelGuidance:
             fg=self.ink,
             highlightthickness=1,
             highlightbackground=self.border,
-            highlightcolor=self.accent,
+            highlightcolor=self.ink,
             bd=0,
             padx=18,
             pady=10,
@@ -126,8 +126,8 @@ class PanelGuidance:
             font=(self.font_family, 18),
             bg=self.control,
             fg=self.ink,
-            activebackground=self.accent,
-            activeforeground=self.selected_ink,
+            activebackground=self.pressed_colour(),
+            activeforeground=self.ink,
             activeborderwidth=0,
         )
         menu.pack(side="left", fill="y")
@@ -328,7 +328,6 @@ class PanelGuidance:
         self.choose_guide(-1)
 
     def guide_view(self):
-        indices = [i for i, topic in enumerate(DEMO) if topic["section"] == self.guide_section]
         if self.guide_page < 0:
             self.label(self.body, "Demo & guide", 27).pack(anchor="w", pady=(0, 6))
             self.label(
@@ -337,12 +336,6 @@ class PanelGuidance:
                 17,
                 True,
             ).pack(anchor="w", pady=(0, 8))
-            self.row_buttons(
-                self.body,
-                [(label, lambda key=key: self.choose_guide_section(key), key == self.guide_section)
-                 for label, key in GUIDE_SECTIONS],
-                height=52,
-            )
             hub = tk.Frame(self.body, bg=self.bg)
             hub.pack(fill="both", expand=True, pady=(0, 10))
             phone = tk.Frame(hub, bg=self.bg, width=240)
@@ -351,49 +344,43 @@ class PanelGuidance:
             self.website_qr(phone)
             topics = tk.Frame(hub, bg=self.bg)
             topics.pack(side="left", fill="both", expand=True)
-            for position, index in enumerate(indices):
-                topic = DEMO[index]
-                row, column = divmod(position, 2)
-                topics.rowconfigure(row, weight=1, uniform="guide")
+            for column, (title, section) in enumerate(GUIDE_SECTIONS):
                 topics.columnconfigure(column, weight=1, uniform="guide")
-                card = tk.Frame(
-                    topics,
-                    bg=self.bg,
-                    highlightbackground=self.border,
-                    highlightthickness=1,
-                )
-                card.grid(
-                    row=row,
-                    column=column,
-                    sticky="nsew",
-                    padx=(0, 16) if column == 0 else 0,
-                    pady=(0, 16) if row == 0 else 0,
-                )
-                button = self.button(
-                    card,
-                    topic["title"] + "\n" + topic["caption"],
-                    lambda index=index: self.choose_guide(index),
-                )
-                button.config(
-                    font=(self.font_family, 20),
-                    image=self.icon(topic["icon"], self.icon_colour),
-                    compound="top",
-                    wraplength=360,
-                    justify="center",
-                    bg=self.bg,
-                    padx=20,
-                    pady=18,
-                    highlightthickness=0,
-                )
-                button.pack(fill="both", expand=True)
+                group = tk.Frame(topics, bg=self.bg)
+                group.grid(row=0, column=column, sticky="nsew", padx=(0, 20) if column == 0 else 0)
+                heading = self.label(group, title, 20)
+                heading.config(font=(self.font_family, 20, "bold"))
+                heading.pack(anchor="w", pady=(0, 10))
+                for index, topic in enumerate(DEMO):
+                    if topic["section"] != section:
+                        continue
+                    row = tk.Frame(group, bg=self.bg, height=80)
+                    row.pack(fill="x", pady=(0, 8))
+                    row.pack_propagate(False)
+                    button = self.button(
+                        row, topic["title"] + "\n" + topic["caption"],
+                        lambda index=index: self.choose_guide(index),
+                    )
+                    button.config(
+                        font=(self.font_family, 18), image=self.icon(topic["icon"], self.icon_colour, 24),
+                        compound="left", wraplength=390, justify="left", anchor="w",
+                        bg=self.bg, highlightbackground=self.bg, highlightcolor=self.bg,
+                        padx=12, pady=6,
+                    )
+                    button.pack(fill="both", expand=True)
             return
+        indices = [i for i, topic in enumerate(DEMO) if topic["section"] == self.guide_section]
         topic = DEMO[self.guide_page]
         position = indices.index(self.guide_page)
+        section = dict((key, label) for label, key in GUIDE_SECTIONS)[self.guide_section]
         heading = tk.Frame(self.body, bg=self.bg)
         heading.pack(fill="x", pady=(0, 12))
-        self.label(heading, "Demo & guide", 27).pack(side="left")
+        tk.Label(heading, image=self.icon(topic["icon"], self.icon_colour), bg=self.bg).pack(
+            side="left", padx=(0, 12)
+        )
+        self.label(heading, topic["title"], 27).pack(side="left")
         self.label(
-            heading, "%d of %d topics" % (position + 1, len(indices)), 17, True
+            heading, "%s · %d of %d" % (section, position + 1, len(indices)), 15, True
         ).pack(side="right")
         card = tk.Frame(
             self.body,
@@ -403,18 +390,12 @@ class PanelGuidance:
         )
         card.pack(fill="both", expand=True)
         content = tk.Frame(card, bg=self.surface)
-        content.pack(fill="both", expand=True, padx=24, pady=12 if topic.get("actions") else 22)
-        row = tk.Frame(content, bg=self.surface)
-        row.pack(fill="x", pady=(0, 8 if topic.get("actions") else 20))
-        tk.Label(row, image=self.icon(topic["icon"], self.icon_colour), bg=self.surface).pack(
-            side="left", padx=(0, 12)
-        )
-        self.label(row, topic["title"], 26).pack(side="left")
+        content.pack(fill="both", expand=True, padx=24, pady=10 if topic.get("actions") else 22)
         if topic.get("map"):
             self.ceiling_map(content)
         else:
             if topic.get("visual"):
-                self.guide_visual(content, topic["visual"])
+                visual = self.guide_visual(content, topic["visual"])
             for paragraph in topic["text"].split("\n\n"):
                 size = 16 if topic.get("actions") else 17 if topic.get("visual") else 21
                 gap = 4 if topic.get("actions") else 8 if topic.get("visual") else 18
@@ -436,7 +417,9 @@ class PanelGuidance:
                 button.config(font=(self.font_family, 17), pady=8)
             actions[1]._gradient = True
             self.light_buttons.extend(actions[:2])
-            self.feedback_card(content)
+            self.feedback_card(content, padding=8)
+            if topic.get("visual"):
+                self.light_feedback_card.pack_configure(side="bottom", before=visual)
             self.update_light_buttons()
         elif topic["links"]:
             self.row_buttons(
@@ -456,11 +439,13 @@ class PanelGuidance:
         buttons = self.row_buttons(
             self.body,
             [
-                ("All topics", lambda: self.choose_guide(-1), False),
+                (section + " topics", lambda: self.choose_guide(-1), False),
                 ("Previous", lambda: self.change_guide(-1), False),
                 ("Next", lambda: self.change_guide(1), False),
             ],
         )
+        # Keep navigation reachable; the topic card takes the remaining height.
+        buttons[0].master.pack_configure(side="bottom", before=card)
         for button, kind in zip(buttons, ("guide", "chevron-left", "chevron-right")):
             button.config(image=self.icon(kind, self.ink, 24), compound="left")
         buttons[1].config(state="normal" if position else "disabled")
@@ -552,11 +537,10 @@ class PanelGuidance:
             for button, candidate in zip(buttons, families):
                 active = candidate is selected
                 button.config(
-                    bg=self.accent if active else self.control,
-                    fg=self.selected_ink if active else self.ink,
-                    highlightbackground=self.accent if active else self.border,
-                    activebackground=self.accent_pressed if active else self.pressed_colour(),
-                    activeforeground=self.selected_ink if active else self.ink,
+                    font=(self.font_family, 17, "bold" if active else "normal"),
+                    bg=self.control, fg=self.ink,
+                    highlightbackground=self.control,
+                    activebackground=self.pressed_colour(), activeforeground=self.ink,
                 )
             draw()
 
@@ -578,15 +562,15 @@ class PanelGuidance:
         canvas.bind("<Configure>", draw)
         self.wrap_label(self.label(
             parent, CEILING_MAP["orientation"] + " " + CEILING_MAP["note"], 13, True
-        )).pack(fill="x", pady=(6, 0))
+        )).pack(side="bottom", fill="x", pady=(6, 0), before=canvas)
         choose(selected)
 
     def guide_visual(self, parent, kind):
         canvas = tk.Canvas(
-            parent, height=90 if kind == "channels" else 110, bg=parent.cget("bg"),
+            parent, height=60 if kind == "channels" else 110, bg=parent.cget("bg"),
             highlightthickness=0, borderwidth=0,
         )
-        canvas.pack(fill="x", pady=(0, 10))
+        canvas.pack(fill="x", pady=(0, 6 if kind == "channels" else 10))
 
         def draw(event=None):
             width = canvas.winfo_width()
@@ -597,15 +581,11 @@ class PanelGuidance:
                 cell = width / len(CHANNELS)
                 for index, (name, colour) in enumerate(zip(CHANNELS, CHANNEL_COLOURS)):
                     left, right = index * cell + 8, (index + 1) * cell - 8
-                    canvas.create_rectangle(left, 8, right, 34, fill=colour, outline="")
+                    canvas.create_rectangle(left, 4, right, 24, fill=colour, outline="")
                     canvas.create_text(
-                        (left + right) / 2, 54, text=name,
-                        font=(self.font_family, 14), fill=self.ink,
+                        (left + right) / 2, 42, text=name,
+                        font=(self.font_family, 13), fill=self.ink,
                     )
-                canvas.create_text(
-                    width / 2, 78, text="Eight channel controls · illustrative colours",
-                    font=(self.font_family, 12), fill=self.muted,
-                )
             elif kind == "distance":
                 for center, name, columns, rows in (
                     (width / 4, "COMBO · 8 × 8", 8, 8),
@@ -628,3 +608,4 @@ class PanelGuidance:
                 )
 
         canvas.bind("<Configure>", draw)
+        return canvas

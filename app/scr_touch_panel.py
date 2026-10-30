@@ -203,6 +203,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             "<ButtonRelease-1>", lambda event: self.activity(False), add="+"
         )
         self.root.bind_all("<KeyPress>", lambda event: self.activity(), add="+")
+        self.root.bind_all("<KeyPress>", lambda event: self.button_focus(True), add="+")
+        self.root.bind_all("<ButtonPress-1>", lambda event: self.button_focus(False), add="+")
         self.root.bind_class(
             "PanelWake", "<ButtonPress-1>", lambda event: self.wake_idle(True)
         )
@@ -220,7 +222,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.cct, self.intensity = tk.IntVar(value=3500), tk.IntVar(value=1000)
         self.channel_values = [tk.IntVar(value=value) for value in PRESETS["Fid"]]
         self.status_text = tk.StringVar(
-            value="Use Lights on or Lights off. Fine adjustments are in Advanced."
+            value="Use Lights on or Lights off. Fine adjustments are in Room tools."
         )
         self.light_text = tk.StringVar(
             value="Lighting not connected - controls are unavailable"
@@ -403,23 +405,16 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             )
             set_changed(
                 self.feedback_detail,
-                "Recent settings: "
+                "Last confirmed: "
+                + ({"on": "Lights on · ", "off": "Lights off · "}.get(
+                    getattr(self, "confirmed_power", None), ""
+                ))
                 + self.confirmed_light.replace(" input / level ", " · level ")
                 + suffix,
             )
-        card = getattr(self, "light_feedback_card", None)
-        if card is not None and card.winfo_exists():
-            edge = (
-                self.warning
-                if self.light_state == "failed"
-                else self.accent if self.pending or self.queued_intent else self.border
-            )
-            if getattr(card, "_edge", None) != edge:
-                card.config(highlightbackground=edge)
-                card._edge = edge
         self.update_power_highlights()
 
-    def feedback_card(self, parent):
+    def feedback_card(self, parent, padding=12):
         """Keep results in the page flow, with separate message and readback lines."""
         if not hasattr(self, "feedback_message"):
             self.feedback_message = tk.StringVar()
@@ -428,12 +423,12 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             parent,
             bg=parent.cget("bg"),
             highlightbackground=self.border,
-            highlightthickness=1,
+            highlightthickness=0,
         )
-        card.pack(fill="x", pady=(12, 0))
+        card.pack(fill="x", pady=(padding, 0))
         self.light_feedback_card = card
         content = tk.Frame(card, bg=card.cget("bg"))
-        content.pack(fill="x", padx=14, pady=12)
+        content.pack(fill="x", padx=14, pady=padding)
         message = self.label(content, size=15)
         message.config(textvariable=self.feedback_message)
         self.wrap_label(message).pack(fill="x")
@@ -444,49 +439,34 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.refresh_confirmation_age()
 
     def update_power_highlights(self):
-        certain = (
-            self.light_state == "ready"
-            and not getattr(self, "running", False)
-            and not any(
-                (self.pending, self.queued_intent, self.release_target, self.closing)
-            )
-        )
-        state = getattr(self, "confirmed_power", None) if certain else None
+        """Keep action buttons neutral; dated readback carries confirmation."""
         for button, power, label in getattr(self, "home_power_buttons", []):
             if button.winfo_exists():
-                selected = state == power
-                style = (selected, self.control, self.ink, self.icon_colour)
+                style = (self.control, self.ink, self.icon_colour)
                 if getattr(button, "_power_style", None) == style:
                     continue
                 button._power_style = style
                 button.config(
-                    bg=self.accent if selected else self.control,
-                    highlightbackground=self.accent if selected else self.border,
-                    fg=self.selected_ink if selected else self.ink,
-                    activeforeground=self.selected_ink if selected else self.ink,
-                    activebackground=(
-                        self.accent_pressed if selected else self.pressed_colour()
-                    ),
+                    bg=self.control,
+                    highlightbackground=self.control,
+                    fg=self.ink,
+                    activeforeground=self.ink,
+                    activebackground=self.pressed_colour(),
                     text=label,
-                    image=self.icon(
-                        power, self.selected_ink if selected else self.icon_colour
-                    ),
+                    image=self.icon(power, self.icon_colour),
                 )
         for button, name in getattr(self, "scene_buttons", []):
             if button.winfo_exists():
-                selected = certain and getattr(self, "confirmed_scene", None) == name
-                style = (selected, self.control, self.ink)
+                style = (self.control, self.ink)
                 if getattr(button, "_scene_style", None) == style:
                     continue
                 button._scene_style = style
                 button.config(
-                    bg=self.accent if selected else self.control,
-                    highlightbackground=self.accent if selected else self.border,
-                    fg=self.selected_ink if selected else self.ink,
-                    activebackground=(
-                        self.accent_pressed if selected else self.pressed_colour()
-                    ),
-                    activeforeground=self.selected_ink if selected else self.ink,
+                    bg=self.control,
+                    highlightbackground=self.control,
+                    fg=self.ink,
+                    activebackground=self.pressed_colour(),
+                    activeforeground=self.ink,
                     text=getattr(button, "_scene_label", name),
                 )
 
@@ -558,27 +538,39 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
     def pressed_colour(self):
         return THEMES[getattr(self, "theme", None) or "light"]["pressed"]
 
+    def button_focus(self, keyboard):
+        """Show a neutral focus outline for keyboard use, without a touch halo."""
+        self.keyboard_navigation = keyboard
+        if getattr(self, "closed", False):
+            return
+        widget = self.root.focus_get()
+        if isinstance(widget, tk.Button):
+            widget.config(highlightcolor=self.ink if keyboard else widget.cget("bg"))
+
     def button(self, parent, text, action, accent=False):
         button = tk.Button(
             parent,
             text=text,
             command=action,
-            font=(FONT, 19),
-            fg=self.selected_ink if accent else self.ink,
-            bg=self.accent if accent else self.control,
-            activebackground=self.accent_pressed if accent else self.pressed_colour(),
-            activeforeground=self.selected_ink if accent else self.ink,
+            font=(FONT, 19, "bold" if accent else "normal"),
+            fg=self.ink,
+            bg=self.control,
+            activebackground=self.pressed_colour(),
+            activeforeground=self.ink,
             disabledforeground=self.muted,
             bd=0,
             relief="flat",
             highlightthickness=1,
-            highlightbackground=self.accent if accent else self.border,
-            highlightcolor=self.accent,
+            highlightbackground=self.control,
+            highlightcolor=self.control,
             padx=14,
             pady=13,
             takefocus=True,
         )
         button.bind("<ButtonPress-1>", lambda event: self.show_tip(text), add="+")
+        button.bind("<FocusIn>", lambda event: button.config(
+            highlightcolor=self.ink if getattr(self, "keyboard_navigation", False) else button.cget("bg")
+        ), add="+")
         return button
 
     def show_tip(self, text):
@@ -825,7 +817,11 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             frame.grid(row=0, column=column, padx=(0, 12))
         frame.pack_propagate(False)
         button = self.button(frame, "", lambda: self.open_advanced("system"))
-        button.config(font=(FONT, 15), padx=6, compound="left")
+        button.config(
+            font=(FONT, 15), padx=6, compound="left",
+            bg=self.bg, activebackground=self.bg,
+            highlightbackground=self.bg, highlightcolor=self.bg,
+        )
         button.pack(fill="both", expand=True)
         self.navigation_buttons.append(button)
         self.connection_badges.append((button, legacy))
@@ -839,7 +835,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 "reserved": ("Reserved", "experiment", "waiting"),
                 "releasing": ("Checking", "clock", "waiting"),
                 "returning": ("Checking", "clock", "waiting"),
-                "needs_staff": ("Check", "link-off", "warning"),
+                "needs_staff": ("Uncertain", "link-off", "warning"),
                 "legacy": ("Legacy", "original", "neutral"),
             }.get(status, (text, kind, colour))
         if hasattr(self, "connection_text"):
@@ -979,6 +975,16 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             text = "Opening" if self.release_target in ("original", "legacy_save") else "Legacy"
             if button.cget("text") != text:
                 button.config(text=text)
+        for button, current, size in (
+            (getattr(self, "home_button", None),
+             self.mode == "room" and not getattr(self, "advanced_page", None), 17),
+            (getattr(self, "tools_footer_button", None),
+             bool(getattr(self, "advanced_page", None)), 18),
+            (getattr(self, "guide_footer_button", None), self.mode == "guide", 18),
+        ):
+            if button is not None and button.winfo_exists() and getattr(button, "_nav_current", None) != current:
+                button._nav_current = current
+                button.config(font=(FONT, size, "bold" if current else "normal"))
 
     def render(self):
         self.cancel_intent()
@@ -1026,23 +1032,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         if not self.banner.winfo_manager():
             self.banner.pack(fill="x", padx=24, pady=(8, 6))
         self.clock.pack_forget()
-        if getattr(self, "advanced_page", None):
-            self.tools_footer_button.pack_forget()
-        elif not self.tools_footer_button.winfo_manager():
-            self.tools_footer_button.pack(side="right", padx=(0, 12), pady=8)
-        if self.mode == "guide":
-            self.guide_footer_button.pack_forget()
-        elif not self.guide_footer_button.winfo_manager():
-            placement = (
-                {"before": self.tools_footer_button}
-                if self.tools_footer_button.winfo_manager()
-                else {}
-            )
-            self.guide_footer_button.pack(side="right", pady=8, **placement)
-        if self.tools_footer_button.winfo_manager():
-            self.tools_footer_button.pack_configure(
-                padx=(0, 12) if self.guide_footer_button.winfo_manager() else 0
-            )
         if not self.footer.winfo_manager():
             self.footer.pack(side="bottom", fill="x", padx=24, pady=(8, 10))
         if (
@@ -1058,6 +1047,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             )
         # Blank display unmaps the shell too. Retained tool pages still need it shown.
         self.body.pack(fill="both", expand=True, padx=24)
+        self.update_navigation_buttons()
         if self.idle_active:
             self.install_wake_bindings()
 
@@ -1685,7 +1675,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 return
             acknowledgement.config(state="disabled")
             buttons[0].config(state="disabled")
-            buttons[1].config(state="disabled", disabledforeground=self.selected_ink)
+            buttons[1].config(state="disabled", disabledforeground=self.muted)
 
         buttons = self.row_buttons(
             content,
@@ -1705,9 +1695,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             checked = acknowledged.get()
             buttons[1].config(
                 state="normal" if checked else "disabled",
-                bg=self.accent if checked else self.control,
-                fg=self.selected_ink if checked else self.ink,
-                highlightbackground=self.accent if checked else self.border,
+                bg=self.control,
+                fg=self.ink,
+                highlightbackground=self.control,
             )
 
         update_confirmation()

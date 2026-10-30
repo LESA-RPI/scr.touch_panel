@@ -202,7 +202,6 @@ def test_slider_retained_shapes_follow_pointer_focus_and_disabled_state(
     track, fill, thumb, *grips = items
     slider.focused = True
     slider.bindings["<FocusIn>"](SimpleNamespace())
-    assert slider.shapes[thumb]["outline"] == "accent"
     assert slider.shapes[thumb]["width"] == 2
     pointer = lambda point: SimpleNamespace(
         x=24 if vertical else point, y=point if vertical else 24
@@ -210,8 +209,8 @@ def test_slider_retained_shapes_follow_pointer_focus_and_disabled_state(
     slider.press(pointer(26))
     assert slider.variable.get() == slider.start
     assert slider.shapes[fill]["state"] == "hidden"
-    assert slider.shapes[thumb]["fill"] == "accent"
-    assert all(slider.shapes[key]["fill"] == "background" for key in grips)
+    assert slider.pressed
+    assert all(slider.shapes[key]["fill"] != slider.shapes[thumb]["fill"] for key in grips)
     slider.move(pointer(174))
     assert slider.variable.get() == slider.end
     assert slider.shapes[fill]["state"] == "normal"

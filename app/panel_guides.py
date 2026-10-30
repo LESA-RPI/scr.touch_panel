@@ -4,7 +4,7 @@ from help_reference import commands as reference_commands
 import json
 from pathlib import Path
 
-GUIDE_SECTIONS = (("Explore the room", "room"), ("Using the controls", "controls"))
+GUIDE_SECTIONS = (("Room tour", "room"), ("Control help", "controls"))
 
 DEMO = (
     {
@@ -18,16 +18,16 @@ DEMO = (
         ],
         "text": "Use Lights on and Lights off on Home for everyday lighting.\n\n"
         "Room tools → Lighting brings White light, Scenes, Programmes and Channels together. Opening a tab does not change the lights.\n\n"
-        "A highlighted button shows the last confirmed setting. If a result is unconfirmed, do not repeat it. Check connection reads current lighting without changing it; ask the room host if controls stay unavailable.",
+        "Last confirmed shows the most recent controller readback and its age. If a result is unconfirmed, do not repeat it. Check connection reads current lighting without changing it; ask the room host if controls stay unavailable.",
     },
     {
         "section": "controls",
         "title": "Room controls",
         "icon": "home",
-        "caption": "Everyday lighting, blinds and preferences",
+        "caption": "Lighting, blinds and preferences",
         "links": [
             {"label": "Open Home", "page": "home"},
-            {"label": "Screen & controls", "page": "screen"},
+            {"label": "Open Screen & controls", "page": "screen"},
         ],
         "text": "Home opens the everyday room page. Opening a page does not change the lights.\n\n"
         "Lift blinds, Open slats and Close & lower are on Home. Movement is locked by default and requires a connected controller. Screen & controls explains availability and saves whether the controls are shown.\n\n"
@@ -39,8 +39,8 @@ DEMO = (
         "icon": "experiment",
         "caption": "Instructions, markers and recording",
         "links": [
-            {"label": "Experiment mode", "page": "experiment"},
-            {"label": "System & help", "page": "system"},
+            {"label": "Open Experiment mode", "page": "experiment"},
+            {"label": "Open System & help", "page": "system"},
         ],
         "text": "Experiment mode guides a repeatable sequence of instructions and saves panel annotations.\n\n"
         "It does not start a recorder. Arrange recording separately. An experiment must reserve lighting before it starts, then close its workers and return verified everyday control when finished.\n\n"
@@ -52,8 +52,8 @@ DEMO = (
         "icon": "health",
         "caption": "Panel, services and weather",
         "links": [
-            {"label": "System & help", "page": "system"},
-            {"label": "Date & weather", "page": "clock"},
+            {"label": "Open System & help", "page": "system"},
+            {"label": "Open Date & weather", "page": "clock"},
         ],
         "text": "Beta and the room-network website share one controller. Join the room Wi-Fi before opening the website; the guide shows the connection details.\n\n"
         "The lighting status explains when controls are ready, reserved for an experiment, checking or unconfirmed. Website offline means the page cannot reach the panel. Open System & help for guidance.\n\n"
@@ -76,8 +76,7 @@ DEMO = (
         "actions": True,
         "icon": "on",
         "caption": "Ten lights, eight channels",
-        "text": "Ten lights mix these eight channels into white light and colour scenes. Gradient creates a colour pattern across the room.\n\n"
-        "A confirmed drive setting is not a measurement of brightness or colour at every seat.",
+        "text": "Ten lights mix eight channels into white light and colour scenes. Gradient spreads colour across the room. Values are drive settings, not measured brightness.",
         "links": [{"label": "Open Lighting", "page": "lighting"}],
     },
     {

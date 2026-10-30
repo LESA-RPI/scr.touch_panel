@@ -633,33 +633,33 @@
   "themes": {
     "light": {
       "bg": "#ffffff",
-      "surface": "#ffffff",
-      "ink": "#12384b",
-      "muted": "#476373",
-      "control": "#edf1f4",
-      "border": "#cbd6df",
-      "accent": "#176b72",
+      "surface": "#f5f6f7",
+      "ink": "#24292d",
+      "muted": "#596269",
+      "control": "#e0e5e8",
+      "border": "#c9ced2",
+      "accent": "#364047",
       "selected_ink": "#ffffff",
-      "accent_pressed": "#10575e",
-      "pressed": "#dde8e8",
-      "icon_colour": "#386a73",
-      "good": "#23794c",
+      "accent_pressed": "#444f57",
+      "pressed": "#d2d9dd",
+      "icon_colour": "#515d65",
+      "good": "#1d6f44",
       "warning": "#875709",
       "weather_warm": "#a16a24",
       "weather_cool": "#3b7590"
     },
     "dark": {
       "bg": "#171717",
-      "surface": "#171717",
+      "surface": "#202020",
       "ink": "#f2f2f2",
       "muted": "#bdbdbd",
-      "control": "#292929",
-      "border": "#454545",
-      "accent": "#76cfc5",
-      "selected_ink": "#172624",
-      "accent_pressed": "#a2dfd8",
+      "control": "#303030",
+      "border": "#4d4d4d",
+      "accent": "#d2d2d2",
+      "selected_ink": "#202020",
+      "accent_pressed": "#f2f2f2",
       "pressed": "#414141",
-      "icon_colour": "#8ccfc8",
+      "icon_colour": "#c7cbce",
       "good": "#89caa2",
       "warning": "#e8b86a",
       "weather_warm": "#e5b874",
@@ -861,20 +861,20 @@
           "page": "home"
         }
       ],
-      "text": "Use Lights on and Lights off on Home for everyday lighting.\n\nRoom tools → Lighting brings White light, Scenes, Programmes and Channels together. Opening a tab does not change the lights.\n\nA highlighted button shows the last confirmed setting. If a result is unconfirmed, do not repeat it. Check connection reads current lighting without changing it; ask the room host if controls stay unavailable."
+      "text": "Use Lights on and Lights off on Home for everyday lighting.\n\nRoom tools → Lighting brings White light, Scenes, Programmes and Channels together. Opening a tab does not change the lights.\n\nLast confirmed shows the most recent controller readback and its age. If a result is unconfirmed, do not repeat it. Check connection reads current lighting without changing it; ask the room host if controls stay unavailable."
     },
     {
       "section": "controls",
       "title": "Room controls",
       "icon": "home",
-      "caption": "Everyday lighting, blinds and preferences",
+      "caption": "Lighting, blinds and preferences",
       "links": [
         {
           "label": "Open Home",
           "page": "home"
         },
         {
-          "label": "Screen & controls",
+          "label": "Open Screen & controls",
           "page": "screen"
         }
       ],
@@ -887,11 +887,11 @@
       "caption": "Instructions, markers and recording",
       "links": [
         {
-          "label": "Experiment mode",
+          "label": "Open Experiment mode",
           "page": "experiment"
         },
         {
-          "label": "System & help",
+          "label": "Open System & help",
           "page": "system"
         }
       ],
@@ -904,11 +904,11 @@
       "caption": "Panel, services and weather",
       "links": [
         {
-          "label": "System & help",
+          "label": "Open System & help",
           "page": "system"
         },
         {
-          "label": "Date & weather",
+          "label": "Open Date & weather",
           "page": "clock"
         }
       ],
@@ -929,7 +929,7 @@
       "actions": true,
       "icon": "on",
       "caption": "Ten lights, eight channels",
-      "text": "Ten lights mix these eight channels into white light and colour scenes. Gradient creates a colour pattern across the room.\n\nA confirmed drive setting is not a measurement of brightness or colour at every seat.",
+      "text": "Ten lights mix eight channels into white light and colour scenes. Gradient spreads colour across the room. Values are drive settings, not measured brightness.",
       "links": [
         {
           "label": "Open Lighting",
@@ -958,11 +958,11 @@
   ],
   "guide_sections": [
     [
-      "Explore the room",
+      "Room tour",
       "room"
     ],
     [
-      "Using the controls",
+      "Control help",
       "controls"
     ]
   ],

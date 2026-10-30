@@ -44,7 +44,7 @@ def blind_readiness(enabled, connected, busy=False):
             "connected": bool(connected),
             "available": False,
             "detail": "Disabled",
-            "reason": "Controls locked in settings",
+            "reason": "Locked in settings",
         }
     if not connected:
         return {
@@ -52,7 +52,7 @@ def blind_readiness(enabled, connected, busy=False):
             "connected": False,
             "available": False,
             "detail": "Disabled",
-            "reason": "Controller not connected",
+            "reason": "Not connected",
         }
     if busy:
         return {

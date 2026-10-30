@@ -81,13 +81,13 @@ def test_blind_permissions_appear_when_helper_connects_on_open_settings(view):
                 yield from walk(child)
         return [widget for widget in walk(view.body)
                 if isinstance(widget, panel.tk.Button) and widget.winfo_ismapped()
-                and widget.cget("text") in ("Locked", "Unlocked")]
+                and widget.cget("text") in ("Lock blind movement", "Unlock blind movement")]
     assert not choices()
     view.worker_ready = True
     view.worker = SimpleNamespace(poll=lambda: None)
     view.adapter_metadata({"blinds_connected": True, "capabilities": {"gradient": True}})
     view.root.update()
-    assert len(choices()) == 2 and not view.blinds_enabled
+    assert len(choices()) == 1 and not view.blinds_enabled
     view.adapter_metadata({"blinds_connected": False})
     view.root.update()
     assert not choices()

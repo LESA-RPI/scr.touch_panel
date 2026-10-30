@@ -9,6 +9,11 @@ remove more than they add.
 - **Consistency:** the panel and website share behaviour, wording and the version
   in app/panel_version.py. Headers say Beta; Git/build details appear only in About.
   Legacy (the original app) stays intact as the fallback.
+- **Design:** no coloured active edges, selection rails or decorative highlight
+  strips. Use clear typography, spacing and explicit state text. Prefer one
+  current-value selector for saved preferences to rows of toggle-like tiles.
+  Keep navigation obvious for newcomers and direct actions distinct from page links;
+  adapt the layout to touch panel, phone and desktop instead of copying it.
 - **Room safety:** one controller owns each piece of hardware. Never restart
   ROS/Status or install packages on room machines to make something work.
   Uncertain light results block changes and retries until checked. Before a live

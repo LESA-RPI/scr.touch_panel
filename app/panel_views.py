@@ -26,7 +26,7 @@ class PanelViews:
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 28))
         right.grid(row=0, column=1, sticky="nsew", padx=(28, 0))
         controls = tk.Frame(left, bg=self.bg)
-        controls.pack(fill="x", pady=(20, 12))
+        controls.pack(fill="x", pady=(8, 12))
         controls.columnconfigure(1, minsize=16)
         groups = (
             ("Lights", "Blinds") if self.blinds_display == "disabled" else ("Lights",)
@@ -118,13 +118,13 @@ class PanelViews:
                 self.advanced_page == page,
             )
             button.config(
-                font=(self.font_family, 16),
+                font=(self.font_family, 16, "bold" if self.advanced_page == page else "normal"),
                 anchor="w",
                 padx=12,
                 pady=8,
                 image=self.icon(
                     "date" if page == "clock" else page,
-                    self.selected_ink if self.advanced_page == page else self.ink,
+                    self.ink,
                     24,
                 ),
                 compound="left",
@@ -141,19 +141,18 @@ class PanelViews:
         self.remember_detail()
         for button, page in self.advanced_sidebar_buttons:
             selected = self.advanced_page == page
-            colour = self.accent if selected else self.control
-            if button.cget("bg") != colour:
+            if getattr(button, "_tool_current", None) != selected:
+                button._tool_current = selected
                 button.config(
-                    bg=colour,
-                    fg=self.selected_ink if selected else self.ink,
-                    highlightbackground=self.accent if selected else self.border,
-                    activebackground=(
-                        self.accent_pressed if selected else self.pressed_colour()
-                    ),
-                    activeforeground=self.selected_ink if selected else self.ink,
+                    font=(self.font_family, 16, "bold" if selected else "normal"),
+                    bg=self.control,
+                    fg=self.ink,
+                    highlightbackground=self.control,
+                    activebackground=self.pressed_colour(),
+                    activeforeground=self.ink,
                     image=self.icon(
                         "date" if page == "clock" else page,
-                        self.selected_ink if selected else self.ink,
+                        self.ink,
                         24,
                     ),
                 )
@@ -273,8 +272,8 @@ class PanelViews:
             ],
             height=54,
         )
-        for button in tabs:
-            button.config(font=(self.font_family, 17))
+        for button, (label, key) in zip(tabs, LIGHTING_TABS):
+            button.config(font=(self.font_family, 17, "bold" if self.lighting_tab == key else "normal"))
         if self.lighting_tab == "white":
             row = tk.Frame(self.body, bg=self.bg)
             row.pack(fill="x", pady=(2, 8))
@@ -541,6 +540,32 @@ class PanelViews:
         self.wrap_label(annotation).pack(fill="x")
         self.update_session()
 
+    def preference_menu(self, parent, title, choices, current, choose):
+        row = tk.Frame(parent, bg=parent.cget("bg"))
+        row.pack(fill="x", pady=(10, 6))
+        self.label(row, title, 18).pack(side="left")
+        values = dict(choices)
+        selected = tk.StringVar(
+            master=self.root,
+            value=next(label for label, value in choices if value == current),
+        )
+        menu = tk.OptionMenu(row, selected, *values, command=lambda label: choose(values[label]))
+        menu._preference_value = selected
+        menu.config(
+            font=(self.font_family, 18), bg=self.control, fg=self.ink,
+            activebackground=self.pressed_colour(), activeforeground=self.ink,
+            highlightthickness=1, highlightbackground=self.border, highlightcolor=self.ink,
+            bd=0, padx=14, pady=10, width=240,
+            image=self.icon("dropdown", self.ink, 24), compound="right", indicatoron=False,
+        )
+        menu["menu"].config(
+            font=(self.font_family, 20), bg=self.control, fg=self.ink,
+            activebackground=self.pressed_colour(), activeforeground=self.ink,
+            activeborderwidth=5,
+        )
+        menu.pack(side="right")
+        return menu
+
     def settings_contents(self, content):
         key = self.settings_category
         if key == "appearance":
@@ -548,54 +573,30 @@ class PanelViews:
             self.label(content, "Choose how this panel looks.", 18, True).pack(
                 anchor="w", pady=(0, 8)
             )
-            self.row_buttons(
-                content,
-                [
-                    (
-                        name.title(),
-                        lambda name=name: self.choose_theme(name),
-                        self.theme_choice == name,
-                    )
-                    for name in ("light", "dark", "auto")
-                ],
+            self.preference_menu(
+                content, "Theme", [("Light", "light"), ("Dark", "dark"), ("Automatic", "auto")],
+                self.theme_choice, self.choose_theme,
             )
-            self.label(content, "Automatic schedule", 21).pack(anchor="w", pady=(18, 4))
-            schedule = "Light from %02d:%02d · Dark from %02d:%02d" % (
-                divmod(self.args.light_at, 60) + divmod(self.args.dark_at, 60)
-            )
-            self.label(content, schedule, 20).pack(anchor="w", pady=(0, 6))
-            self.row_buttons(
-                content,
-                [
-                    (
-                        text,
-                        lambda field=field, delta=delta: self.adjust_schedule(
-                            field, delta
-                        ),
-                        False,
-                    )
-                    for text, field, delta in [
-                        ("Light −1 h", "light_at", -60),
-                        ("Light +1 h", "light_at", 60),
-                        ("Dark −1 h", "dark_at", -60),
-                        ("Dark +1 h", "dark_at", 60),
-                    ]
-                ],
-            )
-            note = self.label(
-                content,
-                "Auto waits for idle time. Experiment mode keeps its theme.",
-                17,
-                True,
-            )
-            self.wrap_label(note).pack(fill="x", pady=(8, 0))
-            self.label(content, "Touch explanations", 21).pack(anchor="w", pady=(18, 4))
-            self.row_buttons(
-                content,
-                [
-                    ("Tips on", lambda: self.choose_tips(True), self.help_on),
-                    ("Tips off", lambda: self.choose_tips(False), not self.help_on),
-                ],
+            if self.theme_choice == "auto":
+                self.label(content, "Automatic schedule", 21).pack(anchor="w", pady=(18, 4))
+                schedule = "Light from %02d:%02d · Dark from %02d:%02d" % (
+                    divmod(self.args.light_at, 60) + divmod(self.args.dark_at, 60)
+                )
+                self.label(content, schedule, 20).pack(anchor="w", pady=(0, 6))
+                self.row_buttons(
+                    content,
+                    [(text, lambda field=field, delta=delta: self.adjust_schedule(field, delta), False)
+                     for text, field, delta in [
+                         ("Light −1 h", "light_at", -60), ("Light +1 h", "light_at", 60),
+                         ("Dark −1 h", "dark_at", -60), ("Dark +1 h", "dark_at", 60),
+                     ]],
+                )
+                self.wrap_label(self.label(
+                    content, "Auto waits for idle time. Experiment mode keeps its theme.", 17, True
+                )).pack(fill="x", pady=(8, 0))
+            self.preference_menu(
+                content, "Touch explanations", [("On", True), ("Off", False)],
+                self.help_on, self.choose_tips,
             )
         elif key == "clock":
             self.label(content, "Date & weather", 25).pack(anchor="w", pady=(0, 8))
@@ -605,28 +606,13 @@ class PanelViews:
             self.label(
                 content, getattr(self.args, "timezone", "System timezone"), 18, True
             ).pack(anchor="w", pady=(0, 10))
-            self.row_buttons(
-                content,
-                [
-                    (
-                        name + "-hour",
-                        lambda name=name: self.choose_clock(name),
-                        self.clock_24 == (name == "24"),
-                    )
-                    for name in ("12", "24")
-                ],
+            self.preference_menu(
+                content, "Time format", [("12-hour", "12"), ("24-hour", "24")],
+                "24" if self.clock_24 else "12", self.choose_clock,
             )
-            self.label(content, "Weather temperature", 21).pack(anchor="w", pady=(18, 4))
-            self.row_buttons(
-                content,
-                [
-                    (
-                        label,
-                        lambda unit=unit: self.choose_temperature(unit),
-                        self.temperature_unit == unit,
-                    )
-                    for label, unit in [("Celsius (°C)", "c"), ("Fahrenheit (°F)", "f")]
-                ],
+            self.preference_menu(
+                content, "Temperature", [("Celsius (°C)", "c"), ("Fahrenheit (°F)", "f")],
+                self.temperature_unit, self.choose_temperature,
             )
             self.label(
                 content, "Display units only. No room settings change.", 17, True
@@ -640,12 +626,9 @@ class PanelViews:
                 content, "Tips explain controls in the bottom message area.", 18
             )
             self.wrap_label(note).pack(fill="x", pady=(0, 8))
-            self.row_buttons(
-                content,
-                [
-                    ("Tips on", lambda: self.choose_tips(True), self.help_on),
-                    ("Tips off", lambda: self.choose_tips(False), not self.help_on),
-                ],
+            self.preference_menu(
+                content, "Touch explanations", [("On", True), ("Off", False)],
+                self.help_on, self.choose_tips,
             )
             note = self.label(
                 content,
@@ -659,23 +642,9 @@ class PanelViews:
             self.wrap_label(note).pack(fill="x", pady=(12, 8))
         elif key == "screen":
             self.label(content, "Screen & controls", 25).pack(anchor="w", pady=(0, 4))
-            self.label(content, "Screen saver", 19).pack(anchor="w", pady=(10, 2))
-            self.row_buttons(
-                content,
-                [
-                    (
-                        label,
-                        lambda seconds=seconds: self.choose_idle(seconds),
-                        self.idle_timeout == seconds,
-                    )
-                    for label, seconds in [
-                        ("Off", 0),
-                        ("1 min", 60),
-                        ("5 min", 300),
-                        ("15 min", 900),
-                    ]
-                ],
-                height=50,
+            self.preference_menu(
+                content, "Screen saver", [("Off", 0), ("1 minute", 60), ("5 minutes", 300), ("15 minutes", 900)],
+                self.idle_timeout, self.choose_idle,
             )
             self.label(
                 content,
@@ -700,22 +669,14 @@ class PanelViews:
             ).pack(anchor="w", pady=(0, 6))
             self.label(content, "Blind controls", 19).pack(anchor="w", pady=(18, 2))
             if self.blind_state()["connected"]:
-                self.row_buttons(
+                permission = self.button(
                     content,
-                    [
-                        (
-                            "Locked",
-                            lambda: self.choose_blinds_enabled(False),
-                            not self.blinds_enabled,
-                        ),
-                        (
-                            "Unlocked",
-                            lambda: self.choose_blinds_enabled(True),
-                            self.blinds_enabled,
-                        ),
-                    ],
-                    height=50,
+                    "Lock blind movement" if self.blinds_enabled else "Unlock blind movement",
+                    lambda: self.choose_blinds_enabled(not self.blinds_enabled)
+                    if self.blind_state()["connected"] else None,
                 )
+                permission.config(font=(self.font_family, 17), pady=10)
+                permission.pack(anchor="w", pady=(6, 8))
             self.wrap_label(
                 self.label(
                     content,
@@ -728,22 +689,9 @@ class PanelViews:
                     True,
                 )
             ).pack(fill="x", pady=(0, 6))
-            self.label(content, "Blinds on Home", 19).pack(anchor="w", pady=(18, 2))
-            self.row_buttons(
-                content,
-                [
-                    (
-                        "Show",
-                        lambda: self.choose_blinds_display("disabled"),
-                        self.blinds_display == "disabled",
-                    ),
-                    (
-                        "Hide",
-                        lambda: self.choose_blinds_display("hidden"),
-                        self.blinds_display == "hidden",
-                    ),
-                ],
-                height=50,
+            self.preference_menu(
+                content, "Blinds on Home", [("Shown", "disabled"), ("Hidden", "hidden")],
+                self.blinds_display, self.choose_blinds_display,
             )
         else:
             self.about_contents(content)
@@ -807,6 +755,8 @@ class PanelViews:
         if image is not None:
             self.icon_cache["website-qr"] = image
             tk.Label(card, image=image, bg="#ffffff", bd=0, padx=8, pady=8).pack(anchor="e")
-        self.label(card, "2. Scan for room website", 17).pack(anchor="e", pady=(12, 2))
+        scan = self.label(card, "2. Scan for room website", 17)
+        scan.config(wraplength=232)
+        scan.pack(anchor="e", pady=(12, 2))
         address = WEBSITE_URL.split("//")[1].rstrip("/")
         self.label(card, address, 15, True).pack(anchor="e")
