@@ -315,7 +315,10 @@ class PanelGuidance:
                 result.pack(side="right")
 
     def open_guide(self):
-        self.show("guide")
+        if self.mode == "guide":
+            self.choose_guide(-1)
+        else:
+            self.show("guide")
 
     def choose_guide(self, index):
         self.guide_page = index

@@ -247,6 +247,11 @@ function preferencesWebsite(page) {
   assert.equal(navigation.run('anchors[2]["aria-current"]'), 'page');
   assert.equal(navigation.run('document.title'), 'Sensors in the ceiling · Smart Conference Room');
   assert.equal(navigation.run('focusedHeading'), navigation.run('displayedHeading'), 'Page focus follows the actual topic heading');
+  assert.equal(navigation.run('anchors[2].hash'), '#guide', 'Persistent Guide navigation opens topics from a long leaf');
+  navigation.run('const previousGuideLeaf = lastGuide; location.hash = anchors[2].hash; layout();');
+  assert.equal(navigation.run('view'), 'guide');
+  navigation.run("location.hash = '#' + previousGuideLeaf; layout();");
+  assert.equal(navigation.run('view'), 'guide-1', 'Returning through hash history still restores the leaf');
   navigation.run('location.hash = anchors[1].hash; layout();');
   assert.equal(navigation.run('view'), 'tools-lighting-scenes');
   assert.equal(navigation.run('anchors[2].hash'), '#guide-1', 'Opening a tool preserves the last guide topic');

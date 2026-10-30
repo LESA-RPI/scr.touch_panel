@@ -247,7 +247,7 @@ function layout() {
   root.replaceChildren();
   for (const a of document.querySelectorAll('.header a')) {
     if (a.hash.startsWith('#tools-')) a.hash = '#' + lastTools;
-    if (a.hash.startsWith('#guide')) a.hash = '#' + lastGuide;
+    if (a.hash.startsWith('#guide')) a.hash = '#' + (view.startsWith('guide') ? 'guide' : lastGuide);
     a.setAttribute(
       'aria-current',
       a.hash.slice(1) === view ||
