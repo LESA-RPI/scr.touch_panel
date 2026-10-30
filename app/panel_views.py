@@ -4,7 +4,7 @@ from room_controls import BLIND_ACTIONS
 from panel_version import BUILD_COMMIT
 from room_controls import LIGHTING_TABS
 from room_controls import UNAVAILABLE_LIGHTING, BLINDS_UNAVAILABLE
-from room_controls import SCENES, GRADIENT, WEBSITE_URL
+from room_controls import SCENES, GRADIENT, WEBSITE_URL, PREVIOUS_ON
 from touch_slider import TouchSlider
 from panel_version import VERSION
 import os
@@ -91,6 +91,8 @@ class PanelViews:
         self.wrap_label(date).pack(fill="x", pady=(0, 6))
         self.weather_contents(right, compact=True)
         self.update_light_buttons()
+        if self.ownership_blocked():
+            self.status_text.set("Lighting ownership needs to return before these controls can be used.")
 
     def advanced_view(self):
         shell = self.body
@@ -273,9 +275,15 @@ class PanelViews:
         for button in tabs:
             button.config(font=(self.font_family, 17))
         if self.lighting_tab == "white":
+            row = tk.Frame(self.body, bg=self.bg)
+            row.pack(fill="x", pady=(2, 8))
+            button = self.button(row, PREVIOUS_ON["label"], self.previous_on)
+            button.config(font=(self.font_family, 17), pady=6)
+            button.pack(side="left")
+            self.light_buttons.append(button)
             self.label(
-                self.body, "Selected values apply after your touch settles.", 16, True
-            ).pack(anchor="w", pady=(2, 8))
+                row, PREVIOUS_ON["detail"], 14, True
+            ).pack(side="left", padx=12)
             self.slider_group(
                 self.body,
                 "Colour temperature",
@@ -299,7 +307,7 @@ class PanelViews:
             self.feedback_card(self.body)
         elif self.lighting_tab == "scenes":
             self.label(
-                self.body, "Original scene names and mixtures from Legacy.", 16, True
+                self.body, "Choose a room lighting scene.", 16, True
             ).pack(anchor="w", pady=(2, 8))
             grid = tk.Frame(self.body, bg=self.bg)
             grid.pack(fill="x")
@@ -336,7 +344,7 @@ class PanelViews:
         elif self.lighting_tab == "programmes":
             self.programme_buttons = self.row_buttons(
                 self.body,
-                [("Original " + name, lambda name=name: self.programme_command(name), False)
+                [(name, lambda name=name: self.programme_command(name), False)
                  for name in ("Sun", "Circ")], height=74,
             )
             self.programme_buttons.extend(self.row_buttons(
@@ -346,7 +354,7 @@ class PanelViews:
                 button._programme = name
             self.wrap_label(self.label(
                 self.body,
-                "Uses the original room programmes. The service acknowledges requests; live programme status is unavailable. Manual lighting stops programmes before applying.",
+                "Start and stop lighting programmes. Live programme status is unavailable. Manual lighting stops programmes before applying.",
                 16, True,
             )).pack(fill="x", pady=(12, 8))
             self.feedback_card(self.body)
@@ -618,7 +626,7 @@ class PanelViews:
                 content,
                 "White-light colour: lower K is warmer; higher K is cooler.\n"
                 "Light level: controller input, not measured brightness.\n"
-                "Fid / Sat / Dul: saved eight-channel mixtures from Legacy.\n"
+                "Lights on applies Fid. Warm white selects 3500 K, level 1000.\n"
                 "Selected values send automatically after your touch settles.\n"
                 "Recent settings shows the last confirmed light settings.",
                 18,

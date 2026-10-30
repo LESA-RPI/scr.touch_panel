@@ -1,7 +1,7 @@
 # Panel operation
 
-The root `main.py` is the separate Original fallback; `app/` provides the shared
-Beta and familiar Legacy layouts. Keep the installed original checkout, working directory and ROS
+The root `main.py` is the unchanged Legacy application; `app/` provides Beta and
+its website bridge. Keep the installed original checkout, working directory and ROS
 environment intact. README owns the user overview; this guide owns operating
 procedures. `docs/interface.md` owns data and adapter contracts.
 
@@ -51,8 +51,8 @@ available. Programmes exposes the original Sun/Circ requests through the existin
 Status service when configured below. Start/Stop acceptance is not programme
 running or completion confirmation. Before an explicit manual lighting action,
 the helper requests both programmes stop and qualifies stable drive readback;
-uncertain results block further changes. Opening pages or switching Beta/Legacy
-does not stop programmes or send lighting setters. Blind commands use the same
+uncertain results block further changes. Opening Beta pages does not stop
+programmes or send lighting setters. Blind commands use the same
 helper, with service acknowledgements rather than measured physical positions.
 
 System & help explains each reference command's computer, purpose and expected
@@ -61,17 +61,13 @@ step or the complete topic and provides documentation links. Neither interface
 executes these references. Service-start commands use `cd ... && python ...` so
 a failed directory change cannot launch the script from another directory.
 
-Normal Legacy is `Panel.mode == "classic"`: a familiar layout inside the same Tk
-process using the same helper. Beta → Legacy → Home changes presentation only;
-it does not release ownership, reinitialize ROS, change light settings or stop
-programmes. Website lighting remains available in this view under the usual guards.
-Normal Legacy navigation can continue while instructions run; actuators stay locked.
-
-System & help exposes Original fallback separately. It waits for confirmed
-ownership release and exact helper exit before showing the untouched original
-application. Website controls then pause and offer Return panel to Home. This is
-the emergency path, not the normal Legacy shortcut. Its matching top strip
-identifies Original fallback and retains access to Home.
+Legacy opens the unchanged original app after preserving helper release and
+confirmed exit; website lighting pauses. Home checks the original interface,
+stops Sun/Circ and reads stable settings before automatically returning to Ready.
+No old scene is restored. A failed interface/log check lets the same Legacy owner
+reopen. Uncertainty after programme stopping or readback blocks both control paths
+until staff recovery. The [interface contract](docs/interface.md#optional-browser-gateway-version-1)
+defines these checks.
 
 The helper has a ten-second parent lease and 30-second operation budget, with
 individual service calls bounded to at most twelve seconds. Persistent control
@@ -81,12 +77,60 @@ writes and automatic trial restoration. Never retry
 an uncertain write. Inspect the private `.lights-*.jsonl` receipt and coordinate
 with staff before controlling again.
 
-Deadlines do not bound filesystem stalls. An initializing helper is cancelled
-after 30 seconds without sending a lighting command. The normal UI
-waits for ownership release only for Original fallback, shutdown and power actions;
+Deadlines do not bound filesystem stalls.
+
+Recovery checkpoints use one ordered background writer. The UI remains responsive
+while saving; a command is not dispatched until its checkpoint is durable, and
+Legacy input remains covered until its handoff is saved. A save taking more than
+ten seconds before dispatch or Legacy handoff blocks that action without a later
+retry. Confirmations and experiment ownership remain unavailable until saved.
+Power actions also wait for recovery saves. Never remove durability checks to
+improve speed. The private journal records widget-update time as `render_ms` and
+rate-limited callback delays over 200 ms; these are not physical touch latency.
+
+An initializing helper is cancelled after 30 seconds without sending a lighting
+command. The normal UI
+waits for ownership release for Legacy, experiment handoff, shutdown and power actions;
 a process exit alone cannot confirm an in-flight
 lighting result. A helper still initializing can be cancelled without a write.
 `SIGKILL` or host power loss cannot guarantee bounded-trial restoration.
+
+### Experiments and returning everyday control
+
+Run the CLI as the panel user with its configured private control socket. Use a
+fresh private token and a generic label. Reserve before starting an external
+lighting worker; wait for success, then send heartbeats while it owns lighting.
+
+```sh
+TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
+python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" reserve --token "$TOKEN" --label Experiment
+python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" heartbeat --token "$TOKEN"
+```
+
+After stopping the worker and verifying no remote lighting request remains pending:
+
+```sh
+python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" finish --token "$TOKEN" --owner-closed --pending-clear
+```
+
+Successful finish means verified Ready controls with the current scene preserved.
+A failed or timed-out finish is incomplete cleanup: do not start another worker or
+repeat the request. Crashes, expired heartbeats and restarts never reclaim lighting.
+
+### When controls are unavailable
+
+Staff check the deployed version, current owner and private receipts. Stop previous
+workers/programmes and verify no remote lighting handler remains pending; a stable
+read alone cannot prove that. Keep Legacy covered on Home during recovery.
+
+```sh
+python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" status
+python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" recover --owner-closed --pending-clear
+```
+
+The flags acknowledge those completed checks. The website cannot make them.
+Never restart ROS/Status, delete ownership state or retry an uncertain setter to
+clear a block. Record deployment/recovery results in the private `.local/README.md`.
 
 Blank screen displays black pixels. A stationary two-second press returns to the
 previous view; movement beyond 40 pixels cancels. The backlight remains powered.
@@ -164,7 +208,8 @@ The fixed header badge reflects the existing lighting adapter state, with no ext
 network polling. Its icons and labels distinguish Ready, Sending, Checking,
 Uncertain and Offline. Preview never reports Ready; Legacy shows its own mode.
 
-Room tools → System & help contains instructions, not remote command buttons.
+Room tools → System & help offers read-only Check connection alongside panel
+controls and reference instructions. Reference commands are never executed by the interface.
 [app/panel_guides.py](app/panel_guides.py) owns the concise displayed guidance.
 The room's installed `startROS.py` and `startStatus.py` were inspected on
 2026-10-14: each destroys its existing named tmux session before rebuilding it.
@@ -195,16 +240,17 @@ SCR_STATUS_URL=http://approved-status-service:5000
 
 Use existing, verified deployment values. Keep this file mode 0600 and outside
 Git. Beta requires Python 3.11+, Tk and Pillow; the launcher checks these before
-sourcing ROS or starting Original fallback. `SCR_PANEL_PYTHON` defaults to `/usr/bin/python3`.
+sourcing ROS or starting Legacy. `SCR_PANEL_PYTHON` defaults to `/usr/bin/python3`.
 `SCR_STATUS_URL` is the private base URL of the existing Status owner, not a new
 service to install or restart. The launcher passes it as `--status-url` to Beta
 and its helper. Direct launches can use the same option. Use an approved HTTP(S)
 address without embedded credentials, query or fragment; keep real addresses out
 of Git. Only the fixed original `sun`/`circ` Run/Kill requests are admitted.
 Omitting it leaves programme controls unavailable while ordinary lighting remains
-usable. Capability advertisement identifies configured services, not their health;
+usable. Automatic return from Legacy also requires this existing programme service
+to stop Sun/Circ; without it, the return stays blocked. Capability advertisement identifies configured services, not their health;
 qualify request acceptance and stable readback before a live change.
-Original fallback and the light adapter use independent interpreter settings. The launcher
+Legacy and the light adapter use independent interpreter settings. The launcher
 sources the installed ROS setup, sets the same original
 environment, and checks process working directories before starting `main.py`.
 Its file lock prevents two switchers. Journals and logs stay under
@@ -221,14 +267,9 @@ Exec=/bin/bash /absolute/path/to/current/app/start_panel.sh
 Terminal=false
 ```
 
-The launcher uses `--keep-switcher --duration 0`. The normal Legacy shortcut,
-Escape and a window close show the shared Legacy layout and keep the existing
-helper. Original fallback requires its explicit System & help action or startup
-configuration; it retains the guarded original-application path after helper cleanup.
-Returning from Original fallback reads the current settings without a write.
-If a result is uncertain,
-inspect the receipt before changing lights. Signal shutdown stops the switcher
-and leaves confirmed light settings in place.
+The launcher uses `--keep-switcher --duration 0`. Legacy, Escape and window close
+use the guarded original-application path described above. Signal shutdown stops
+the switcher and leaves confirmed light settings in place.
 
 User autostart runs only after desktop login. Check the actual display manager
 and session before enabling autologin; use that OS's supported configuration.
@@ -371,7 +412,7 @@ trusted subnet.
 
 Enforce roles in the backend, not only by hiding buttons. Do not expose personal
 experiment metadata to visitors. These proposed roles do not secure the existing
-legacy ROS services or change the Original fallback application's access policy.
+legacy ROS services or change the original application's access policy.
 
 Use one shared, documented command/state contract and one command owner. Multiple
 clients may observe; independent browser ROS owners must not compete with Tk.
@@ -426,8 +467,8 @@ types and wire MD5s before enabling writes. The ROS master, native light/blind
 servers and HTTP demo/status endpoints are external dependencies. A Pi image
 does not back them up. Use the room's existing deployment owner and contracts.
 
-Restore acceptance requires desktop login, touch alignment, one shared Beta/Legacy
-process and the retained separate original fallback process, touch-only switching,
+Restore acceptance requires desktop login, touch alignment, one Beta panel
+process and the retained separate original Legacy process, touch-only switching,
 read-only service/status checks, and an
 authorized light-control/restoration trial. Verify original blinds and HTTP demo
 controls through their existing owners when the room permits those actions.
@@ -446,8 +487,8 @@ browser control disabled. The fixed bind address and trusted-client subnet still
 determine who can access the site. No separate staff login is implemented.
 
 Deploy and qualify both compatible releases. Keep the original application and
-room servers running. Normal Beta/Legacy navigation retains the helper; Original
-fallback waits for safe release and helper exit. Preserve its receipts. Restart only the owned browser service after
+room servers running. Legacy waits for safe release and helper exit, then pauses
+website controls. Preserve its receipts. Restart only the owned browser service after
 selecting its release. Check controller availability and receipt handling with a
 same-value display preference, not an actuator command. If the panel bridge is
 unavailable, web controls disable while the panel and guide/help remain usable.
@@ -456,7 +497,7 @@ Common actions and their rejection rules are owned by
 [the interface contract](docs/interface.md#optional-browser-gateway-version-1).
 Changing a website page does not move room devices. Explicit Legacy/display
 controls affect the cabinet. A running instruction session blocks lighting on
-both interfaces until paused. Pause instructions before opening Original fallback, Blank or
+both interfaces until paused. Pause instructions before opening Legacy, Blank or
 clock view on either interface. Home keeps the instruction session running; use
 Room tools → Experiment mode to pause it. Ordinary Beta pages and paused
 instructions leave lighting available through the other interface. The gateway

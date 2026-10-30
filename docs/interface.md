@@ -67,7 +67,7 @@ Requests have:
 }
 ```
 
-Actions are `acquire`, `cct`, `channels`, `gradient`, `programme`, `blind`,
+Actions are `acquire`, `check`, `return_legacy`, `cct`, `channels`, `gradient`, `programme`, `blind`,
 `release` and `heartbeat`.
 Channels takes eight integer percentages in installed channel order:
 Blue 1, Blue 2, Blue 3, Lime, Amber, Orange, Red 1, Red 2.
@@ -92,13 +92,13 @@ acknowledge service acceptance, not measured physical position. This is availabl
 only through the persistent shared owner; an uncertain result disables further
 commands until checked.
 
-Replies echo `version` and `request_id`. States are `ready`, `completed`,
+Replies echo `version` and `request_id`. States are `ready`, `checked`, `completed`,
 `released` or `failed`. Success includes fixture count and relevant baseline,
 words or release flags. Persistent `--keep-settings` acquisition admits any stable
 snapshot and reports its confirmed `power`; `baseline` is null for a custom mix.
 Its release returns `preserved: true, restored: false` without a fixture setter.
-Normal Beta/Legacy navigation retains the same helper without any release/acquire
-cycle. Preserving release applies to Original fallback, shutdown and parent loss. Bounded trials
+Ordinary Beta navigation retains the same helper. Preserving release applies to
+Legacy, experiment handoff, shutdown and parent loss. Bounded trials
 omit that flag, require an exactly restorable preset and retain `restored: true`
 on successful cleanup. Failure includes detail and whether outcome is unknown.
 Unknown extra fields are ignored; unsupported versions are refused.
@@ -107,12 +107,55 @@ Only one request is in flight. Requests are capped at 4096 bytes; buffers at
 8192 bytes. Requests older than the ten-second lease are refused. Both processes
 use the same host monotonic clock. Initialization is the only unsolicited message.
 Recovery receipts include baseline and request/result records.
+Runtime ownership checkpoints are saved by one background writer in FIFO order.
+Public readiness, actuator dispatch and Legacy takeover wait for those saves;
+in-memory state alone cannot authorize a command or an experiment reservation.
+A pre-dispatch save timeout cancels the unsent request; late completion does not
+send it. Helper input uses bounded nonblocking writes on Linux, failing closed
+when its pipe is full. Power execution waits for recovery storage as well.
 
 The same helper has a separate `--status-only` command. It reads the ROS master's
 service graph through one XML-RPC call, then exits without a ROS node or fixture
 queries. The UI bounds that subprocess, refreshes only while System is visible
 and labels the result as advertised service availability. It does not query TOF,
 blinds, HVAC or acquisition data, and does not assess IRMA recorder health.
+
+`check` has empty arguments and returns `checked` after stable read-only scans of
+all ten lights. It cannot resolve an uncertain write or prove remote handlers idle.
+
+## Lighting ownership and recovery
+
+Ownership persists before writes and handoffs. Interrupted work and storage errors
+block writes across restart. Heartbeats older than 60 seconds warn without reclaiming
+ownership. Tokens are stored hashed and excluded from public snapshots.
+
+The same-user mode-0600 socket accepts exactly `op: "lighting_handoff"`, `id`,
+`revision`, `action`, `arguments`, using existing bridge ID/revision/receipt rules.
+HTTP rejects this envelope. Private actions are:
+
+| Action | Exact arguments | Completion condition |
+|---|---|---|
+| `reserve` | `token`, `label` | Preserving helper release and successful exact helper exit; then reserved |
+| `heartbeat` | `token` | Matching active reservation updated; no fixture query |
+| `finish` | `token`, `owner_closed: true`, `pending_clear: true` | Matching reservation, fresh acquisition and normal Ready controls |
+| `recover` | `owner_closed: true`, `pending_clear: true` | Local staff reconciliation, fresh acquisition and normal Ready controls |
+
+Fresh tokens contain 16–128 ASCII letters, digits, underscores or hyphens. Labels
+contain 1–80 characters without controls; omit participant information. Finish/recover
+require operator confirmation that previous workers/programmes stopped and no
+remote request remains pending; stable readback alone cannot establish this.
+
+The [CLI](../WORKFLOWS.md#experiments-and-returning-everyday-control) uses `op: "read"`
+for status. Mutations submit once and wait up to 45 seconds. Reserve/heartbeat
+succeed when reserved; finish/recover only when normal, `can_control` and Ready
+after two matching all-ten scans. Timeout or lost reply never permits a retry.
+
+The public `lighting_recovery` snapshot contains `status`, `title`, `detail`,
+`can_check`, `needs_staff`, `write_blocked`, `heartbeat_stale` and a generic `label`.
+States are `normal`, `writing`, `releasing`, `reserved`, `checking`, `returning`,
+`needs_staff`, `offline`, `legacy`. Public `check_connection` takes no arguments,
+reads only and cannot clear uncertainty or override ownership. The website retains
+unknown receipts until a matching receipt or new owner session; it never resends.
 
 ## Optional weather details
 
@@ -143,23 +186,28 @@ clients query receipts and never automatically repeat commands.
 The shared actions cover on/off, CCT/level, eight channels, admitted presets, Gradient,
 original programme requests, permitted whole-room blinds,
 instruction start/pause/previous/next/known annotations, panel appearance/clock/
-weather/idle preferences, blind permission/visibility, Home, Legacy, Original fallback, clock view and
+weather/idle preferences, blind permission/visibility, Home, Legacy, Check connection, clock view and
 blank display. All inputs are bounded enums or integers. Lighting requires ready
-readback, no pending/queued/held touch and no running instructions. Original fallback,
-blank and uncertain states block lighting. Ordinary Beta pages, including Guide,
+readback, no pending/queued/held touch and no running instructions. Legacy,
+experiment reservation, blank and uncertain states block lighting. Ordinary Beta pages, including Guide,
 Settings, About and paused Experiment mode, do not restrict lighting availability.
 Panel and browser use these same study guards.
+`on` applies the Fid preset. White light's Warm white uses `cct` with 3500 K
+and intensity 1000; Fid remains a separately selectable scene.
 Acceptance is not lighting confirmation, annotation persistence or recording.
 
-`legacy` with empty arguments selects `Panel.mode == "classic"`, the familiar
-Legacy layout inside the existing Panel/Tk process. It retains the same command
-owner, helper PID, ROS initialization and programme state. It is presentation only,
-including while instructions run; instruction guards still prevent actuator commands.
-`original_fallback` with empty arguments selects `mode == "original"` through the
-existing guarded helper-release path. That mode opens the untouched separate
-original application, blocks website control, and is identified as Original fallback.
-The normal Legacy action never launches or acquires a second controller. This is
-an in-process shared view, not a new standalone headless control service.
+`legacy` (alias `original_fallback`) takes no arguments and opens `mode: "original"`
+after preserving release and successful helper exit. The unchanged original app
+sits behind a 144-pixel navigation strip; Beta/website actuators pause. Instruction,
+experiment and uncertainty guards still apply.
+Home covers original input, probes its exact Tk PID and checks the entry log:
+same readable file, bounded new output and no new callback/service errors.
+Failed checks retain `legacy` ownership and allow reopening the same app. Otherwise
+a durable writing marker precedes bounded `return_legacy`: stop Sun/Circ and read
+all ten fixtures twice. Stable success automatically enables Ready with current
+drive preserved. Failed stop, moving readback or lost result blocks both control
+paths across restart until local staff reconciliation. Original callbacks remain
+unchanged; no old scene is restored and no ROS/Status restart occurs.
 
 Blind readiness separates the short user-facing `detail` (Disabled, Busy or Ready)
 from a diagnostic `reason`. When no controller is connected, settings show one
@@ -168,7 +216,7 @@ connection remain independent; unlocking never connects a controller or moves bl
 
 `blinds_enabled` accepts a boolean `value`; `blind` accepts only a `name` of
 `lift`, `open` or `close`. The owner rechecks the saved permission, controller
-connection and busy/Original-fallback/experiment guards at dispatch. Visibility does not
+connection and busy/Legacy/experiment guards at dispatch. Visibility does not
 grant permission. The existing helper advertises connection when the whole-room
 lift/tilt services are present and persistent control owns the resource. Tk
 enqueues work without blocking for movement. The browser updates permission
@@ -196,7 +244,7 @@ references are display/copy text, never command actions.
 
 Pi power actions use `power` with exactly `operation` (`reboot` or `shutdown`)
 and `confirmed: true`. They share the existing network and revision checks.
-The owner refuses busy, running-instruction, Original-fallback and uncertain-light states,
+The owner refuses busy, running-instruction, Legacy, experiment-reserved and uncertain-light states,
 then requires confirmed ownership release, helper exit, saved preferences and a durable
 power-request record before one fixed OS command. Existing noninteractive
 permission and OS inhibitors are respected; no new privilege rule or automatic
@@ -206,9 +254,9 @@ describe availability and About information without changing schema version 1.
 
 `app/design_tokens.py` owns theme roles. `app/export_room_content.py` exports the
 panel-owned guide/help and Lucide paths for browser fallback and offline demos.
-The live snapshot supplies current preferences, controls, receipts, guide/help and
-experiment state. Normal Beta and Legacy layouts use this same owner and helper;
-only Original fallback is the separate untouched application.
+The website reads guide/help only from that export. The live snapshot supplies
+current preferences, controls, receipts and experiment state. Beta and the website
+share the owner; Legacy hands control to the unchanged separate original app.
 
 `app/help_reference.py` owns each command step's computer, effect, purpose,
 expected result and exact copy text. A help topic exports its `reference` object

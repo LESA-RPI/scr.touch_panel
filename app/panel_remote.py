@@ -1,8 +1,5 @@
 """Shared presentation/state and actions, always called on the panel's Tk thread."""
 
-from panel_guides import DEMO, SUPPORT
-from command_reference import command_tokens
-from help_reference import reference
 import time
 from panel_version import VERSION, BUILD_COMMIT
 
@@ -13,12 +10,14 @@ def snapshot(panel):
         or panel.queued_intent
         or panel.release_target
         or panel.closing
+        or getattr(panel, "legacy_probe", None)
         or panel.press_active
         or getattr(panel, "power_busy", lambda: False)()
     )
     lighting = bool(
         panel.args.live_lights
         and panel.light_state == "ready"
+        and not getattr(panel, "ownership_blocked", lambda: False)()
         and not busy
         and not panel.running
         and panel.mode not in ("original", "black")
@@ -37,6 +36,7 @@ def snapshot(panel):
         "mode": panel.mode,
         "busy": busy,
         "can_control": lighting,
+        "lighting_recovery": getattr(panel, "recovery_snapshot", lambda: {})(),
         "can_programme": getattr(panel, "programme_available", lambda: False)(),
         "can_session": not busy and panel.mode != "original",
         "lights": {
@@ -97,19 +97,6 @@ def snapshot(panel):
             "annotation": panel.annotation_text.get(),
             "recording": False,
         },
-        "guide": [
-            {"title": title, "icon": kind, "text": text} for title, kind, text in DEMO
-        ],
-        "help": [
-            {
-                "title": title,
-                "text": text,
-                "commands": commands,
-                "command_tokens": command_tokens(commands),
-                "reference": reference(title),
-            }
-            for title, kind, text, commands in SUPPORT
-        ],
         "weather": panel.weather_reading,
         "weather_age_s": (
             None
@@ -126,11 +113,15 @@ def snapshot(panel):
 def execute(panel, request):
     action, args = request["action"], request["arguments"]
     state = snapshot(panel)
+    if action.startswith("handoff_"):
+        return panel.handoff(action[len("handoff_"):], args)
     if state["busy"]:
         raise RuntimeError(
             "The panel is busy. Wait for the current touch or command to finish."
         )
-    if action in ("on", "off", "preset", "cct", "channels", "gradient"):
+    if action == "check_connection":
+        panel.check_connection()
+    elif action in ("on", "off", "preset", "cct", "channels", "gradient"):
         if not state["can_control"]:
             raise RuntimeError(
                 "Lighting is unavailable, uncertain, in Legacy or held by an experiment. Check the panel."
@@ -180,13 +171,13 @@ def execute(panel, request):
         else:
             panel.mark(args["label"])
     elif action in ("home", "legacy", "original_fallback", "blank", "clock_view"):
-        if panel.running and action not in ("home", "legacy"):
+        if panel.running and action != "home":
             raise RuntimeError("Pause the instructions before switching the panel.")
         if action == "home":
             panel.open_home()
         else:
             panel.show(
-                {"legacy": "classic", "original_fallback": "original", "blank": "black", "clock_view": "visitor"}[
+                {"legacy": "original", "original_fallback": "original", "blank": "black", "clock_view": "visitor"}[
                     action
                 ]
             )

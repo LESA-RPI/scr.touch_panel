@@ -48,6 +48,27 @@ class Room:
         return SimpleNamespace(cmdstr=str([float(v) / 100 for v in args]))
 
 
+def test_lights_on_uses_fid_channel_mixture():
+    state = panel.Panel.__new__(panel.Panel)
+    state.channel_values = [SimpleNamespace(set=lambda value: None) for _ in range(8)]
+    sent = []
+    state.apply = lambda action, **kwargs: sent.append((action, kwargs))
+    state.lights_on()
+    assert sent == [("channels", {"immediate": True, "values": list(adapter.PRESETS["Fid"])})]
+
+
+def test_previous_on_preserves_former_white_light_setting():
+    state = panel.Panel.__new__(panel.Panel)
+    selected = {}
+    state.cct = SimpleNamespace(set=lambda value: selected.update(cct=value))
+    state.intensity = SimpleNamespace(set=lambda value: selected.update(intensity=value))
+    sent = []
+    state.apply = lambda action, **kwargs: sent.append((action, kwargs))
+    state.previous_on()
+    assert sent == [("cct", {"immediate": True, "cct": 3500, "intensity": 1000})]
+    assert selected == {"cct": 3500, "intensity": 1000}
+
+
 def test_exact_restore_after_confirmed_write_and_float32_readback():
     room = Room()
     lights = adapter.Lights(room.call)
@@ -548,7 +569,7 @@ def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch
     confirmed_at = state.confirmed_at
     monkeypatch.setattr(panel, "monotonic", lambda: confirmed_at + 61)
     raw = []
-    state.emit = lambda event, **values: raw.append(values["result"])
+    state.emit = lambda event, **values: raw.append(values["result"]) if event == "light_result" else None
     state.cancel_intent = lambda: None
     state.pending = {
         "request_id": "two",
@@ -954,3 +975,35 @@ def test_journal_failures_never_claim_unsaved_annotations_are_saved(
             assert "Saved on panel" not in state.annotation_text.value
             assert "Written to panel output" not in state.annotation_text.value
             assert "Panel journal shutdown failed:" in stderr
+
+
+def test_panel_loops_keep_running_after_one_unexpected_error(capsys):
+    scheduled = []
+    state = panel.Panel.__new__(panel.Panel)
+    state.closed = False
+    state.root = SimpleNamespace(after=lambda delay, callback: scheduled.append(callback))
+    calls = []
+
+    def step():
+        calls.append(1)
+        if len(calls) < 3:
+            raise KeyError("broken reading")
+        return False if len(calls) == 4 else None
+
+    state.repeat(step, 1000)
+    scheduled.pop()()
+    assert capsys.readouterr().err.count("KeyError:") == 1  # logged once
+    scheduled.pop()()
+    scheduled.pop()()  # returned False: the loop ends
+    assert len(calls) == 4 and not scheduled
+    state.closed = True
+    state.repeat(lambda: None, 1000)
+    assert not scheduled
+
+
+def test_live_snapshot_leaves_guide_and_help_to_the_shared_export():
+    import inspect
+    import panel_remote
+
+    source = inspect.getsource(panel_remote.snapshot)
+    assert '"guide"' not in source and '"help"' not in source

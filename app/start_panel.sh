@@ -48,7 +48,7 @@ if ! $original_running; then
     (
         exec 9>&-
         cd "$SCR_CLASSIC_DIR"
-        exec "$classic_python" -B "$app_dir/run_original.py" --classic-dir "$SCR_CLASSIC_DIR"
+        exec "$classic_python" -u -B "$app_dir/run_original.py" --classic-dir "$SCR_CLASSIC_DIR"
     ) >>"$cache/original.log" 2>&1 &
     classic_pid=$!
     sleep 2

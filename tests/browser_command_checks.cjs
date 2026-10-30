@@ -61,14 +61,15 @@ function website(respond, snapshot = () => ({available:true, session:'owner-one'
     display.run(`state = {available:true, mode:${JSON.stringify(mode)}, can_control:true, lights:{message:'Light settings confirmed.'}}; shippedSync();`);
     assert.equal(display.run("$('legacy-banner').hidden"), true);
     assert.equal(display.run("$('light-message').textContent"), 'Light settings confirmed.');
-    if (mode === 'classic') assert.equal(display.run("$('connection').textContent"), 'Legacy');
+    if (mode === 'classic') assert.equal(display.run("$('connection').textContent"), 'Classic view');
   }
   for (const mode of ['original', 'black']) {
     display.run(`state = {available:true, mode:${JSON.stringify(mode)}, can_control:false, lights:{}}; shippedSync();`);
     assert.equal(display.run("$('legacy-banner').hidden"), false);
-    assert.match(display.run("$('light-message').textContent"), /Return the touch panel to Home/);
+    assert.match(display.run("$('light-message').textContent"),
+      mode === 'original' ? /Use Legacy on the touch panel/ : /Return the touch panel to Home/);
     if (mode === 'original') {
-      assert.equal(display.run("$('connection').textContent"), 'Original fallback');
+      assert.equal(display.run("$('connection').textContent"), 'Legacy');
       assert.match(display.run("$('panel-mode-message').textContent"), /separate original application/);
     }
   }
@@ -92,7 +93,7 @@ function website(respond, snapshot = () => ({available:true, session:'owner-one'
   assert.equal(display.run("$('gradient-controls').hidden"), true);
   assert.equal(display.run("$('programme-controls').hidden"), true);
   assert.equal(stop.disabled, true);
-  display.run("state.lights.programme = 'Sun'; shippedSync();");
+  display.run("state.lights.state = 'ready'; state.lights.programme = 'Sun'; shippedSync();");
   assert.equal(display.run("$('light-message').textContent"), 'Manual lighting stops programmes before applying.');
   for (const name of ['Sun', 'Circ', 'Stop']) {
     const programme = website(request => ({status:202,ok:true,json:async () => ({ok:true,code:202,id:request.id})}));
@@ -108,7 +109,7 @@ function website(respond, snapshot = () => ({available:true, session:'owner-one'
     originalFallback = {dataset:{action:'original_fallback'}};
   display.actionButtons.push(legacyView, originalFallback);
   display.run("state = {available:true, mode:'experiment', can_control:false, lights:{}, experiment:{running:true, profile:{title:'Practice', stages:['Instruction'], annotations:[]},stage:0,elapsed_s:0}}; shippedSync();");
-  assert.equal(legacyView.disabled, false, 'Shared Legacy navigation remains presentation-only during instructions');
+  assert.equal(legacyView.disabled, true, 'Original Legacy is blocked during instructions');
   assert.equal(originalFallback.disabled, true, 'Separate Original fallback is blocked during instructions');
   assert.equal(display.commands.length, 0);
   console.log('Browser receipt ambiguity, rejection, recovery and restart checks passed');

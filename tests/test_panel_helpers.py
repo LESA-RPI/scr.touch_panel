@@ -103,7 +103,7 @@ def test_queued_light_selection_cannot_dispatch_after_instructions_start():
 
 
 @pytest.mark.parametrize("reason", ["exit", "timeout", "escape", "window_close"])
-def test_persistent_close_shortcuts_use_shared_view_without_releasing_owner(reason):
+def test_persistent_close_shortcuts_use_the_guarded_original_legacy_path(reason):
     from scr_touch_panel import Panel
     view = Panel.__new__(Panel)
     view.closed = False
@@ -112,4 +112,4 @@ def test_persistent_close_shortcuts_use_shared_view_without_releasing_owner(reas
     calls = []
     view.show = calls.append
     view.close(reason)
-    assert calls == ["classic"] and view.closing is None
+    assert calls == ["original"] and view.closing is None

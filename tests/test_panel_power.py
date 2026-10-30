@@ -210,6 +210,26 @@ def test_power_waits_for_confirmed_release_helper_exit_and_durable_saves(owner):
     assert owner.os_calls == [["fake-reboot"]] and owner.power.phase == "executing"
 
 
+@pytest.mark.parametrize("storage_error", (None, "recovery disk failure"))
+def test_power_waits_for_recovery_storage_and_cancels_on_its_failure(owner, storage_error):
+    owner.request_power("shutdown", confirmed=True)
+    owner.power_cleanup_confirmed = True
+    owner.power_after_release(0)
+    owner.power_checkpoint_saved = True
+    owner.preferences.settled.set()
+    owner.recovery = SimpleNamespace(pending=True, error=storage_error, state={"status": "normal"})
+    owner.poll_power()
+    assert not owner.os_calls
+    if storage_error:
+        assert owner.power.phase == "failed"
+    else:
+        assert owner.power.phase == "saving"
+        owner.recovery.pending = False
+        owner.poll_power()
+        owner.power.worker.join(2)
+        assert owner.os_calls == [["fake-poweroff"]]
+
+
 @pytest.mark.parametrize("confirmed,code", [(False, 0), (True, 1)])
 def test_missing_cleanup_confirmation_cancels_power(owner, confirmed, code):
     owner.request_power("shutdown", confirmed=True)

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "app_version": "0.2.3",
+  "app_version": "0.2.7",
   "icons": {
     "tools": [
       {
@@ -697,34 +697,34 @@
     {
       "id": "Fid",
       "label": "Fid",
-      "detail": "Original eight-channel room mixture."
+      "detail": "Everyday lighting. Same as Lights on."
     },
     {
       "id": "Sat",
       "label": "Sat",
-      "detail": "Original eight-channel room mixture."
+      "detail": "Room-wide colour mixture."
     },
     {
       "id": "Dul",
       "label": "Dul",
-      "detail": "Original eight-channel room mixture."
+      "detail": "Room-wide colour mixture."
     }
   ],
   "gradient": {
     "id": "Gradient",
     "label": "Gradient",
-    "detail": "Original spatial pattern across the ten room lights."
+    "detail": "Colour pattern across the room lights."
   },
   "programmes": [
     {
       "id": "Sun",
-      "label": "Original Sun programme",
-      "detail": "Original colour and light-level curve, staggered across the room."
+      "label": "Sun",
+      "detail": "Colour and light-level curve, staggered across the room."
     },
     {
       "id": "Circ",
-      "label": "Original Circ programme",
-      "detail": "Original colour and light-level curve across the whole room."
+      "label": "Circ",
+      "detail": "Colour and light-level curve across the whole room."
     }
   ],
   "presets": {
@@ -769,7 +769,15 @@
       0
     ]
   },
-  "unavailable_lighting": "Original programmes are unavailable while the Status connection is not configured.",
+  "previous_on": {
+    "label": "Warm white",
+    "detail": "3500 K, level 1000.",
+    "arguments": {
+      "cct": 3500,
+      "intensity": 1000
+    }
+  },
+  "unavailable_lighting": "Lighting programmes are unavailable while the room connection is not configured.",
   "blinds_unavailable": "Not available yet: the blind adapter is not connected.",
   "generated_from": "app/export_room_content.py",
   "blind_actions": [
@@ -790,28 +798,28 @@
     {
       "title": "Lighting",
       "icon": "on",
-      "text": "Use Lights on and Lights off on Home for everyday lighting.\n\nRoom tools → Lighting brings White light, Scenes, Programmes and Channels together. Opening a tab does not change the lights.\n\nA highlighted button shows the last confirmed setting. If a result is uncertain, stop and ask the room host."
+      "text": "Use Lights on and Lights off on Home for everyday lighting.\n\nRoom tools → Lighting brings White light, Scenes, Programmes and Channels together. Opening a tab does not change the lights.\n\nA highlighted button shows the last confirmed setting. If a result is unconfirmed, do not repeat it. Check connection reads current lighting without changing it; ask the room host if controls stay unavailable."
     },
     {
       "title": "Room controls",
       "icon": "home",
-      "text": "Home always returns to everyday lighting controls. Opening a page does not change the lights.\n\nLegacy shows the familiar layout using the same controller. Switching layouts keeps the connection and current settings. The untouched original application is available under System & help → Original fallback.\n\nLift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller."
+      "text": "Home opens the everyday room page. Opening a page does not change the lights.\n\nLegacy opens the original controls. Home stops any Legacy programme and returns to Beta after checking the connection, keeping current light levels. If controls stay unavailable, ask the room host.\n\nLift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller."
     },
     {
       "title": "Sensors and experiments",
       "icon": "experiment",
-      "text": "Experiment mode guides a repeatable sequence of instructions and saves panel annotations.\n\nIt does not start a recorder. Arrange recording separately and coordinate the study with the room host.\n\nRoom tools → System & help shows room service availability. Availability alone does not prove usable sensor data."
+      "text": "Experiment mode guides a repeatable sequence of instructions and saves panel annotations.\n\nIt does not start a recorder. Arrange recording separately. An experiment must reserve lighting before it starts, then close its workers and return verified everyday control when finished.\n\nRoom tools → System & help shows room service availability. Availability alone does not prove usable sensor data."
     },
     {
       "title": "How it connects",
       "icon": "health",
-      "text": "The touch panel, its Legacy layout and the trusted-network website share the same room controller. The original application remains available as a separate emergency fallback.\n\nThe lighting badge shows this panel’s connection: Ready, Sending, Offline or Uncertain. Tap it for System & help.\n\nWeather is an outdoor model estimate, separate from indoor measurements. Source details are under Room tools → Date & weather."
+      "text": "Beta and the trusted-network website share one room controller. Legacy hands control to the unchanged original application.\n\nThe lighting status explains when controls are ready, reserved for an experiment, checking or unconfirmed. Website offline means the page cannot reach the panel. Open System & help for guidance.\n\nWeather is an outdoor model estimate, separate from indoor measurements. Source details are under Room tools → Date & weather."
     }
   ],
   "help": [
     {
       "title": "Lighting",
-      "text": "Ready means the lighting adapter is available. Sending means a request is awaiting readback.\n\nIf Uncertain appears, stop changing lights and ask the room host. A failed response can leave the result unknown.\n\nIf Offline appears, check the panel network cable and the room computer. Legacy also needs the room services.",
+      "text": "Check connection reads current settings without changing the lights. If a result is unconfirmed, do not repeat the command; ask the room host. Experiment controls return after cleanup.",
       "commands": "",
       "command_tokens": [],
       "reference": {

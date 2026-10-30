@@ -299,6 +299,16 @@ def test_gateway_is_disabled_by_default_and_tokens_are_per_server(server):
         other.server_close()
 
 
+def test_http_gateway_cannot_relay_private_experiment_or_staff_operations(server):
+    class Gateway:
+        def exchange(self, value):
+            pytest.fail("Private ownership request reached the panel through HTTP")
+    server.controller = Gateway()
+    headers = {"Origin": "http://" + server.expected_host, "X-SCR-Token": server.control_nonce, "Content-Type": "application/json"}
+    payload = dict(op="lighting_handoff", id="private-request-001", revision="current", action="recover", arguments={"owner_closed": True, "pending_clear": True})
+    assert request(server, "POST", "/api/command", headers, json.dumps(payload))[0] == 400
+
+
 @pytest.mark.parametrize(
     "body,override,expected",
     [

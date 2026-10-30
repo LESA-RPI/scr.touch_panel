@@ -173,8 +173,8 @@ def test_header_and_footer_commands_open_their_labeled_pages(view):
     assert view.advanced_page == "system" and view.body.winfo_ismapped()
     view.legacy_button.invoke()
     view.root.update()
-    assert view.mode == "classic" and view.body.winfo_ismapped()
-    assert not view.dock.winfo_ismapped()
+    assert view.mode == "original" and not view.body.winfo_ismapped()
+    assert view.dock.winfo_ismapped()
     view.home_button.invoke()
     view.root.update()
     assert view.mode == "room" and view.body.winfo_ismapped()
@@ -187,6 +187,26 @@ def test_home_explains_why_running_instructions_disable_lighting(view):
     view.root.update()
     assert "Pause Experiment mode" in view.status_text.get()
     assert all(button.cget("state") == "disabled" for button in view.light_buttons)
+
+
+def test_unchanged_controls_and_recovery_do_not_schedule_geometry_work(view, monkeypatch):
+    view.open_advanced("system")
+    view.root.update()
+    view.update_light_buttons()
+    changes = []
+    widgets = [view.recovery_label, view.recovery_button, *view.light_buttons]
+    for widget in widgets:
+        original = widget.config
+
+        def configure(*args, _original=original, **kwargs):
+            changes.append(kwargs)
+            return _original(*args, **kwargs)
+
+        monkeypatch.setattr(widget, "config", configure)
+    for unused in range(3):
+        view.update_light_buttons()
+        view.root.update()
+    assert not changes
 
 
 @pytest.mark.parametrize("mode", ["original", "black", "visitor"])
@@ -225,7 +245,7 @@ def test_classic_and_home_keep_one_acquired_owner_without_hardware_work(view):
     home = view.body
     classic = None
     for unused in range(8):
-        view.legacy_button.invoke()
+        view.show("classic")
         view.root.update()
         assert view.mode == "classic" and view.body.winfo_ismapped()
         classic = classic or view.body
@@ -248,6 +268,7 @@ def test_sent_command_completes_once_after_switching_classic_and_home(view, monk
     pending = {"request_id": "shared:23", "action": "cct", "arguments": arguments,
                "sent_monotonic_s": panel.monotonic()}
     view.pending, view.light_state = pending, "applying"
+    view.recovery.begin_write(pending["request_id"])
     view.queued_intent = ("channels", {"values": [0] * 8}, view.view_generation)
     view.intent_timer = view.root.after(10000, lambda: pytest.fail("Stale selection was dispatched"))
     requests = []
@@ -325,13 +346,14 @@ def test_cached_classic_vertical_sliders_rebind_to_cct_after_navigation(view):
     assert traces == [len(variable.trace_info()) for variable in (view.cct, view.intensity)]
 
 
-def test_running_instructions_allow_classic_view_without_unlocking_controls(view):
+def test_running_instructions_block_original_legacy_without_unlocking_controls(view):
     worker = shared_worker(view)
     view.open_advanced("experiment")
     view.start_preview()
     view.legacy_button.invoke()
     view.root.update()
-    assert view.mode == "classic" and view.running and view.worker is worker
+    assert view.mode == "experiment" and view.running and view.worker is worker
+    assert "Pause" in view.status_text.get()
     assert all(button.cget("state") == "disabled" for button in view.light_buttons)
     assert all(button.cget("state") == "disabled" for button in view.programme_buttons)
     view.open_home()

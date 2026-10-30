@@ -128,9 +128,10 @@ def restore_preset(snapshot):
 class Lights(object):
     def __init__(self, call, can_write=lambda: None, keep_settings=False,
                  programmes=None, sleep=time.sleep, blinds_connected=False,
-                 gradient_connected=True):
+                 gradient_connected=True, observe_only=False):
         self.call, self.can_write = call, can_write
         self.keep_settings = keep_settings
+        self.observe_only = observe_only
         self.baseline = self.current = None
         self.baseline_name = None
         self.changed = self.failed = False
@@ -141,12 +142,16 @@ class Lights(object):
 
     def capabilities(self):
         return {
-            "capabilities": {"gradient": self.gradient_connected,
-                             "programmes": bool(self.programmes and self.keep_settings)},
+            "capabilities": {"gradient": self.gradient_connected and not self.observe_only,
+                             "programmes": bool(self.programmes and self.keep_settings
+                                                and not self.observe_only)},
             "programme": self.programme,
             "programme_confirmed": False,
-            "blinds_connected": self.keep_settings and self.blinds_connected and not self.blinds_failed,
-            "manual_blocked": self.programme is not None or self.baseline is None,
+            "blinds_connected": (self.keep_settings and self.blinds_connected
+                                 and not self.blinds_failed and not self.observe_only),
+            "manual_blocked": (self.observe_only or self.failed or self.blinds_failed
+                               or self.programme is not None or self.baseline is None),
+            "observation_only": self.observe_only,
         }
 
     def read(self):
@@ -162,6 +167,8 @@ class Lights(object):
         )
 
     def acquire(self):
+        if self.observe_only:
+            raise ValueError("Read-only connection checks cannot acquire lighting control")
         if self.baseline is not None:
             raise ValueError("Lighting trial already acquired")
         state = self.read()
@@ -188,8 +195,76 @@ class Lights(object):
         result.update(self.capabilities())
         return result
 
+    def check(self):
+        """Observe all ten fixtures twice; stable readback never proves ownership."""
+        try:
+            first = self.read()
+            self.sleep(0.25)
+            state = self.read()
+        except Exception:
+            if not self.observe_only:
+                self.failed = True
+            raise
+        stable = first == state
+        # An established owner must retain its expected state. A check is not
+        # permission to overwrite somebody else's settings or clear uncertainty.
+        external_change = (not self.observe_only and self.current is not None
+                           and state != self.current)
+        if not self.observe_only and (not stable or external_change):
+            self.failed = True
+        try:
+            name = restore_preset(state)
+        except ValueError:
+            name = None
+        blocked = not stable or self.failed or self.blinds_failed
+        result = {
+            "state": "failed" if blocked else "checked",
+            "stable": stable,
+            "fixtures": 10,
+            "fixture_words": [[list(xy), list(values)] for xy, values in sorted(state.items())],
+            "baseline": name,
+            "power": "on" if any(any(values) for values in state.values()) else "off",
+            "ownership_verified": False,
+            "outcome_unknown": self.failed or self.blinds_failed,
+            "detail": ("Light settings are changing; connection is not confirmed."
+                       if not stable else
+                       "Another controller changed the lights; control remains blocked."
+                       if external_change else
+                       "Current settings read; the earlier uncertain result remains blocked."
+                       if blocked else
+                       "Current settings read twice on 10 lights; ownership is not verified."),
+        }
+        result.update(self.capabilities())
+        return result
+
+    def return_legacy(self):
+        """Stop original programmes, then acquire the current scene without a setter.
+
+        Only the parent can establish that the original callback has finished.
+        Programme stops are writes, so any failed return keeps uncertainty latched.
+        """
+        try:
+            if (self.observe_only or not self.keep_settings or not self.programmes
+                    or self.failed or self.blinds_failed or self.baseline is not None):
+                raise ValueError("Legacy return requires a fresh persistent controller and Status programmes")
+            self.can_write()
+            self.programmes.stop()
+            self.sleep(0.25)
+            result = self.acquire()
+            if result.get("manual_blocked") is not False:
+                raise ValueError("Legacy programmes stopped but light settings are still changing")
+            result["detail"] = "Legacy programmes stopped; current settings confirmed on 10 lights"
+            result["fixture_words"] = [[list(xy), list(values)]
+                                       for xy, values in sorted(self.current.items())]
+            return result
+        except Exception:
+            self.failed = True
+            raise
+
     def stop_programmes(self):
         """Qualify quiescent drive after stop acceptance, without claiming job health."""
+        if self.observe_only:
+            raise ValueError("Connection checks are read-only")
         self.can_write()
         self.programmes.stop()
         self.sleep(0.25)
@@ -206,7 +281,7 @@ class Lights(object):
     def run_programme(self, name):
         if name not in ("Sun", "Circ", "Stop"):
             raise ValueError("Unknown original programme")
-        if not self.keep_settings or not self.programmes or self.failed:
+        if self.observe_only or not self.keep_settings or not self.programmes or self.failed:
             raise ValueError("Original programmes are unavailable")
         try:
             self.stop_programmes()
@@ -229,6 +304,8 @@ class Lights(object):
             raise
 
     def apply_gradient(self):
+        if self.observe_only:
+            raise ValueError("Connection checks are read-only")
         if not self.gradient_connected:
             raise ValueError("Gradient service is unavailable")
         if self.failed or (self.baseline is None and not (self.programmes and self.keep_settings)):
@@ -258,6 +335,8 @@ class Lights(object):
             raise
 
     def prepare_manual(self):
+        if self.observe_only:
+            raise ValueError("Connection checks are read-only")
         if self.programmes and self.keep_settings:
             previous, active = self.current, self.programme is not None or self.baseline is None
             self.stop_programmes()
@@ -269,7 +348,8 @@ class Lights(object):
     def move_blinds(self, name):
         if name not in ("lift", "open", "close"):
             raise ValueError("Unknown blind action")
-        if not self.keep_settings or not self.blinds_connected or self.blinds_failed:
+        if (self.observe_only or not self.keep_settings or not self.blinds_connected
+                or self.blinds_failed):
             raise ValueError("Blind controller is unavailable")
         try:
             actions = {"lift": [("lift_all", 100)], "open": [("tilt_all", 50)],
@@ -290,6 +370,8 @@ class Lights(object):
             raise
 
     def apply(self, action, arguments):
+        if self.observe_only:
+            raise ValueError("Connection checks are read-only")
         if self.failed or (self.baseline is None and not (self.programmes and self.keep_settings)):
             raise ValueError("Lighting trial is unavailable")
         if action == "channels":
@@ -342,6 +424,11 @@ class Lights(object):
             raise
 
     def release(self):
+        if self.observe_only:
+            return {
+                "state": "released", "restored": False, "preserved": True,
+                "detail": "Read-only connection check closed; current settings unchanged",
+            }
         if self.failed or self.blinds_failed:
             raise ValueError(
                 "Outcome unknown; no automatic restore or retry. Inspect the retained receipt"
@@ -407,6 +494,10 @@ def main():
         "--keep-settings",
         action="store_true",
         help="Release ownership without restoring lights (persistent room control)",
+    )
+    parser.add_argument(
+        "--observe-only", action="store_true",
+        help="Read current fixtures only; never acquire control, stop programmes or restore",
     )
     parser.add_argument("--status-url", default=os.environ.get("SCR_STATUS_URL"),
                         help="Approved existing Status HTTP service for Sun/Circ")
@@ -500,6 +591,8 @@ def main():
     deadline = [clock() + 30]
 
     def call(name, *values):
+        if args.observe_only and name not in ("get_lights", "get_sources"):
+            raise ValueError("Connection checks are read-only")
         remaining = deadline[0] - clock()
         if remaining <= 0:
             raise RuntimeError("Whole lighting operation exceeded 30 seconds")
@@ -560,11 +653,13 @@ def main():
         services = set()
     finally:
         socket.setdefaulttimeout(10)
-    programmes = StatusProgrammes(args.status_url, can_write, lambda: deadline[0]) if args.status_url else None
+    programmes = (StatusProgrammes(args.status_url, can_write, lambda: deadline[0])
+                  if args.status_url and not args.observe_only else None)
     lights = Lights(call, can_write, keep_settings=args.keep_settings,
                     programmes=programmes,
                     blinds_connected={"/lift_all", "/tilt_all"} <= services,
-                    gradient_connected="/sources" in services)
+                    gradient_connected="/sources" in services,
+                    observe_only=args.observe_only)
 
     def record(event, **values):
         values.update(event=event, epoch_s=time.time(), pid=os.getpid())
@@ -611,6 +706,10 @@ def main():
             try:
                 if action == "acquire":
                     result = lights.acquire()
+                elif action == "return_legacy":
+                    result = lights.return_legacy()
+                elif action == "check":
+                    result = lights.check()
                 elif action == "release":
                     result = lights.release()
                 elif action == "gradient":
@@ -622,7 +721,7 @@ def main():
                 else:
                     result = lights.apply(action, item.get("arguments", {}))
                 respond(request_id, result)
-                if action == "release":
+                if action == "release" or result.get("state") == "failed":
                     break
             except Exception as error:
                 respond(
@@ -631,6 +730,7 @@ def main():
                         "state": "failed",
                         "detail": str(error),
                         "outcome_unknown": lights.failed or lights.blinds_failed,
+                        "stable": False,
                     },
                 )
                 if action == "acquire" and not lights.failed:

@@ -297,11 +297,16 @@ def test_remote_classic_keeps_every_owner_safety_lock(remote_owner, field, value
 
 
 @pytest.mark.parametrize("running", [False, True])
-def test_remote_legacy_action_only_selects_classic_view(remote_owner, running):
+def test_remote_legacy_opens_original_only_when_instructions_are_paused(remote_owner, running):
     remote_owner.running = running
     remote_owner.show = lambda mode: (remote_owner.calls.append(mode), setattr(remote_owner, "mode", mode))
-    assert execute(remote_owner, envelope("legacy"))["ok"]
-    assert remote_owner.calls == ["classic"] and remote_owner.mode == "classic"
+    if running:
+        with pytest.raises(RuntimeError, match="Pause"):
+            execute(remote_owner, envelope("legacy"))
+        assert not remote_owner.calls
+    else:
+        assert execute(remote_owner, envelope("legacy"))["ok"]
+        assert remote_owner.calls == ["original"] and remote_owner.mode == "original"
     assert remote_owner.running is running
 
 
