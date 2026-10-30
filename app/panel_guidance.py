@@ -1,7 +1,9 @@
 """Room guide and read-only system/help presentation."""
 
-from panel_guides import DEMO
+from panel_guides import DEMO, GUIDE_SECTIONS
 from panel_guides import SUPPORT
+from panel_guides import CEILING_MAP
+from panel_common import CHANNELS, CHANNEL_COLOURS
 from command_reference import command_tokens
 from help_reference import reference
 import sys
@@ -11,6 +13,11 @@ import tkinter as tk
 class PanelGuidance:
     def system_contents(self):
         self.health_rendered = None
+        if getattr(self, "system_diagnostics_visible", False):
+            self.power_buttons = []
+            self.original_fallback_button = None
+            self.room_diagnostics_contents()
+            return
         heading = tk.Frame(self.body, bg=self.bg, height=50)
         heading.pack(fill="x", pady=(0, 8))
         heading.pack_propagate(False)
@@ -82,6 +89,9 @@ class PanelGuidance:
         self.label(row, "Blinds · " + blind_label, 13, True).pack(side="right")
         self.services_label = self.label(cards[1], size=13, muted=True)
         self.wrap_label(self.services_label).pack(fill="x")
+        diagnostics = self.button(cards[1], "Room diagnostics", self.toggle_room_diagnostics)
+        diagnostics.config(font=(self.font_family, 15), pady=8)
+        diagnostics.pack(anchor="w", pady=(6, 0))
         self.recovery_contents(cards[1])
         topic = tk.Frame(self.body, bg=self.bg, height=58)
         topic.pack(fill="x", pady=(0, 4))
@@ -226,33 +236,124 @@ class PanelGuidance:
             )
         self.update_health()
 
+    def toggle_room_diagnostics(self):
+        self.system_diagnostics_visible = not getattr(self, "system_diagnostics_visible", False)
+        self.rebuild_advanced_detail()
+
+    def room_diagnostics_contents(self):
+        heading = tk.Frame(self.body, bg=self.bg)
+        heading.pack(fill="x", pady=(0, 12))
+        self.label(heading, "Room diagnostics", 27).pack(side="left")
+        back = self.button(heading, "Back to help", self.toggle_room_diagnostics)
+        back.config(font=(self.font_family, 17), pady=10)
+        back.pack(side="right")
+        self.wrap_label(self.label(
+            self.body, "Advertised room services. Listed does not confirm fresh sensor data.", 16, True
+        )).pack(fill="x", pady=(0, 12))
+        self.diagnostics_message = self.wrap_label(self.label(self.body, size=17))
+        self.diagnostics_message.pack(fill="x", pady=(0, 8))
+        row = tk.Frame(self.body, bg=self.bg)
+        row.pack(fill="x", pady=(0, 14))
+        self.diagnostics_age = self.label(row, size=15, muted=True)
+        self.diagnostics_age.pack(side="left")
+        self.diagnostics_check = self.button(row, "Check now", self.check_room_diagnostics)
+        self.diagnostics_check.config(font=(self.font_family, 17), pady=10)
+        self.diagnostics_check.pack(side="right")
+        self.diagnostics_rows = tk.Frame(
+            self.body, bg=self.bg, highlightthickness=1, highlightbackground=self.border
+        )
+        self.diagnostics_rows.pack(fill="x", pady=(0, 14))
+        self.diagnostics_rows_key = None
+        self.wrap_label(self.label(
+            self.body,
+            "Indoor readings: check the room TV/Status display. A verified indoor-data feed is not connected here.",
+            15, True,
+        )).pack(fill="x")
+        self.update_room_diagnostics()
+
+    def check_room_diagnostics(self):
+        self.refresh_status()
+        self.update_room_diagnostics()
+
+    def update_room_diagnostics(self):
+        data = self.room_diagnostics()
+        detail = ("Checking now. " if data["checking"] else "") + data["detail"]
+        age = data["age_s"]
+        if age is None:
+            observed = "No successful service check yet."
+        elif age < 60:
+            observed = "Last successful check: %d seconds ago" % max(0, int(age))
+        elif age < 3600:
+            observed = "Last successful check: %d minutes ago" % int(age // 60)
+        else:
+            observed = "Last successful check: %d hours ago" % int(age // 3600)
+        for label, text in ((self.diagnostics_message, detail), (self.diagnostics_age, observed)):
+            if label.cget("text") != text:
+                label.config(text=text)
+        colour = self.warning if data["state"] == "unavailable" else self.ink
+        if self.diagnostics_message.cget("fg") != colour:
+            self.diagnostics_message.config(fg=colour)
+        check = self.diagnostics_check
+        state, text = ("normal" if data["can_check"] else "disabled"), ("Checking…" if data["checking"] else "Check now")
+        if check.cget("state") != state or check.cget("text") != text:
+            check.config(state=state, text=text)
+        entries = tuple((item["name"], item["state"]) for item in data["services"])
+        if entries != self.diagnostics_rows_key:
+            self.diagnostics_rows_key = entries
+            for child in self.diagnostics_rows.winfo_children():
+                child.destroy()
+            if not entries:
+                self.label(self.diagnostics_rows, "No observed service results yet.", 17, True).pack(
+                    anchor="w", padx=18, pady=18
+                )
+            for name, status in entries:
+                row = tk.Frame(self.diagnostics_rows, bg=self.bg)
+                row.pack(fill="x", padx=18, pady=10)
+                self.label(row, name, 19).pack(side="left")
+                result = self.label(row, "Listed" if status == "listed" else "Missing", 17)
+                result.config(fg=self.good if status == "listed" else self.warning)
+                result.pack(side="right")
+
     def open_guide(self):
-        self.guide_page = -1
         self.show("guide")
 
     def choose_guide(self, index):
         self.guide_page = index
+        if index >= 0:
+            self.guide_section = DEMO[index]["section"]
         self.show("guide")
 
+    def choose_guide_section(self, section):
+        self.guide_section = section
+        self.choose_guide(-1)
+
     def guide_view(self):
+        indices = [i for i, topic in enumerate(DEMO) if topic["section"] == self.guide_section]
         if self.guide_page < 0:
             self.label(self.body, "Demo & guide", 27).pack(anchor="w", pady=(0, 6))
             self.label(
                 self.body,
-                "Choose a topic. Exploring this guide does not operate equipment.",
+                "Explore the room or learn the controls. Browsing starts no equipment.",
                 17,
                 True,
-            ).pack(anchor="w", pady=(0, 18))
-            topics = tk.Frame(self.body, bg=self.bg)
-            topics.pack(fill="both", expand=True, pady=(0, 10))
-            captions = [
-                "White light and saved scenes",
-                "Home, Legacy and blinds",
-                "Instructions, markers and recording",
-                "Panel, services and weather",
-            ]
-            for index, ((title, kind, text), caption) in enumerate(zip(DEMO, captions)):
-                row, column = divmod(index, 2)
+            ).pack(anchor="w", pady=(0, 8))
+            self.row_buttons(
+                self.body,
+                [(label, lambda key=key: self.choose_guide_section(key), key == self.guide_section)
+                 for label, key in GUIDE_SECTIONS],
+                height=52,
+            )
+            hub = tk.Frame(self.body, bg=self.bg)
+            hub.pack(fill="both", expand=True, pady=(0, 10))
+            phone = tk.Frame(hub, bg=self.bg, width=240)
+            phone.pack(side="right", fill="y", padx=(24, 0))
+            phone.pack_propagate(False)
+            self.website_qr(phone)
+            topics = tk.Frame(hub, bg=self.bg)
+            topics.pack(side="left", fill="both", expand=True)
+            for position, index in enumerate(indices):
+                topic = DEMO[index]
+                row, column = divmod(position, 2)
                 topics.rowconfigure(row, weight=1, uniform="guide")
                 topics.columnconfigure(column, weight=1, uniform="guide")
                 card = tk.Frame(
@@ -270,14 +371,14 @@ class PanelGuidance:
                 )
                 button = self.button(
                     card,
-                    title + "\n" + caption,
+                    topic["title"] + "\n" + topic["caption"],
                     lambda index=index: self.choose_guide(index),
                 )
                 button.config(
                     font=(self.font_family, 20),
-                    image=self.icon(kind, self.icon_colour),
+                    image=self.icon(topic["icon"], self.icon_colour),
                     compound="top",
-                    wraplength=520,
+                    wraplength=360,
                     justify="center",
                     bg=self.bg,
                     padx=20,
@@ -286,12 +387,13 @@ class PanelGuidance:
                 )
                 button.pack(fill="both", expand=True)
             return
-        title, kind, text = DEMO[self.guide_page]
+        topic = DEMO[self.guide_page]
+        position = indices.index(self.guide_page)
         heading = tk.Frame(self.body, bg=self.bg)
         heading.pack(fill="x", pady=(0, 12))
         self.label(heading, "Demo & guide", 27).pack(side="left")
         self.label(
-            heading, "%d of %d topics" % (self.guide_page + 1, len(DEMO)), 17, True
+            heading, "%d of %d topics" % (position + 1, len(indices)), 17, True
         ).pack(side="right")
         card = tk.Frame(
             self.body,
@@ -301,30 +403,69 @@ class PanelGuidance:
         )
         card.pack(fill="both", expand=True)
         content = tk.Frame(card, bg=self.surface)
-        content.pack(fill="both", expand=True, padx=24, pady=22)
+        content.pack(fill="both", expand=True, padx=24, pady=12 if topic.get("actions") else 22)
         row = tk.Frame(content, bg=self.surface)
-        row.pack(fill="x", pady=(0, 20))
-        tk.Label(row, image=self.icon(kind, self.icon_colour), bg=self.surface).pack(
+        row.pack(fill="x", pady=(0, 8 if topic.get("actions") else 20))
+        tk.Label(row, image=self.icon(topic["icon"], self.icon_colour), bg=self.surface).pack(
             side="left", padx=(0, 12)
         )
-        self.label(row, title, 26).pack(side="left")
-        for paragraph in text.split("\n\n"):
-            self.wrap_label(self.label(content, paragraph, 21)).pack(
-                fill="x", pady=(0, 18)
+        self.label(row, topic["title"], 26).pack(side="left")
+        if topic.get("map"):
+            self.ceiling_map(content)
+        else:
+            if topic.get("visual"):
+                self.guide_visual(content, topic["visual"])
+            for paragraph in topic["text"].split("\n\n"):
+                size = 16 if topic.get("actions") else 17 if topic.get("visual") else 21
+                gap = 4 if topic.get("actions") else 8 if topic.get("visual") else 18
+                self.wrap_label(self.label(content, paragraph, size)).pack(
+                    fill="x", pady=(0, gap)
+                )
+        if topic.get("actions"):
+            self.wrap_label(self.label(
+                content, "Applying a scene changes the room lights. Wait for confirmation.", 14, True
+            )).pack(fill="x")
+            actions = self.row_buttons(
+                content,
+                [("Lights on (Fid)", self.lights_on, False),
+                 ("Apply Gradient", lambda: self.apply("gradient", immediate=True), False),
+                 ("Open Lighting", lambda: self.open_advanced("lighting"), False)],
+                height=52,
+            )
+            for button in actions:
+                button.config(font=(self.font_family, 17), pady=8)
+            actions[1]._gradient = True
+            self.light_buttons.extend(actions[:2])
+            self.feedback_card(content)
+            self.update_light_buttons()
+        elif topic["links"]:
+            self.row_buttons(
+                content,
+                [
+                    (
+                        link["label"],
+                        lambda page=link["page"]: (
+                            self.open_home() if page == "home" else self.open_advanced(page)
+                        ),
+                        False,
+                    )
+                    for link in topic["links"]
+                ],
+                height=56,
             )
         buttons = self.row_buttons(
             self.body,
             [
-                ("All topics", self.open_guide, False),
+                ("All topics", lambda: self.choose_guide(-1), False),
                 ("Previous", lambda: self.change_guide(-1), False),
                 ("Next", lambda: self.change_guide(1), False),
             ],
         )
         for button, kind in zip(buttons, ("guide", "chevron-left", "chevron-right")):
             button.config(image=self.icon(kind, self.ink, 24), compound="left")
-        buttons[1].config(state="normal" if self.guide_page else "disabled")
+        buttons[1].config(state="normal" if position else "disabled")
         buttons[2].config(
-            state="normal" if self.guide_page < len(DEMO) - 1 else "disabled"
+            state="normal" if position < len(indices) - 1 else "disabled"
         )
         for button, kind in zip(buttons, ("guide", "chevron-left", "chevron-right")):
             button.config(
@@ -336,7 +477,9 @@ class PanelGuidance:
             )
 
     def change_guide(self, delta):
-        self.guide_page = max(0, min(len(DEMO) - 1, self.guide_page + delta))
+        indices = [i for i, topic in enumerate(DEMO) if topic["section"] == self.guide_section]
+        position = max(0, min(len(indices) - 1, indices.index(self.guide_page) + delta))
+        self.guide_page = indices[position]
         self.render()
 
     def choose_support(self, index):
@@ -362,3 +505,126 @@ class PanelGuidance:
         steps = reference(SUPPORT[self.support_page][0])["steps"]
         self.support_step = max(0, min(len(steps) - 1, self.support_step + delta))
         self.rebuild_advanced_detail()
+
+    def ceiling_map(self, parent):
+        families = CEILING_MAP["families"]
+        selected = families[0]
+        columns, rows = CEILING_MAP["grid"]["columns"], CEILING_MAP["grid"]["rows"]
+
+        def draw(event=None):
+            width, height = canvas.winfo_width(), canvas.winfo_height()
+            if width < 150 or height < 80:
+                return
+            canvas.delete("all")
+            left, top, right, bottom = 42, 12, width - 18, height - 32
+            cell_width, cell_height = (right - left) / columns, (bottom - top) / rows
+            for column in range(columns + 1):
+                x = left + column * cell_width
+                canvas.create_line(x, top, x, bottom, fill=self.border)
+                if column < columns:
+                    canvas.create_text(
+                        x + cell_width / 2, bottom + 18, text=str(column + 1),
+                        font=(self.font_family, 12), fill=self.muted,
+                    )
+            for row in range(rows + 1):
+                y = bottom - row * cell_height
+                canvas.create_line(left, y, right, y, fill=self.border)
+                if row < rows:
+                    canvas.create_text(
+                        left - 20, y - cell_height / 2, text=str(row + 1),
+                        font=(self.font_family, 12), fill=self.muted,
+                    )
+            radius = min(8, max(4, min(cell_width, cell_height) / 5))
+            for column, row in selected["positions"]:
+                x = left + (column - 0.5) * cell_width
+                y = bottom - (row - 0.5) * cell_height
+                canvas.create_oval(
+                    x - radius, y - radius, x + radius, y + radius,
+                    fill=self.accent, outline="", tags="sensor",
+                )
+
+        def choose(family):
+            nonlocal selected
+            selected = family
+            detail.config(text="%s · %d ceiling positions. %s" % (
+                family["label"], len(family["positions"]), family["description"]
+            ))
+            for button, candidate in zip(buttons, families):
+                active = candidate is selected
+                button.config(
+                    bg=self.accent if active else self.control,
+                    fg=self.selected_ink if active else self.ink,
+                    highlightbackground=self.accent if active else self.border,
+                    activebackground=self.accent_pressed if active else self.pressed_colour(),
+                    activeforeground=self.selected_ink if active else self.ink,
+                )
+            draw()
+
+        buttons = self.row_buttons(
+            parent,
+            [(family["label"], lambda family=family: choose(family), False)
+             for family in families],
+            height=52,
+        )
+        for button in buttons:
+            button.config(font=(self.font_family, 17), pady=8)
+        detail = self.wrap_label(self.label(parent, size=16))
+        detail.pack(fill="x", pady=(4, 8))
+        canvas = tk.Canvas(
+            parent, height=220, bg=parent.cget("bg"),
+            highlightthickness=0, borderwidth=0,
+        )
+        canvas.pack(fill="both", expand=True)
+        canvas.bind("<Configure>", draw)
+        self.wrap_label(self.label(
+            parent, CEILING_MAP["orientation"] + " " + CEILING_MAP["note"], 13, True
+        )).pack(fill="x", pady=(6, 0))
+        choose(selected)
+
+    def guide_visual(self, parent, kind):
+        canvas = tk.Canvas(
+            parent, height=90 if kind == "channels" else 110, bg=parent.cget("bg"),
+            highlightthickness=0, borderwidth=0,
+        )
+        canvas.pack(fill="x", pady=(0, 10))
+
+        def draw(event=None):
+            width = canvas.winfo_width()
+            if width < 150:
+                return
+            canvas.delete("all")
+            if kind == "channels":
+                cell = width / len(CHANNELS)
+                for index, (name, colour) in enumerate(zip(CHANNELS, CHANNEL_COLOURS)):
+                    left, right = index * cell + 8, (index + 1) * cell - 8
+                    canvas.create_rectangle(left, 8, right, 34, fill=colour, outline="")
+                    canvas.create_text(
+                        (left + right) / 2, 54, text=name,
+                        font=(self.font_family, 14), fill=self.ink,
+                    )
+                canvas.create_text(
+                    width / 2, 78, text="Eight channel controls · illustrative colours",
+                    font=(self.font_family, 12), fill=self.muted,
+                )
+            elif kind == "distance":
+                for center, name, columns, rows in (
+                    (width / 4, "COMBO · 8 × 8", 8, 8),
+                    (width * 3 / 4, "IRMA · 25 × 20", 25, 20),
+                ):
+                    canvas.create_text(
+                        center, 12, text=name,
+                        font=(self.font_family, 13), fill=self.ink,
+                    )
+                    left, top = center - columns * 3 / 2, 56 - rows * 3 / 2
+                    for column in range(columns + 1):
+                        x = left + column * 3
+                        canvas.create_line(x, top, x, top + rows * 3, fill=self.muted)
+                    for row in range(rows + 1):
+                        y = top + row * 3
+                        canvas.create_line(left, y, left + columns * 3, y, fill=self.muted)
+                canvas.create_text(
+                    width / 2, 98, text="Distance cells · schematic, not live readings or heat",
+                    font=(self.font_family, 12), fill=self.muted,
+                )
+
+        canvas.bind("<Configure>", draw)

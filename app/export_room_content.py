@@ -3,7 +3,7 @@
 import argparse
 import json
 from pathlib import Path
-from panel_guides import DEMO, SUPPORT
+from panel_guides import DEMO, SUPPORT, GUIDE_SECTIONS, CEILING_MAP
 from design_tokens import THEMES, WEATHER_ACCENTS
 from help_reference import reference
 from command_reference import command_tokens
@@ -17,8 +17,10 @@ from room_controls import (
     PREVIOUS_ON,
     UNAVAILABLE_LIGHTING,
     BLINDS_UNAVAILABLE,
+    DEFAULT_ROOM_NETWORK_NAME,
 )
 from panel_version import VERSION
+from panel_common import DEFAULT_PROFILE, CHANNELS, CHANNEL_COLOURS
 import xml.etree.ElementTree as ET
 
 
@@ -80,9 +82,12 @@ def content():
         "blinds_unavailable": BLINDS_UNAVAILABLE,
         "generated_from": "app/export_room_content.py",
         "blind_actions": BLIND_ACTIONS,
-        "guide": [
-            {"title": title, "icon": kind, "text": text} for title, kind, text in DEMO
-        ],
+        "default_profile": DEFAULT_PROFILE,
+        "network_name": DEFAULT_ROOM_NETWORK_NAME,
+        "channels": [{"label": name, "colour": colour} for name, colour in zip(CHANNELS, CHANNEL_COLOURS)],
+        "guide": list(DEMO),
+        "guide_sections": GUIDE_SECTIONS,
+        "ceiling_map": CEILING_MAP,
         "help": [
             {
                 "title": title,

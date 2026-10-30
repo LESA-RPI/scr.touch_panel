@@ -1,12 +1,14 @@
 'use strict';
 // Shared state and commands come from the existing panel owner. No device driver lives here.
 const $ = (id) => document.getElementById(id);
-const phoneLayout = matchMedia('(max-width:650px)');
+const phoneLayout = matchMedia('(max-width:900px)');
 let state = null,
   content = { guide: [], help: [] },
   posting = false,
   unknown = null,
   view = '',
+  lastTools = 'tools-lighting',
+  lastGuide = 'guide',
   dragging = false,
   rangeRevision = null,
   chosenHelp = 0;
@@ -15,6 +17,9 @@ let powerChoice = null,
   unknownSession = null, // panel session that was running when a receipt became unknown
   unknownAction = null,
   reachable = true; // false when this website's own server does not answer
+let profilePreview = null,
+  profileNotice = '',
+  profileRead = 0;
 const paths = {
   home: 'M3 10 12 3l9 7v11h-6v-7H9v7H3Z',
   white: 'M9 18h6m-5 3h4M8 13a6 6 0 1 1 8 0l-1 3H9Z',
@@ -74,13 +79,19 @@ function canCheckConnection() {
   return state?.available && reachable && state?.lighting_recovery?.can_check &&
     !['reserved', 'releasing', 'returning', 'checking'].includes(state.lighting_recovery.status);
 }
+function canCheckRoomStatus() {
+  return state?.available && reachable && state.room_diagnostics?.can_check &&
+    !state.room_diagnostics.checking;
+}
 function command(action, args = {}, revision = state?.revision) {
-  const checking = action === 'check_connection';
+  const checking = action === 'check_connection',
+    refreshing = action === 'refresh_status';
   if (
     posting ||
-    (!checking && unknown) ||
+    (!checking && !refreshing && unknown) ||
     !state?.available ||
-    (checking && !canCheckConnection())
+    (checking && !canCheckConnection()) ||
+    (refreshing && !canCheckRoomStatus())
   ) {
     // Not sent: put sliders and number boxes back to the confirmed values.
     dragging = false;
@@ -116,6 +127,10 @@ function command(action, args = {}, revision = state?.revision) {
         ![202, 400, 403, 405, 408, 409].includes(response.status) ||
         (reply.ok && (response.status !== 202 || reply.id !== id))
       ) {
+        if (refreshing) {
+          message('The room diagnostics check could not be confirmed. No room controls were changed.');
+          return false;
+        }
         if (checking) {
           message(
             'Connection check could not be confirmed. No light change was sent. Check the touch panel.',
@@ -141,6 +156,10 @@ function command(action, args = {}, revision = state?.revision) {
         message(
           'Connection check requested. Current lighting is checked without changing it.', true,
         );
+        return true;
+      }
+      if (refreshing) {
+        message('Room diagnostics check requested. Existing service registrations are read without changing room controls.', true);
         return true;
       }
       if (action === 'power') {
@@ -171,6 +190,10 @@ function command(action, args = {}, revision = state?.revision) {
       return true;
     })
     .catch(() => {
+      if (refreshing) {
+        message('The room diagnostics check could not be confirmed. No room controls were changed.');
+        return false;
+      }
       if (checking) {
         message(
           'Connection check could not be confirmed. No light change was sent. Check the touch panel.',
@@ -206,6 +229,7 @@ function message(text, transient = false) {
 }
 function route() {
   const hash = location.hash.slice(1);
+  if (hash === 'guide-controls') return hash;
   if (/^(home|guide(-\d+)?|tools-[a-z-]+)$/.test(hash)) return hash;
   return location.pathname === '/guide'
     ? 'guide'
@@ -218,23 +242,30 @@ function layout() {
   if (next === view) return;
   const navigating = view !== '';
   view = next;
+  if (view.startsWith('tools-')) lastTools = view;
+  if (view.startsWith('guide')) lastGuide = view;
   dragging = false;
   rangeRevision = null;
   powerChoice = null;
   const root = $('app');
   root.replaceChildren();
-  for (const a of document.querySelectorAll('.header a'))
+  for (const a of document.querySelectorAll('.header a')) {
+    if (a.hash.startsWith('#tools-')) a.hash = '#' + lastTools;
+    if (a.hash.startsWith('#guide')) a.hash = '#' + lastGuide;
     a.setAttribute(
       'aria-current',
       a.hash.slice(1) === view ||
-        (a.hash === '#tools-lighting' && view.startsWith('tools-')) ||
-        (a.hash === '#guide' && view.startsWith('guide'))
+        (a.hash.startsWith('#tools-') && view.startsWith('tools-')) ||
+        (a.hash.startsWith('#guide') && view.startsWith('guide'))
         ? 'page'
         : 'false',
     );
+  }
   if (view.startsWith('tools-')) tools(root, view.slice(6));
-  else if (view.startsWith('guide'))
-    guide(root, view === 'guide' ? -1 : Number(view.split('-')[1]));
+  else if (view.startsWith('guide')) {
+    const page = view.slice(6);
+    guide(root, /^\d+$/.test(page) ? Number(page) : -1, page === 'controls' ? 'controls' : 'room');
+  }
   else home(root);
   if (messageTimer) message('');
   // Keep the tab title and keyboard focus with the page the visitor just opened.
@@ -544,6 +575,7 @@ function tools(root, page) {
     const note = el('p', undefined, 'subtle');
     note.id = 'annotation';
     detail.append(note);
+    profileTools(detail);
   } else if (page === 'appearance') {
     choices(
       setting(
@@ -645,6 +677,124 @@ function tools(root, page) {
     a.href = 'https://github.com/LESA-RPI/scr.touch_panel';
     detail.append(a, el('p', 'Icons: Lucide · lucide.dev', 'subtle'));
   }
+}
+function profileTools(parent) {
+  const details = el('details', undefined, 'card profile-tools');
+  details.append(
+    el('summary', 'Instruction profile'),
+    el('p', 'Load instructions for this panel session only. Loading resets the instruction and timer; it does not start recording.', 'muted'),
+  );
+  const actions = el('div', undefined, 'row'),
+    download = button('Download profile', downloadProfile),
+    label = el('label', undefined, 'profile-file'),
+    file = el('input');
+  download.id = 'profile-download';
+  file.id = 'profile-file';
+  file.type = 'file';
+  file.accept = '.json,application/json';
+  file.onchange = () => previewProfile(file.files[0], file);
+  label.append(el('span', 'Load JSON profile'), file);
+  actions.append(download, label);
+  const preview = el('p'),
+    status = el('p', undefined, 'muted'),
+    load = button('Load profile', loadSelectedProfile, { action: 'profile' });
+  preview.id = 'profile-preview';
+  status.id = 'profile-status';
+  status.setAttribute('role', 'status');
+  load.id = 'profile-load';
+  details.append(actions, preview, status, load);
+  parent.append(details);
+}
+function profileIssue(checkSelection = true) {
+  if (!reachable || !state?.available) return 'Connect to the panel to load a profile.';
+  if (posting || unknown || state.busy) return 'Wait for the current panel action to finish.';
+  if (state.experiment?.running) return 'Pause instructions before loading a profile.';
+  if (['original', 'black'].includes(state.mode)) return 'Return the panel to Home before loading a profile.';
+  if (!state.experiment?.can_load_profile) return 'Finish the current panel action before loading a profile.';
+  if (checkSelection && profilePreview &&
+      (profilePreview.revision !== state.revision || profilePreview.session !== state.session))
+    return 'The panel changed. Choose the JSON file again to review it.';
+  return '';
+}
+function normalizeProfile(value) {
+  const keys = ['title', 'sensors', 'stages', 'annotations'];
+  if (!value || typeof value !== 'object' || Array.isArray(value) ||
+      Object.keys(value).some(key => !keys.includes(key)))
+    throw Error('Use a JSON object containing only title, sensors, stages and annotations.');
+  const result = { ...content.default_profile, ...value };
+  for (const key of ['title', 'sensors'])
+    if (typeof result[key] !== 'string' || !Array.from(result[key]).length || Array.from(result[key]).length > 100)
+      throw Error('Title and sensors must contain 1–100 characters.');
+  for (const [key, maximum, length] of [['stages', 20, 60], ['annotations', 4, 20]]) {
+    const items = result[key];
+    if (!Array.isArray(items) || !items.length || items.length > maximum ||
+        items.some(item => typeof item !== 'string' || !Array.from(item).length || Array.from(item).length > length) ||
+        new Set(items).size !== items.length)
+      throw Error(key === 'stages'
+        ? 'Provide 1–20 distinct instructions, each 1–60 characters.'
+        : 'Provide 1–4 distinct annotation labels, each 1–20 characters.');
+  }
+  return result;
+}
+async function previewProfile(file, input) {
+  const reading = ++profileRead,
+    revision = state?.revision,
+    session = state?.session;
+  profilePreview = null;
+  profileNotice = file ? 'Reading JSON profile…' : '';
+  input.value = '';
+  syncProfile();
+  if (!file) return;
+  try {
+    const issue = profileIssue(false);
+    if (issue) throw Error(issue);
+    if (!/\.json$/i.test(file.name) || file.size > 32768)
+      throw Error('Choose a JSON file no larger than 32 KiB.');
+    const value = normalizeProfile(JSON.parse(await file.text()));
+    if (reading !== profileRead || $('profile-file') !== input) return;
+    profilePreview = { value, revision, session };
+    profileNotice = '';
+  } catch (error) {
+    if (reading !== profileRead || $('profile-file') !== input) return;
+    profileNotice = error instanceof SyntaxError ? 'This file is not valid JSON.' : error.message;
+  }
+  syncProfile();
+}
+async function loadSelectedProfile() {
+  if (!profilePreview || profileIssue()) return;
+  const selected = profilePreview;
+  if (await command('profile', { value: selected.value }, selected.revision) && profilePreview === selected)
+    profileLoaded();
+  syncProfile();
+}
+function profileLoaded() {
+  profilePreview = null;
+  profileNotice = 'Profile loaded for this panel session. Instructions and timer reset; recorder not connected.';
+}
+function downloadProfile() {
+  if (!state?.available || !state.experiment?.profile) return;
+  const url = URL.createObjectURL(new Blob([JSON.stringify(state.experiment.profile, null, 2) + '\n'], { type: 'application/json' })),
+    anchor = el('a');
+  anchor.href = url;
+  anchor.download = 'room-instructions.json';
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+function syncProfile() {
+  if (!$('profile-file')) return;
+  const issue = profileIssue(),
+    value = profilePreview?.value;
+  $('profile-file').disabled = Boolean(profileIssue(false));
+  $('profile-download').disabled = !state?.available || !state.experiment?.profile;
+  $('profile-preview').hidden = !value;
+  update('profile-preview', value
+    ? value.title + ' · ' + value.stages.length + ' instructions · ' + value.annotations.length + ' annotation buttons'
+    : '');
+  update('profile-status', issue || profileNotice || (value ? 'Review this profile, then choose Load profile.' : 'Choose a JSON file to preview it before loading.'));
+  $('profile-load').hidden = !value;
+  $('profile-load').disabled = !value || Boolean(issue);
 }
 function lighting(detail, tab) {
   recoveryNotice(detail);
@@ -884,15 +1034,27 @@ function commitRange(key) {
       rangeRevision,
     );
 }
-function guide(root, index) {
+function guide(root, index, section = 'room') {
   const topics = content.guide;
+  if (topics[index]) section = topics[index].section || 'controls';
+  const indices = topics.map((topic, i) => (topic.section || 'controls') === section ? i : -1).filter(i => i >= 0),
+    allTopics = section === 'controls' ? 'guide-controls' : 'guide';
   root.append(el('h2', 'Demo & guide'));
   if (index < 0 || !topics[index]) {
     root.append(
-      el('p', 'Choose a topic. Exploring this guide does not operate equipment.', 'muted'),
+      el('p', 'Explore the room or learn the controls. Browsing starts no equipment.', 'muted'),
     );
+    const sections = el('nav', undefined, 'guide-sections');
+    sections.setAttribute('aria-label', 'Guide sections');
+    for (const [label, key] of content.guide_sections || []) {
+      const a = link(label, key === 'room' ? 'guide' : 'guide-controls');
+      if (key === section) a.setAttribute('aria-current', 'page');
+      sections.append(a);
+    }
+    root.append(sections);
     const grid = el('div', undefined, 'topics');
-    for (const [i, t] of topics.entries()) {
+    for (const i of indices) {
+      const t = topics[i];
       const a = link(
         t.title,
         'guide-' + i,
@@ -901,9 +1063,13 @@ function guide(root, index) {
         ],
       );
       a.className = 'topic';
+      if (t.caption) a.append(el('small', t.caption));
       grid.append(a);
     }
     root.append(grid);
+    const network = el('p', undefined, 'subtle');
+    network.id = 'network-details';
+    root.append(network);
     return;
   }
   const t = topics[index],
@@ -918,13 +1084,134 @@ function guide(root, index) {
     el('h3', t.title),
   );
   card.append(head);
-  for (const p of t.text.split('\n\n')) card.append(el('p', p));
+  const destinations = el('nav', undefined, 'row');
+  destinations.setAttribute('aria-label', 'Open related room pages');
+  for (const destination of t.links || []) {
+    const a = link(
+      destination.label,
+      destination.page === 'home' ? 'home' : 'tools-' + destination.page,
+    );
+    a.className = 'topic-destination';
+    destinations.append(a);
+  }
+  if (!t.actions) card.append(destinations);
+  if (t.map) ceilingMap(card);
+  else {
+    if (t.visual) guideVisual(card, t.visual);
+    const paragraphs = t.text.split('\n\n');
+    card.append(el('p', paragraphs[0]));
+    if (t.actions) {
+      const actions = el('div', undefined, 'row');
+      actions.append(
+        button('Lights on (Fid)', () => command('on'), {action:'on'}),
+        button('Apply Gradient', () => command('gradient'), {action:'gradient'}),
+      );
+      card.append(el('p', 'These buttons change the room lights. Wait for confirmation.', 'subtle'), actions);
+      recoveryNotice(card);
+      feedback(card);
+    }
+    for (const p of paragraphs.slice(1)) card.append(el('p', p));
+    if (t.actions) card.append(destinations);
+  }
   root.append(card);
   const nav = el('nav', undefined, 'row');
-  nav.append(link('All topics', 'guide', 'guide'));
-  if (index > 0) nav.append(link('Previous', 'guide-' + (index - 1)));
-  if (index < topics.length - 1) nav.append(link('Next', 'guide-' + (index + 1)));
+  const position = indices.indexOf(index);
+  nav.append(link('All topics', allTopics, 'guide'));
+  if (position > 0) nav.append(link('Previous', 'guide-' + indices[position - 1]));
+  if (position < indices.length - 1) nav.append(link('Next', 'guide-' + indices[position + 1]));
   root.append(nav);
+}
+function guideVisual(parent, kind) {
+  if (kind === 'channels' && content.channels?.length) {
+    const figure = el('figure', undefined, 'guide-channel-visual'),
+      swatches = el('div', undefined, 'guide-channel-swatches');
+    figure.setAttribute('aria-label', 'Lighting channel colour illustrations. These swatches do not show current light settings.');
+    for (const channel of content.channels) {
+      const item = el('div'), colour = el('span', undefined, 'guide-channel-colour');
+      colour.style.backgroundColor = channel.colour;
+      colour.setAttribute('aria-hidden', 'true');
+      item.append(colour, el('span', channel.label));
+      swatches.append(item);
+    }
+    figure.append(el('figcaption', 'Eight channels mix the room light'), swatches);
+    parent.append(figure);
+  } else if (kind === 'distance') {
+    const figure = el('figure', undefined, 'guide-distance-visual'),
+      grids = el('div', undefined, 'guide-distance-grids');
+    figure.append(el('figcaption', 'Distance sampling grids · illustration'));
+    for (const [name, rows, columns] of [['COMBO', 8, 8], ['IRMA', 25, 20]]) {
+      const item = el('div', undefined, 'guide-distance-grid'),
+        svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('viewBox', `0 0 ${columns} ${rows}`);
+      svg.setAttribute('role', 'img');
+      svg.setAttribute('aria-label', `${name}: ${rows} rows by ${columns} columns of distance samples. Schematic without live readings.`);
+      svg.setAttribute('focusable', 'false');
+      function line(x1, y1, x2, y2) {
+        const node = document.createElementNS(svg.namespaceURI, 'line');
+        for (const [key, value] of Object.entries({x1, y1, x2, y2, 'vector-effect':'non-scaling-stroke'})) node.setAttribute(key, value);
+        svg.append(node);
+      }
+      for (let column = 0; column <= columns; column++) line(column, 0, column, rows);
+      for (let row = 0; row <= rows; row++) line(0, row, columns, row);
+      item.append(el('span', `${name} · ${rows} × ${columns}`), svg);
+      grids.append(item);
+    }
+    figure.append(grids);
+    parent.append(figure);
+  }
+}
+function ceilingMap(parent) {
+  const map = content.ceiling_map;
+  if (!map?.families?.length) return;
+  const section = el('section', undefined, 'ceiling-map'),
+    controls = el('div', undefined, 'row'),
+    description = el('p', undefined, 'ceiling-map-description'),
+    diagram = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  section.setAttribute('aria-label', map.title);
+  controls.setAttribute('role', 'group');
+  controls.setAttribute('aria-label', 'Sensor family');
+  description.setAttribute('role', 'status');
+  diagram.setAttribute('class', 'ceiling-map-diagram');
+  diagram.setAttribute('role', 'img');
+  diagram.setAttribute('focusable', 'false');
+  const columns = map.grid.columns, rows = map.grid.rows, cell = 36, left = 24, top = 28;
+  diagram.setAttribute('viewBox', `0 0 ${columns * cell + 48} ${rows * cell + 56}`);
+  function shape(tag, attributes, text) {
+    const node = document.createElementNS(diagram.namespaceURI, tag);
+    for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
+    if (text !== undefined) node.textContent = text;
+    diagram.append(node);
+  }
+  const buttons = new Map();
+  function select(family) {
+    for (const [id, control] of buttons) {
+      control.classList.toggle('selected', id === family.id);
+      control.setAttribute('aria-pressed', String(id === family.id));
+    }
+    description.textContent = family.label + ' · ' + family.positions.length + ' ceiling sensors. ' + family.description;
+    diagram.setAttribute('aria-label', family.label + ': ' + family.positions.length + ' registered ceiling sensors. Dots mark reference grid cells, not live status or measured positions within each cell.');
+    diagram.replaceChildren();
+    for (let column = 0; column <= columns; column++)
+      shape('line', { x1: left + column * cell, x2: left + column * cell, y1: top, y2: top + rows * cell });
+    for (let row = 0; row <= rows; row++)
+      shape('line', { x1: left, x2: left + columns * cell, y1: top + row * cell, y2: top + row * cell });
+    for (let column = 1; column <= columns; column++)
+      shape('text', { x: left + (column - 0.5) * cell, y: 17 }, column);
+    for (let row = 1; row <= rows; row++)
+      shape('text', { x: 11, y: top + (rows - row + 0.5) * cell + 4 }, row);
+    for (const [column, row] of family.positions)
+      shape('circle', { cx: left + (column - 0.5) * cell, cy: top + (rows - row + 0.5) * cell, r: 6 });
+  }
+  for (const family of map.families) {
+    const control = button(family.label, () => select(family));
+    buttons.set(family.id, control);
+    controls.append(control);
+  }
+  section.append(el('h3', map.title), el('p', map.caption, 'muted'), controls, description,
+    diagram, el('p', map.orientation, 'muted'), el('p', map.note, 'subtle'),
+    el('p', 'Layout reference · ' + map.source.date, 'subtle'));
+  parent.append(section);
+  select(map.families[0]);
 }
 function system(parent) {
   recoveryNotice(parent, true);
@@ -946,6 +1233,7 @@ function system(parent) {
     cards.append(card);
   }
   parent.append(cards);
+  roomDiagnostics(parent);
   const views = el('section', undefined, 'card');
   views.id = 'panel-view-controls';
   const viewActions = el('div', undefined, 'row');
@@ -988,6 +1276,57 @@ function system(parent) {
   const a = el('a', 'More diagnostics', 'help-diagnostics');
   a.href = window.SCR_DEMO ? '#tools-system' : '/diagnostics';
   parent.append(a);
+}
+function roomDiagnostics(parent) {
+  const details = el('details', undefined, 'card room-diagnostics'),
+    status = el('p', undefined, 'muted'),
+    services = el('dl'),
+    observed = el('p', undefined, 'subtle'),
+    check = button('Check now', () => command('refresh_status'), { action: 'refresh_status' });
+  status.id = 'room-diagnostics-status';
+  status.setAttribute('role', 'status');
+  services.id = 'room-diagnostics-services';
+  observed.id = 'room-diagnostics-observed';
+  check.id = 'room-diagnostics-check';
+  details.append(el('summary', 'Room diagnostics'),
+    el('p', 'Service registrations on the room computer. Advertised services do not prove healthy sensors or current data.', 'muted'),
+    status, services, observed, check,
+    el('p', 'TV/Status receives readings; this panel has no current environment readout.', 'subtle'),
+    el('p', 'Panel health above describes this touch panel, including its CPU, memory and power.', 'subtle'));
+  parent.append(details);
+}
+function syncRoomDiagnostics() {
+  const services = $('room-diagnostics-services');
+  if (!services) return;
+  const diagnostics = state?.room_diagnostics,
+    rows = diagnostics?.services || [],
+    signature = JSON.stringify(rows);
+  if (services.dataset.signature !== signature) {
+    services.dataset.signature = signature;
+    services.replaceChildren();
+    for (const service of rows) {
+      const row = el('div');
+      row.append(el('dt', service.name), el('dd', service.state === 'listed' ? 'Advertised' : service.state === 'missing' ? 'Missing' : 'Not checked'));
+      services.append(row);
+    }
+  }
+  update('room-diagnostics-status', !state?.available
+    ? 'The panel is unavailable.' + (rows.length ? ' Earlier room observations are retained.' : '')
+    : diagnostics?.checking
+      ? 'Checking room service registrations…' + (rows.length ? ' Previous results remain visible.' : '')
+      : diagnostics?.state === 'unavailable'
+        ? 'The latest room check failed. ' + (diagnostics.detail || 'No current room observation is available.') + (rows.length ? ' Earlier results are retained.' : '')
+        : diagnostics?.state === 'available'
+          ? 'Room service registrations checked.'
+          : diagnostics?.detail || 'Room diagnostics are not configured.');
+  const observed = diagnostics?.observed_at && new Date(diagnostics.observed_at),
+    age = diagnostics?.age_s;
+  update('room-diagnostics-observed', observed && Number.isFinite(observed.getTime())
+    ? 'Last successful observation: ' + new Intl.DateTimeFormat('en-US', {
+        timeZone: state?.timezone || 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+      }).format(observed) + (Number.isFinite(age) ? ' · ' + (age < 60 ? Math.max(0, Math.floor(age)) + ' s ago' : Math.floor(age / 60) + ' min ago') : '')
+    : 'No successful room observation yet.');
+  $('room-diagnostics-check').disabled = posting || !canCheckRoomStatus();
 }
 function powerControls(parent) {
   const card = el('section', undefined, 'card power-controls');
@@ -1203,6 +1542,7 @@ function update(id, text) {
   if ($(id) && $(id).textContent !== String(text)) $(id).textContent = text;
 }
 function sync() {
+  update('network-details', 'Join Wi-Fi: ' + (state?.network_name || content.network_name || 'Smart Conference Room network') + '. This website works on the room network. Need access? Ask the room host.');
   const p = state?.preferences || {},
     s = state?.lights || {},
     available = state?.available === true,
@@ -1280,7 +1620,10 @@ function sync() {
     $('blind-group').hidden = p.blinds_display === 'hidden';
     $('essentials').classList.toggle('single', p.blinds_display === 'hidden');
     $('blind-group').classList.toggle('disabled-group', !state?.blinds?.available);
-    update('blind-status', state?.blinds?.available ? 'Ready' : 'Disabled');
+    update(
+      'blind-status',
+      state?.blinds?.available ? 'Ready' : state?.blinds?.reason || 'Disabled',
+    );
   }
   update(
     'blind-reason',
@@ -1301,6 +1644,10 @@ function sync() {
     const a = b.dataset.action,
       lighting = ['on', 'off', 'cct', 'preset', 'channels', 'gradient'].includes(a),
       session = ['start', 'pause', 'previous', 'next', 'mark'].includes(a);
+    if (a === 'refresh_status') {
+      b.disabled = posting || !canCheckRoomStatus();
+      continue;
+    }
     if (a === 'check_connection') {
       b.disabled = posting || !canCheckConnection();
       continue;
@@ -1350,11 +1697,12 @@ function sync() {
     b.classList.toggle('selected', chosen);
     b.setAttribute('aria-pressed', String(chosen));
   }
-  for (const b of document.querySelectorAll('[data-action=on],[data-action=off]'))
-    b.classList.toggle(
-      'selected',
-      available && !posting && !unknown && !lightingBlocked && s.power === b.dataset.action && state.can_control,
-    );
+  for (const b of document.querySelectorAll('[data-action=on],[data-action=off]')) {
+    const selected =
+      available && !posting && !unknown && !lightingBlocked && s.power === b.dataset.action && state.can_control;
+    b.classList.toggle('selected', selected);
+    b.setAttribute('aria-pressed', String(Boolean(selected)));
+  }
   for (const b of document.querySelectorAll('[data-preset]')) {
     const selected =
       available && !posting && !unknown && !lightingBlocked && s.scene === b.dataset.preset && state.can_control;
@@ -1408,13 +1756,19 @@ function sync() {
         (e.running ? 'Running' : 'Paused'),
     );
     update('annotation', e.annotation);
-    if ($('marks') && !$('marks').children.length)
+    const marks = $('marks'),
+      labels = JSON.stringify(e.profile.annotations);
+    if (marks && marks.dataset.labels !== labels) {
+      marks.dataset.labels = labels;
+      marks.replaceChildren();
       for (const label of e.profile.annotations) {
         const b = button(label, () => command('mark', { label }), { action: 'mark' });
         b.disabled = posting || Boolean(unknown) || !available || !state.can_session;
-        $('marks').append(b);
+        marks.append(b);
       }
+    }
   }
+  syncProfile();
   update('schedule-light_at', minutes(p.light_at ?? 420));
   update('schedule-dark_at', minutes(p.dark_at ?? 1140));
   const h = state?.health;
@@ -1435,6 +1789,7 @@ function sync() {
     $('panel-power')?.classList.toggle('system-warning', h.power?.startsWith('Current') === true);
   }
   update('room-health', state?.room_status || 'No current room observation.');
+  syncRoomDiagnostics();
   syncPower();
   weather();
 }
@@ -1618,6 +1973,11 @@ async function refresh() {
           powerRequest = null;
           message(receipt.detail || 'Power request was not accepted.');
         }
+      } else if (unknownAction === 'profile') {
+        if (receipt.ok) {
+          profileLoaded();
+          message(profileNotice, true);
+        } else message(receipt.detail || 'The instruction profile was not loaded.');
       } else message('The panel received the command. Check its current confirmation below.');
       unknown = null;
       unknownAction = null;

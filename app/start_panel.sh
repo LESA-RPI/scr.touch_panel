@@ -66,6 +66,7 @@ fi
 if test -n "${SCR_STATUS_URL:-}"; then
     set -- "$@" --status-url "$SCR_STATUS_URL"
 fi
+export SCR_ROOM_NETWORK_NAME SCR_ROOM_NETWORK_PASSWORD
 exec "$panel_python" -B "$app_dir/scr_touch_panel.py" \
     --keep-switcher --start-mode "$start_mode" --live-lights --theme auto --duration 0 \
     --adapter-python "$adapter_python" \

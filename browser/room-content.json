@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "app_version": "0.2.7",
+  "app_version": "0.2.8",
   "icons": {
     "tools": [
       {
@@ -794,28 +794,663 @@
       "Close & lower"
     ]
   ],
+  "default_profile": {
+    "title": "Room activity instructions",
+    "sensors": "Ceiling and colour sensors",
+    "stages": [
+      "Leave the room empty",
+      "Please sit still",
+      "Make small seated movements",
+      "Walk around the room",
+      "Leave the room empty again"
+    ],
+    "annotations": [
+      "Activity started",
+      "Activity finished",
+      "Unexpected event"
+    ]
+  },
+  "network_name": "SCR_AP",
+  "channels": [
+    {
+      "label": "Blue 1",
+      "colour": "#4764bc"
+    },
+    {
+      "label": "Blue 2",
+      "colour": "#337cb9"
+    },
+    {
+      "label": "Blue 3",
+      "colour": "#2198c2"
+    },
+    {
+      "label": "Lime",
+      "colour": "#86a83b"
+    },
+    {
+      "label": "Amber",
+      "colour": "#c69c32"
+    },
+    {
+      "label": "Orange",
+      "colour": "#d47d34"
+    },
+    {
+      "label": "Red 1",
+      "colour": "#ba6052"
+    },
+    {
+      "label": "Red 2",
+      "colour": "#a84658"
+    }
+  ],
   "guide": [
     {
+      "section": "controls",
       "title": "Lighting",
       "icon": "on",
+      "caption": "White light and saved scenes",
+      "links": [
+        {
+          "label": "Open Lighting",
+          "page": "lighting"
+        },
+        {
+          "label": "Open Home",
+          "page": "home"
+        }
+      ],
       "text": "Use Lights on and Lights off on Home for everyday lighting.\n\nRoom tools → Lighting brings White light, Scenes, Programmes and Channels together. Opening a tab does not change the lights.\n\nA highlighted button shows the last confirmed setting. If a result is unconfirmed, do not repeat it. Check connection reads current lighting without changing it; ask the room host if controls stay unavailable."
     },
     {
+      "section": "controls",
       "title": "Room controls",
       "icon": "home",
-      "text": "Home opens the everyday room page. Opening a page does not change the lights.\n\nLegacy opens the original controls. Home stops any Legacy programme and returns to Beta after checking the connection, keeping current light levels. If controls stay unavailable, ask the room host.\n\nLift blinds, Open slats and Close & lower are on Home. Room tools → Screen & controls saves whether blind movement is enabled and whether the controls are shown. Movement is disabled by default and also requires a connected controller."
+      "caption": "Everyday lighting, blinds and preferences",
+      "links": [
+        {
+          "label": "Open Home",
+          "page": "home"
+        },
+        {
+          "label": "Screen & controls",
+          "page": "screen"
+        }
+      ],
+      "text": "Home opens the everyday room page. Opening a page does not change the lights.\n\nLift blinds, Open slats and Close & lower are on Home. Movement is locked by default and requires a connected controller. Screen & controls explains availability and saves whether the controls are shown.\n\nRoom tools also holds appearance, screen and weather preferences. If equipment controls stay unavailable, ask the room host."
     },
     {
-      "title": "Sensors and experiments",
+      "section": "controls",
+      "title": "Experiment instructions",
       "icon": "experiment",
+      "caption": "Instructions, markers and recording",
+      "links": [
+        {
+          "label": "Experiment mode",
+          "page": "experiment"
+        },
+        {
+          "label": "System & help",
+          "page": "system"
+        }
+      ],
       "text": "Experiment mode guides a repeatable sequence of instructions and saves panel annotations.\n\nIt does not start a recorder. Arrange recording separately. An experiment must reserve lighting before it starts, then close its workers and return verified everyday control when finished.\n\nRoom tools → System & help shows room service availability. Availability alone does not prove usable sensor data."
     },
     {
-      "title": "How it connects",
+      "section": "controls",
+      "title": "Connection & help",
       "icon": "health",
-      "text": "Beta and the trusted-network website share one room controller. Legacy hands control to the unchanged original application.\n\nThe lighting status explains when controls are ready, reserved for an experiment, checking or unconfirmed. Website offline means the page cannot reach the panel. Open System & help for guidance.\n\nWeather is an outdoor model estimate, separate from indoor measurements. Source details are under Room tools → Date & weather."
+      "caption": "Panel, services and weather",
+      "links": [
+        {
+          "label": "System & help",
+          "page": "system"
+        },
+        {
+          "label": "Date & weather",
+          "page": "clock"
+        }
+      ],
+      "text": "Beta and the room-network website share one controller. Join the room Wi-Fi before opening the website; the guide shows the connection details.\n\nThe lighting status explains when controls are ready, reserved for an experiment, checking or unconfirmed. Website offline means the page cannot reach the panel. Open System & help for guidance.\n\nWeather is an outdoor model estimate, separate from indoor measurements. Source details are under Room tools → Date & weather."
+    },
+    {
+      "section": "room",
+      "title": "A room for research",
+      "icon": "home",
+      "caption": "Lighting, sensing and shared space",
+      "text": "The Smart Conference Room brings lighting and several kinds of sensors into one shared space. Researchers compare their different views to study presence, movement and the room environment.\n\nCeiling sensors measure distance or light colour. Research cameras can provide colour, depth and infrared recordings. Each gives a different kind of information.\n\nThis tour starts no equipment or recording. A sensor appearing on the map does not mean it is currently connected or recording.",
+      "links": []
+    },
+    {
+      "section": "room",
+      "title": "Lighting & colour",
+      "visual": "channels",
+      "actions": true,
+      "icon": "on",
+      "caption": "Ten lights, eight channels",
+      "text": "Ten lights mix these eight channels into white light and colour scenes. Gradient creates a colour pattern across the room.\n\nA confirmed drive setting is not a measurement of brightness or colour at every seat.",
+      "links": [
+        {
+          "label": "Open Lighting",
+          "page": "lighting"
+        }
+      ]
+    },
+    {
+      "section": "room",
+      "title": "Distance & colour sensors",
+      "visual": "distance",
+      "icon": "experiment",
+      "caption": "COMBO, IRMA and Color",
+      "text": "COMBO boards combine an 8 × 8 time-of-flight distance map with a colour measurement. Time of flight estimates distance from the return of emitted light.\n\nIRMA Matrix sensors provide larger 25 × 20 distance and return-amplitude arrays. These are distance measurements, rather than heat images.\n\nThe separate Color network measures the room's light colour without forming a photograph. Raw sensor values need calibration before being treated as absolute measurements.",
+      "links": []
+    },
+    {
+      "section": "room",
+      "title": "Ceiling map",
+      "icon": "health",
+      "caption": "Explore the sensor families",
+      "text": "Select a sensor family to see its registered ceiling positions.",
+      "map": true,
+      "links": []
     }
   ],
+  "guide_sections": [
+    [
+      "Explore the room",
+      "room"
+    ],
+    [
+      "Using the controls",
+      "controls"
+    ]
+  ],
+  "ceiling_map": {
+    "schema_version": 1,
+    "title": "Ceiling sensor map",
+    "caption": "Choose a sensor family to see its registered ceiling positions.",
+    "grid": {
+      "columns": 14,
+      "rows": 5,
+      "row_one_edge": "bottom"
+    },
+    "orientation": "Top view: north at top · door/south at bottom · windows/east at right.",
+    "note": "Registered ceiling positions from the reference layout; not live device status. Four side-mounted Color sensors and other room equipment are not shown.",
+    "source": {
+      "repository": "Project-X-Ceiling",
+      "path": "data/output/sensor-extraction/sensors_all_m.csv",
+      "date": "2026-02-24",
+      "sha256": "3043c19b74a23d817c5b0c11221879815ca9dbdb324855017ea837b681e16f77"
+    },
+    "families": [
+      {
+        "id": "color",
+        "label": "Color",
+        "description": "TCS34725 sensors measure red, green, blue and clear light channels. These ceiling sensors observe changes in room light; they do not form a camera image.",
+        "positions": [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            3
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            3,
+            1
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            3,
+            3
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            4,
+            1
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            1
+          ],
+          [
+            5,
+            2
+          ],
+          [
+            5,
+            3
+          ],
+          [
+            5,
+            4
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            6,
+            1
+          ],
+          [
+            6,
+            3
+          ],
+          [
+            6,
+            5
+          ],
+          [
+            7,
+            1
+          ],
+          [
+            7,
+            2
+          ],
+          [
+            7,
+            3
+          ],
+          [
+            7,
+            4
+          ],
+          [
+            7,
+            5
+          ],
+          [
+            8,
+            1
+          ],
+          [
+            8,
+            5
+          ],
+          [
+            9,
+            1
+          ],
+          [
+            9,
+            3
+          ],
+          [
+            9,
+            5
+          ],
+          [
+            10,
+            1
+          ],
+          [
+            10,
+            2
+          ],
+          [
+            10,
+            3
+          ],
+          [
+            10,
+            4
+          ],
+          [
+            10,
+            5
+          ],
+          [
+            11,
+            1
+          ],
+          [
+            11,
+            5
+          ],
+          [
+            12,
+            1
+          ],
+          [
+            12,
+            2
+          ],
+          [
+            12,
+            3
+          ],
+          [
+            12,
+            4
+          ],
+          [
+            12,
+            5
+          ],
+          [
+            13,
+            1
+          ],
+          [
+            13,
+            3
+          ],
+          [
+            13,
+            5
+          ],
+          [
+            14,
+            1
+          ],
+          [
+            14,
+            2
+          ],
+          [
+            14,
+            3
+          ],
+          [
+            14,
+            4
+          ],
+          [
+            14,
+            5
+          ]
+        ]
+      },
+      {
+        "id": "combo",
+        "label": "COMBO",
+        "description": "Combined boards pair an 8 × 8 time-of-flight distance sensor with a TCS3430 light sensor. Distance readings and colour-channel counts support room research.",
+        "positions": [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            2
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            2,
+            1
+          ],
+          [
+            2,
+            5
+          ],
+          [
+            3,
+            1
+          ],
+          [
+            3,
+            2
+          ],
+          [
+            3,
+            4
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            4,
+            1
+          ],
+          [
+            4,
+            5
+          ],
+          [
+            5,
+            1
+          ],
+          [
+            5,
+            2
+          ],
+          [
+            5,
+            4
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            6,
+            1
+          ],
+          [
+            6,
+            5
+          ],
+          [
+            7,
+            1
+          ],
+          [
+            7,
+            2
+          ],
+          [
+            7,
+            4
+          ],
+          [
+            7,
+            5
+          ],
+          [
+            8,
+            1
+          ],
+          [
+            8,
+            5
+          ],
+          [
+            9,
+            1
+          ],
+          [
+            9,
+            5
+          ],
+          [
+            10,
+            1
+          ],
+          [
+            10,
+            2
+          ],
+          [
+            10,
+            4
+          ],
+          [
+            10,
+            5
+          ],
+          [
+            11,
+            1
+          ],
+          [
+            11,
+            5
+          ],
+          [
+            12,
+            1
+          ],
+          [
+            12,
+            2
+          ],
+          [
+            12,
+            4
+          ],
+          [
+            12,
+            5
+          ],
+          [
+            13,
+            1
+          ],
+          [
+            13,
+            5
+          ],
+          [
+            14,
+            1
+          ],
+          [
+            14,
+            5
+          ]
+        ]
+      },
+      {
+        "id": "irma",
+        "label": "IRMA",
+        "description": "IRMA MATRIX time-of-flight sensors return 25 × 20 distance samples. Their depth observations support room-surface and movement studies.",
+        "positions": [
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            3
+          ],
+          [
+            1,
+            5
+          ],
+          [
+            3,
+            1
+          ],
+          [
+            3,
+            5
+          ],
+          [
+            5,
+            1
+          ],
+          [
+            5,
+            5
+          ],
+          [
+            7,
+            1
+          ],
+          [
+            7,
+            5
+          ],
+          [
+            9,
+            1
+          ],
+          [
+            9,
+            5
+          ],
+          [
+            11,
+            1
+          ],
+          [
+            11,
+            5
+          ],
+          [
+            13,
+            1
+          ],
+          [
+            13,
+            5
+          ],
+          [
+            14,
+            1
+          ],
+          [
+            14,
+            3
+          ],
+          [
+            14,
+            5
+          ]
+        ]
+      }
+    ]
+  },
   "help": [
     {
       "title": "Lighting",

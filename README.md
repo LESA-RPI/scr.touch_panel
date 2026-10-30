@@ -11,7 +11,7 @@ Earlier navigation, reliability and Legacy-parity changes are reviewed in
 [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1). An installed cabinet may
 run a different commit; check its release identity before maintenance.
 
-The current source version is **0.2.7**, owned by
+The current source version is **0.2.8**, owned by
 [app/panel_version.py](app/panel_version.py).
 It is for About and internal development/GitHub tracking; everyday headers say
 Beta. Legacy is the preserved older baseline for backtracking, identified by Git
@@ -25,12 +25,22 @@ separate release process are required.
 |---|---|
 | Home | Lights on/off, optional blind controls and clock/weather |
 | Room tools | Lighting, Experiment mode, system/help and device preferences in one sidebar |
-| Demo & guide | Four directly selectable topics, with Previous/Next and All topics; no equipment or recording starts |
+| Demo & guide | Explore the room through a visual tour, or open concise control help |
 
 Home is the default screen. **Lights on applies Fid** on both Beta and the website.
 The former On setting (3500 K, level 1000) is available as **Warm white** under
 Room tools → Lighting → White light. Fid remains in Scenes, marked as the same
 setting as Lights on.
+Demo & guide separates **Explore the room** from **Using the controls**.
+The tour explains the ten lights and eight channels, COMBO distance/colour sensing,
+IRMA distance arrays and the separate Color network. Its ceiling schematic lets
+visitors select a sensor family; positions are a dated reference, not live status.
+Browsing starts no equipment. Explicit scene buttons in the lighting story can
+change room lights through the same guarded controller as Lighting. Direct page
+links and remembered topics make it easy to explore, try controls and return.
+The guide also shows how to join **SCR_AP** and open the room website by QR code.
+The access key is supplied by private deployment settings and shown only on the
+physical panel; ask the room host if access details are unavailable.
 Room tools → Lighting groups **White light, Scenes,
 Programmes and Channels**. Fid, Sat and Dul retain their original mixtures.
 Scenes also offers the original ten-light Gradient when its service is available.
@@ -56,6 +66,11 @@ can reopen. An unconfirmed programme stop or lighting result needs the room host
 Room tools opens each tool directly beside the sidebar and
 remembers the last tool. Experiment mode runs instructions and panel annotations;
 its recorder is not connected.
+On the website, Experiment mode → Instruction profile can download the current
+data-only JSON setup or preview and load another while instructions are paused.
+Loading resets instructions and their timer for the current panel session; it
+does not start recording or replace the startup profile. No physical keyboard or
+mouse is needed for this setup path. Profiles contain no scripts or device paths.
 
 Home and the idle view show outdoor temperature, conditions, feels-like temperature,
 today's high/low and rain chance when available, plus daylight. Source/model
@@ -90,6 +105,12 @@ and uncertain results retain their control guards.
 White light shows the minimum and maximum beside each slider. System & help
 separates panel health, room connection and guidance. Reference commands are
 available through View command steps and are never executed by the panel.
+Room diagnostics shows dated service registrations and keeps earlier results
+after a failed check. Check now reuses the existing metadata worker. The website
+gateway reuses the panel's cached result, avoiding a second ROS service check.
+These registrations do not prove live sensor data or recording. Indoor readings
+remain on TV/Status until a supported read-only feed is connected; the displayed
+Pi temperature is its processor temperature, separate from outdoor weather.
 Command references use a verified monospace font with restrained shell highlighting;
 the browser can copy each command or the complete topic without formatting.
 Command steps explain which computer to use, why the command helps and what
@@ -121,7 +142,8 @@ control when finished. **Check connection** reads current settings without chang
 them or repeating a command. If a result is unconfirmed, do not retry; ask the room
 host. **Room tools → System & help** provides guidance. **Website offline** means
 the page cannot reach the panel; it reconnects automatically.
-The visitor guide operates no devices. A two-second stationary
+Opening guide pages operates no devices; its labelled scene buttons are explicit
+room actions. A two-second stationary
 press leaves the black screen; black pixels do not turn off the backlight.
 A small gray hint at the bottom explains the two-second hold.
 
@@ -193,7 +215,7 @@ journals have `recording: false`; recorder integration needs a separate adapter.
 
 General panel code belongs here. Project-X owns its optional recorder integration.
 The browser and touch interface share one command owner and experiment ownership.
-On phones, the website keeps Home, Room tools and Demo & guide in a bottom
+On phones and portrait tablets, the website keeps Home, Room tools and Demo & guide in a bottom
 navigation bar. Compact tool selection, scrollable lighting tabs and scene rows
 leave more room for controls. Changing pages returns to the top; pending messages
 remain visible above navigation without changing the panel's page.

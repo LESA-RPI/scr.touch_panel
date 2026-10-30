@@ -266,6 +266,22 @@ def shared_worker(view):
     return worker
 
 
+def test_programme_cards_keep_their_start_and_stop_actions_after_navigation(view):
+    shared_worker(view)
+    requests = []
+    view.programme_command = requests.append
+    for unused in range(2):
+        view.open_advanced("programmes")
+        view.root.update()
+        assert len(view.programme_buttons) == 3
+        for button in view.programme_buttons:
+            assert button.cget("state") == "normal"
+            button.invoke()
+        view.open_home()
+    assert requests == ["Sun", "Circ", "Stop"] * 2
+    view.worker = None
+
+
 def test_classic_and_home_keep_one_acquired_owner_without_hardware_work(view):
     worker = shared_worker(view)
     confirmed = (view.confirmed_light, view.confirmed_at, view.confirmed_power, view.confirmed_scene)

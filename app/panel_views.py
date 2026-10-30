@@ -4,7 +4,8 @@ from room_controls import BLIND_ACTIONS
 from panel_version import BUILD_COMMIT
 from room_controls import LIGHTING_TABS
 from room_controls import UNAVAILABLE_LIGHTING, BLINDS_UNAVAILABLE
-from room_controls import SCENES, GRADIENT, WEBSITE_URL, PREVIOUS_ON
+from room_controls import SCENES, GRADIENT, PROGRAMMES, WEBSITE_URL, PREVIOUS_ON
+from room_controls import ROOM_NETWORK_NAME, ROOM_NETWORK_PASSWORD
 from touch_slider import TouchSlider
 from panel_version import VERSION
 import os
@@ -342,16 +343,40 @@ class PanelViews:
                 self.scene_buttons.append((button, scene["id"]))
             self.feedback_card(self.body)
         elif self.lighting_tab == "programmes":
-            self.programme_buttons = self.row_buttons(
+            self.programme_buttons = []
+            grid = tk.Frame(self.body, bg=self.bg)
+            grid.pack(fill="x", pady=(4, 8))
+            for column, programme in enumerate(PROGRAMMES):
+                grid.columnconfigure(column, weight=1, uniform="programme")
+                card = tk.Frame(
+                    grid, bg=self.surface, highlightthickness=1,
+                    highlightbackground=self.border,
+                )
+                card.grid(
+                    row=0, column=column, sticky="nsew",
+                    padx=(0, 10) if column == 0 else 0,
+                )
+                self.label(card, programme["label"], 20).pack(
+                    anchor="w", padx=16, pady=(10, 4)
+                )
+                self.wrap_label(self.label(card, programme["detail"], 14, True)).pack(
+                    fill="x", padx=16, pady=(0, 10)
+                )
+                button = self.button(
+                    card, "Start " + programme["label"],
+                    lambda name=programme["id"]: self.programme_command(name),
+                )
+                button.config(font=(self.font_family, 17), pady=8)
+                button.pack(fill="x", padx=16, pady=(0, 12))
+                button._programme = programme["id"]
+                self.programme_buttons.append(button)
+            stop = self.row_buttons(
                 self.body,
-                [(name, lambda name=name: self.programme_command(name), False)
-                 for name in ("Sun", "Circ")], height=74,
-            )
-            self.programme_buttons.extend(self.row_buttons(
-                self.body, [("Stop programmes", lambda: self.programme_command("Stop"), False)], height=64,
-            ))
-            for button, name in zip(self.programme_buttons, ("Sun", "Circ", "Stop")):
-                button._programme = name
+                [("Stop programmes", lambda: self.programme_command("Stop"), False)],
+                height=64,
+            )[0]
+            stop._programme = "Stop"
+            self.programme_buttons.append(stop)
             self.wrap_label(self.label(
                 self.body,
                 "Start and stop lighting programmes. Live programme status is unavailable. Manual lighting stops programmes before applying.",
@@ -758,13 +783,30 @@ class PanelViews:
         try:
             image = self.icon_cache.get("website-qr") or tk.PhotoImage(file=path)
         except tk.TclError:
-            return  # Missing artwork only hides the code; About still works.
-        self.icon_cache["website-qr"] = image
+            image = None
         card = tk.Frame(parent, bg=parent.cget("bg"))
         card.place(relx=1.0, rely=0.0, anchor="ne")
+        network = self.label(
+            card,
+            "1. Join Wi-Fi: " + ROOM_NETWORK_NAME if ROOM_NETWORK_NAME
+            else "1. Join the room network",
+            15,
+        )
+        network.config(wraplength=232)
+        network.pack(anchor="e", pady=(0, 6))
+        access = self.label(
+            card,
+            "Wi-Fi key: " + ROOM_NETWORK_PASSWORD if ROOM_NETWORK_PASSWORD
+            else "Need the Wi-Fi key?\nAsk the room host.",
+            14,
+            True,
+        )
+        access.config(wraplength=232)
+        access.pack(anchor="e", pady=(0, 12))
         # A white border keeps the code scannable in the dark theme too.
-        tk.Label(card, image=image, bg="#ffffff", bd=0, padx=8, pady=8).pack(anchor="e")
-        self.label(card, "Room website", 19).pack(anchor="e", pady=(12, 2))
+        if image is not None:
+            self.icon_cache["website-qr"] = image
+            tk.Label(card, image=image, bg="#ffffff", bd=0, padx=8, pady=8).pack(anchor="e")
+        self.label(card, "2. Scan for room website", 17).pack(anchor="e", pady=(12, 2))
         address = WEBSITE_URL.split("//")[1].rstrip("/")
         self.label(card, address, 15, True).pack(anchor="e")
-        self.label(card, "Scan on the room network", 15, True).pack(anchor="e")

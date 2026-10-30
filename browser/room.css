@@ -699,6 +699,38 @@ input[type='range'] {
 }
 .topic small {
   font-size: 17px;
+  color: var(--muted);
+}
+.topic-destination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--control);
+  text-align: center;
+  text-decoration: none;
+}
+.guide-sections {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+.guide-sections a {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  text-align: center;
+  text-decoration: none;
+}
+.guide-sections a[aria-current='page'] {
+  background: var(--accent);
+  color: var(--selected-ink);
+  border-color: var(--accent);
 }
 .topic svg {
   width: 32px;
@@ -994,8 +1026,8 @@ summary {
   }
 }
 
-/* Phone */
-@media (max-width: 650px) {
+/* Compact touch layouts: phones and portrait tablets share reachable navigation. */
+@media (max-width: 900px) {
   body {
     font-size: 16px;
     padding-bottom: calc(84px + env(safe-area-inset-bottom));
@@ -1299,6 +1331,40 @@ summary {
   }
 }
 
+@media (min-width: 651px) and (max-width: 900px) {
+  .room-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+  .topics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.profile-tools {
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.profile-tools summary {
+  cursor: pointer;
+  min-height: 48px;
+  display: list-item;
+  padding-block: 10px;
+}
+.profile-file {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  margin-block: 12px;
+}
+.profile-file input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 8px;
+}
+
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -1404,5 +1470,129 @@ summary {
     font-size: 14px;
     line-height: 1.2;
     padding: 8px 4px;
+  }
+}
+
+/* Read-only ceiling reference: native family buttons and a responsive schematic. */
+.ceiling-map {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.ceiling-map > h3 + p {
+  margin-top: 8px;
+}
+.ceiling-map .row button {
+  min-width: 0;
+}
+.ceiling-map-description {
+  min-height: 3em;
+}
+.ceiling-map-diagram {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 16px 0;
+  background: var(--surface);
+}
+.ceiling-map-diagram line {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.ceiling-map-diagram circle {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+.ceiling-map-diagram text {
+  fill: var(--muted);
+  stroke: none;
+  text-anchor: middle;
+  font-size: 12px;
+}
+
+/* Small static guide illustrations; values always come from the real controls. */
+.guide-channel-visual,
+.guide-distance-visual {
+  margin: 12px 0 18px;
+  font-size: 14px;
+}
+.guide-channel-visual figcaption,
+.guide-distance-visual figcaption {
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.guide-channel-swatches {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 8px;
+  text-align: center;
+}
+.guide-channel-colour {
+  display: block;
+  height: 30px;
+  margin-bottom: 4px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+}
+.guide-distance-grids {
+  display: flex;
+  gap: 24px;
+}
+.guide-distance-grid {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.guide-distance-grid svg {
+  width: 92px;
+  height: 80px;
+  stroke: var(--muted);
+  stroke-width: 0.75;
+}
+.room-diagnostics {
+  margin: 16px 0;
+}
+.room-diagnostics dl {
+  margin: 14px 0;
+}
+.room-diagnostics dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+}
+.room-diagnostics dd {
+  margin: 0;
+}
+@media (max-width: 650px) {
+  .topics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .topic {
+    min-height: 160px;
+    padding: 12px;
+    gap: 6px;
+    font-size: 18px;
+  }
+  .topic small {
+    font-size: 14px;
+  }
+  .topic svg {
+    width: 24px;
+    height: 24px;
+  }
+  .guide-channel-swatches {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .guide-distance-grids {
+    justify-content: space-around;
+    gap: 12px;
+  }
+  .guide-distance-grid {
+    flex-direction: column;
+    gap: 4px;
   }
 }

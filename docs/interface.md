@@ -9,8 +9,9 @@ service is implemented.
 A JSON object may override `title`, `sensors`, `stages` and `annotations`.
 Unknown keys are rejected. No paths, callbacks or executable code are accepted.
 The panel loads this file through `--profile` at startup. The browser/API can
-operate its instructions and annotations; changing the profile through the API
-is not implemented.
+operate its instructions and annotations, and load a session-only setup using
+`action: "profile", arguments: {"value": {...}}` through the same command envelope.
+Unknown keys, executable paths and callbacks remain forbidden.
 
 ```json
 {
@@ -25,6 +26,17 @@ The title and description have at most 100 characters. There are 1–20 distinct
 instructions, each at most 60 characters, and 1–4 distinct annotation labels,
 each at most 20 characters. The client also checks text width at the selected
 font. The final instruction pauses instructions; navigation does not wrap.
+Runtime imports use the same validator and target-font fit checks, including
+two-line instructions and the available annotation-button width. Loading is
+accepted only while paused, with no pending touch, command, annotation save,
+power transition or experiment ownership. It resets stage, elapsed time and the
+annotation display, and rebuilds only an open Experiment view. It sends no room
+command, starts no recorder and does not write the startup profile.
+The snapshot's `experiment.can_load_profile` advertises readiness; the owner
+rechecks it at dispatch. A `profile_loaded` journal event contains the full setup
+and `recording: false`. Like other ordinary events, it is not a durable recording
+manifest. General HTTP/socket command envelopes are limited to 32 KiB; the
+private lighting handoff remains limited to 4 KiB.
 
 ## Panel journal
 
@@ -187,7 +199,7 @@ The shared actions cover on/off, CCT/level, eight channels, admitted presets, Gr
 original programme requests, permitted whole-room blinds,
 instruction start/pause/previous/next/known annotations, panel appearance/clock/
 weather/idle preferences, blind permission/visibility, Home, Legacy, Check connection, clock view and
-blank display. All inputs are bounded enums or integers. Lighting requires ready
+blank display. Inputs use bounded enums, numbers or validated profile data. Lighting requires ready
 readback, no pending/queued/held touch and no running instructions. Legacy,
 experiment reservation, blank and uncertain states block lighting. Ordinary Beta pages, including Guide,
 Settings, About and paused Experiment mode, do not restrict lighting availability.
@@ -263,6 +275,27 @@ expected result and exact copy text. A help topic exports its `reference` object
 alongside the complete `commands` text for older clients. The complete text joins
 step commands with blank lines; highlighting never changes that text. These are
 display/copy references, not executable gateway actions.
+
+Guide metadata owns the room/control sections, captions and safe destinations.
+The ceiling map is a static derived snapshot of Project-X-Ceiling's registered
+grid cells, with source date and hash. It carries no device endpoint or health
+state and makes no network request. Channel/grid diagrams are static schematics.
+Explicit guide scene buttons use existing owner actions; navigation is passive.
+No new poller or background service is used by guides or profile setup.
+
+`room_diagnostics` contains `state`, copied `services` rows (`name`,
+`listed`/`missing` state), `observed_at`, monotonic `age_s`, `checking`, `can_check`
+and explanatory `detail`. Successful metadata probes replace the observation;
+failures retain its data/time. `refresh_status` takes no arguments and requests
+the same bounded worker. It is read-only, does not alter held-touch or uncertain
+lighting state, and does not replay a device command. Gateway `/api/status`
+reuses this owner cache, preserving age; it does not fall back to a separate ROS
+query if the configured owner is unavailable. Standalone mode remains independent.
+
+`network_name` identifies the configured visitor Wi-Fi. Its confirmed default is
+panel-owned shared content; deployment may override it. The optional private
+Wi-Fi key is shown only by the physical panel QR component and never included
+in snapshots, exports or journals.
 
 ## Planned individual device controls
 

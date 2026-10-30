@@ -166,6 +166,15 @@ Lighting failures leave idle automatically. Confirmation age uses monotonic time
 from matching successful acquire/apply replies; failures never refresh it. It is
 historical feedback, not continuous measurement. No preference saves light state.
 
+The room website is reachable only on the approved room network. The room host
+confirmed the visitor Wi-Fi name as **SCR_AP**. The panel's guide and About show
+the network and website QR together. Other installations can set
+`SCR_ROOM_NETWORK_NAME` in private `deployment.env`. Set
+`SCR_ROOM_NETWORK_PASSWORD` there if the physical panel should display the access
+key. The launcher exports these values to Beta; the key is omitted from browser
+snapshots, generated content and event journals. Keep the file private and out of
+Git. The website identifies the network and directs visitors to the room host.
+
 Weather is optional. Set these private values in `deployment.env`:
 
 ```sh
@@ -202,14 +211,31 @@ the qualified Raspberry Pi OS image; other hosts may select another family with
 
 ## Room guide and troubleshooting
 
-Demo & guide is a four-page introduction. It shares the existing navigation,
-icons and text layout. No demo script or recorder starts when pages change.
+Demo & guide separates a four-topic room tour from four control-help topics.
+The tour uses static channel/ranging illustrations and a selectable ceiling
+schematic. Its source snapshot is identified in `app/ceiling_map.json`; Project-X
+owns the canonical geometry. Update that snapshot only from reviewed source
+data, preserving its source date/hash and the distinction between mapped and
+live devices. It omits unmapped wall sensors and unverified fixture positions.
+Opening pages or changing map families starts no equipment or recording.
+The lighting story's explicit scene buttons share the normal controller guards
+and confirmation feedback. Safe page links keep the selected guide topic.
 The fixed header badge reflects the existing lighting adapter state, with no extra
 network polling. Its icons and labels distinguish Ready, Sending, Checking,
 Uncertain and Offline. Preview never reports Ready; Legacy shows its own mode.
 
 Room tools → System & help offers read-only Check connection alongside panel
 controls and reference instructions. Reference commands are never executed by the interface.
+Room diagnostics opens a secondary view with cached service registrations,
+observation age, the latest check result and Check now. It uses the existing
+bounded metadata worker and its 60-second automatic cadence. A failed check
+retains the last successful observation and its original age. Gateway-mode
+website diagnostics reuse that owner cache; standalone diagnostics retain their
+own bounded probe. These checks never query a sensor or start a room service.
+TV/Status currently accepts pushed measurements without a verified read API.
+Direct HVAC getters share an unlocked controller connection with the existing
+HVAC client; use its passive feed for future readings, without another getter
+poller. No indoor-temperature or host-health value is inferred from registration.
 [app/panel_guides.py](app/panel_guides.py) owns the concise displayed guidance.
 The room's installed `startROS.py` and `startStatus.py` were inspected on
 2026-10-14: each destroys its existing named tmux session before rebuilding it.
@@ -221,6 +247,15 @@ is unverified. A restart can interrupt controls and passive/acquisition consumer
 Keep the panel's own autostart separate from room-server maintenance.
 
 ## Startup and rollback
+
+Researchers can set up instructions from the room website under Experiment mode
+→ Instruction profile. Download the current JSON as a starting point. Choose a
+JSON file (at most 32 KiB), review its title/counts, then choose Load profile.
+Pause instructions and finish pending actions first. A changed panel revision
+requires reviewing the file again. The owner checks schema and cabinet text fit
+before replacing the setup. Loading resets its timer and instruction index for
+this panel session; restarting reloads the startup `--profile` file. Export a
+setup for reuse. This path neither reserves lighting nor starts a recorder.
 
 The client does not install or change OS services. The deployment launcher
 uses a private `~/.config/scr-panel/deployment.env` file:
