@@ -662,7 +662,7 @@ function lighting(detail, tab) {
   }
   detail.append(tabs);
   if (tab === 'scenes') {
-    detail.append(el('p', 'Original scene names and mixtures from Legacy.', 'muted'));
+    detail.append(el('p', 'Choose a room lighting scene.', 'muted'));
     const grid = el('div', undefined, 'scene-grid');
     for (const scene of content.scenes || []) {
       const card = el('section', undefined, 'card scene-card'),
@@ -685,7 +685,7 @@ function lighting(detail, tab) {
       el('h3', content.gradient?.label || 'Gradient'),
       el(
         'p',
-        content.gradient?.detail || 'Original spatial pattern across the ten room lights.',
+        content.gradient?.detail || 'Colour pattern across the room lights.',
         'muted',
       ),
       apply,
@@ -696,7 +696,7 @@ function lighting(detail, tab) {
   } else if (tab === 'programmes') {
     const unavailable = el(
       'p',
-      content.unavailable_lighting || 'Original lighting programmes are unavailable on this panel.',
+      content.unavailable_lighting || 'Lighting programmes are unavailable on this panel.',
       'muted',
     );
     unavailable.id = 'programmes-unavailable';
@@ -707,12 +707,12 @@ function lighting(detail, tab) {
     for (const programme of content.programmes || [
       {
         id: 'Sun',
-        label: 'Original Sun programme',
+        label: 'Sun',
         detail: 'A spatially staggered colour-temperature curve.',
       },
       {
         id: 'Circ',
-        label: 'Original Circ programme',
+        label: 'Circ',
         detail: 'A whole-room colour-temperature curve.',
       },
     ]) {
@@ -759,6 +759,13 @@ function lighting(detail, tab) {
     range(grid, 'Colour temperature', 'cct', 1600, 10000, 100, 'K');
     range(grid, 'Light level', 'intensity', 0, 1900, 25, 'controller units');
     detail.append(grid);
+    if (content.previous_on) {
+      const previous = content.previous_on;
+      detail.append(
+        button(previous.label, () => command('cct', previous.arguments), { action: 'cct' }),
+        el('p', previous.detail, 'muted'),
+      );
+    }
     feedback(detail);
   }
 }

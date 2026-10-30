@@ -11,7 +11,7 @@ Earlier navigation, reliability and Legacy-parity changes are reviewed in
 [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1). An installed cabinet may
 run a different commit; check its release identity before maintenance.
 
-The current source version is **0.2.6**, owned by
+The current source version is **0.2.7**, owned by
 [app/panel_version.py](app/panel_version.py).
 It is for About and internal development/GitHub tracking; everyday headers say
 Beta. Legacy is the preserved older baseline for backtracking, identified by Git
@@ -27,7 +27,11 @@ separate release process are required.
 | Room tools | Lighting, Experiment mode, system/help and device preferences in one sidebar |
 | Demo & guide | Four directly selectable topics, with Previous/Next and All topics; no equipment or recording starts |
 
-Home is the default screen. Room tools → Lighting groups **White light, Scenes,
+Home is the default screen. **Lights on applies Fid** on both Beta and the website.
+The former On setting (3500 K, level 1000) is available as **Warm white** under
+Room tools → Lighting → White light. Fid remains in Scenes, marked as the same
+setting as Lights on.
+Room tools → Lighting groups **White light, Scenes,
 Programmes and Channels**. Fid, Sat and Dul retain their original mixtures.
 Scenes also offers the original ten-light Gradient when its service is available.
 Programmes provides the original Sun and Circ Start controls and Stop programmes

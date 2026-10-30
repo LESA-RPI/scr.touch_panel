@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "app_version": "0.2.6",
+  "app_version": "0.2.7",
   "icons": {
     "tools": [
       {
@@ -697,34 +697,34 @@
     {
       "id": "Fid",
       "label": "Fid",
-      "detail": "Original eight-channel room mixture."
+      "detail": "Everyday lighting. Same as Lights on."
     },
     {
       "id": "Sat",
       "label": "Sat",
-      "detail": "Original eight-channel room mixture."
+      "detail": "Room-wide colour mixture."
     },
     {
       "id": "Dul",
       "label": "Dul",
-      "detail": "Original eight-channel room mixture."
+      "detail": "Room-wide colour mixture."
     }
   ],
   "gradient": {
     "id": "Gradient",
     "label": "Gradient",
-    "detail": "Original spatial pattern across the ten room lights."
+    "detail": "Colour pattern across the room lights."
   },
   "programmes": [
     {
       "id": "Sun",
-      "label": "Original Sun programme",
-      "detail": "Original colour and light-level curve, staggered across the room."
+      "label": "Sun",
+      "detail": "Colour and light-level curve, staggered across the room."
     },
     {
       "id": "Circ",
-      "label": "Original Circ programme",
-      "detail": "Original colour and light-level curve across the whole room."
+      "label": "Circ",
+      "detail": "Colour and light-level curve across the whole room."
     }
   ],
   "presets": {
@@ -769,7 +769,15 @@
       0
     ]
   },
-  "unavailable_lighting": "Original programmes are unavailable while the Status connection is not configured.",
+  "previous_on": {
+    "label": "Warm white",
+    "detail": "3500 K, level 1000.",
+    "arguments": {
+      "cct": 3500,
+      "intensity": 1000
+    }
+  },
+  "unavailable_lighting": "Lighting programmes are unavailable while the room connection is not configured.",
   "blinds_unavailable": "Not available yet: the blind adapter is not connected.",
   "generated_from": "app/export_room_content.py",
   "blind_actions": [

@@ -8,20 +8,26 @@ LIGHTING_TABS = (
     ("Programmes", "programmes"),
     ("Channels", "channels"),
 )
+PREVIOUS_ON = {
+    "label": "Warm white",
+    "detail": "3500 K, level 1000.",
+    "arguments": {"cct": 3500, "intensity": 1000},
+}
 SCENES = tuple(
-    {"id": name, "label": name, "detail": "Original eight-channel room mixture."}
+    {"id": name, "label": name,
+     "detail": "Everyday lighting. Same as Lights on." if name == "Fid" else "Room-wide colour mixture."}
     for name in PRESETS
     if name != "Off"
 )
 GRADIENT = {"id": "Gradient", "label": "Gradient",
-            "detail": "Original spatial pattern across the ten room lights."}
+            "detail": "Colour pattern across the room lights."}
 PROGRAMMES = (
-    {"id": "Sun", "label": "Original Sun programme",
-     "detail": "Original colour and light-level curve, staggered across the room."},
-    {"id": "Circ", "label": "Original Circ programme",
-     "detail": "Original colour and light-level curve across the whole room."},
+    {"id": "Sun", "label": "Sun",
+     "detail": "Colour and light-level curve, staggered across the room."},
+    {"id": "Circ", "label": "Circ",
+     "detail": "Colour and light-level curve across the whole room."},
 )
-UNAVAILABLE_LIGHTING = "Original programmes are unavailable while the Status connection is not configured."
+UNAVAILABLE_LIGHTING = "Lighting programmes are unavailable while the room connection is not configured."
 BLINDS_UNAVAILABLE = "Not available yet: the blind adapter is not connected."
 BLIND_ACTIONS = (
     ("lift", "Lift blinds"),

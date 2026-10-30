@@ -48,6 +48,27 @@ class Room:
         return SimpleNamespace(cmdstr=str([float(v) / 100 for v in args]))
 
 
+def test_lights_on_uses_fid_channel_mixture():
+    state = panel.Panel.__new__(panel.Panel)
+    state.channel_values = [SimpleNamespace(set=lambda value: None) for _ in range(8)]
+    sent = []
+    state.apply = lambda action, **kwargs: sent.append((action, kwargs))
+    state.lights_on()
+    assert sent == [("channels", {"immediate": True, "values": list(adapter.PRESETS["Fid"])})]
+
+
+def test_previous_on_preserves_former_white_light_setting():
+    state = panel.Panel.__new__(panel.Panel)
+    selected = {}
+    state.cct = SimpleNamespace(set=lambda value: selected.update(cct=value))
+    state.intensity = SimpleNamespace(set=lambda value: selected.update(intensity=value))
+    sent = []
+    state.apply = lambda action, **kwargs: sent.append((action, kwargs))
+    state.previous_on()
+    assert sent == [("cct", {"immediate": True, "cct": 3500, "intensity": 1000})]
+    assert selected == {"cct": 3500, "intensity": 1000}
+
+
 def test_exact_restore_after_confirmed_write_and_float32_readback():
     room = Room()
     lights = adapter.Lights(room.call)

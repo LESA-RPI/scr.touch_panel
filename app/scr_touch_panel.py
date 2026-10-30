@@ -35,6 +35,7 @@ from help_reference import reference
 from room_controls import (
     LIGHTING_TABS,
     SCENES,
+    PREVIOUS_ON,
     BLIND_ACTIONS,
     blind_readiness,
 )
@@ -1346,11 +1347,13 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.apply("channels", immediate=True, values=list(PRESETS[name]))
 
     def lights_on(self):
-        self.cct.set(3500)
-        self.intensity.set(1000)
-        self.apply(
-            "cct", immediate=True, cct=self.cct.get(), intensity=self.intensity.get()
-        )
+        self.preset("Fid")
+
+    def previous_on(self):
+        arguments = PREVIOUS_ON["arguments"]
+        self.cct.set(arguments["cct"])
+        self.intensity.set(arguments["intensity"])
+        self.apply("cct", immediate=True, **arguments)
 
     def cct_apply(self):
         self.apply("cct", cct=self.cct.get(), intensity=self.intensity.get())

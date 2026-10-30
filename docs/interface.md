@@ -192,6 +192,8 @@ readback, no pending/queued/held touch and no running instructions. Legacy,
 experiment reservation, blank and uncertain states block lighting. Ordinary Beta pages, including Guide,
 Settings, About and paused Experiment mode, do not restrict lighting availability.
 Panel and browser use these same study guards.
+`on` applies the Fid preset. White light's Warm white uses `cct` with 3500 K
+and intensity 1000; Fid remains a separately selectable scene.
 Acceptance is not lighting confirmation, annotation persistence or recording.
 
 `legacy` (alias `original_fallback`) takes no arguments and opens `mode: "original"`

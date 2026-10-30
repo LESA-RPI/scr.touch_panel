@@ -73,7 +73,7 @@ DEFAULT_PROFILE = {
     "annotations": ["Activity started", "Activity finished", "Unexpected event"],
 }
 TIPS = {
-    "Lights on": "Standard white: selects 3500 K and light-level input 1000 for all lights.",
+    "Lights on": "Applies the everyday Fid scene to all lights. Warm white is under Lighting → White light.",
     "Lights off": "Sends zero drive to all light channels. The panel screen stays on.",
     "Advanced controls": "Adjust eight colour-channel drives. Values are controller percentages, not measured light.",
     "Room": "Everyday lighting. Changes send automatically after your touch settles.",

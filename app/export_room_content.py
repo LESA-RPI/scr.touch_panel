@@ -14,6 +14,7 @@ from room_controls import (
     PROGRAMMES,
     BLIND_ACTIONS,
     PRESETS,
+    PREVIOUS_ON,
     UNAVAILABLE_LIGHTING,
     BLINDS_UNAVAILABLE,
 )
@@ -74,6 +75,7 @@ def content():
         "gradient": GRADIENT,
         "programmes": PROGRAMMES,
         "presets": PRESETS,
+        "previous_on": PREVIOUS_ON,
         "unavailable_lighting": UNAVAILABLE_LIGHTING,
         "blinds_unavailable": BLINDS_UNAVAILABLE,
         "generated_from": "app/export_room_content.py",
