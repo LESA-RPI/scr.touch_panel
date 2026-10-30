@@ -29,10 +29,21 @@ def test_guide_and_home_recovery_keep_full_touch_targets(view, theme):
             font = panel.Font(root=view.root, font=button.cget("font"))
             width = max(font.measure(line) for line in button.cget("text").splitlines())
             assert width <= button.winfo_width(), button.cget("text")
+    navigation_positions = None
     for index in range(len(DEMO)):
         view.choose_guide(index)
         view.root.update()
         assert all(button.winfo_height() >= 44 for button in visible_buttons(view))
+        navigation = [next(button for button in visible_buttons(view)
+                           if button.cget("text").endswith(" topics"))]
+        navigation.extend(next(button for button in visible_buttons(view) if button.cget("text") == label)
+                          for label in ("Previous", "Next"))
+        positions = [(button.winfo_x(), button.winfo_width()) for button in navigation]
+        assert navigation[0].master.winfo_width() <= 700
+        if navigation_positions is None:
+            navigation_positions = positions
+        else:
+            assert positions == navigation_positions
     view.args.live_lights = True
     view.light_state = "disconnected"
     view.confirmed_light, view.confirmed_at = "Fid scene", panel.monotonic()

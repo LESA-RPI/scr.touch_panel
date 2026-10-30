@@ -286,6 +286,7 @@ function layout() {
 }
 function feedback(parent) {
   const box = el('div', undefined, 'feedback');
+  box.id = 'light-feedback';
   const current = el('p');
   current.id = 'light-message';
   current.setAttribute('role', 'status');
@@ -917,18 +918,24 @@ function lighting(detail, tab) {
     detail.append(grid);
     feedback(detail);
   } else {
+    const heading = el('div', undefined, 'white-heading');
+    heading.append(el('h3', 'White light'));
+    if (content.previous_on) {
+      const previous = content.previous_on,
+        preset = el('div', undefined, 'white-preset'),
+        description = el('span', undefined, 'white-preset-description'),
+        apply = button('Apply', () => command('cct', previous.arguments), { action: 'cct' });
+      description.append(el('strong', previous.label), el('small', previous.detail, 'muted'));
+      apply.setAttribute('aria-label', 'Apply ' + previous.label + ': ' + previous.detail);
+      preset.append(description, apply);
+      heading.append(preset);
+    }
+    detail.append(heading);
     detail.append(el('p', 'Selected values apply after your touch settles.', 'muted'));
     const grid = el('div', undefined, 'white-grid');
     range(grid, 'Colour temperature', 'cct', 1600, 10000, 100, 'K');
     range(grid, 'Light level', 'intensity', 0, 1900, 25, 'controller units');
     detail.append(grid);
-    if (content.previous_on) {
-      const previous = content.previous_on;
-      detail.append(
-        button(previous.label, () => command('cct', previous.arguments), { action: 'cct' }),
-        el('p', previous.detail, 'muted'),
-      );
-    }
     feedback(detail);
   }
 }
@@ -1088,10 +1095,14 @@ function guide(root, index, section = 'room') {
   }
   const t = topics[index],
     position = indices.indexOf(index),
-    card = el('article', undefined, 'card topic-body'),
+    card = el('article', undefined, 'topic-body'),
     head = el('div', undefined, 'topic-head');
   root.append(el('p', 'Demo & guide · ' + (section === 'controls' ? 'Control help' : 'Room tour') +
     ' · ' + (position + 1) + ' of ' + indices.length, 'eyebrow'));
+  const back = el('nav', undefined, 'guide-return');
+  back.setAttribute('aria-label', 'Guide topics');
+  back.append(link(section === 'controls' ? 'Control help topics' : 'Room tour topics', allTopics, 'guide'));
+  root.append(back);
   head.append(
     icon(
       { on: 'white', home: 'home', experiment: 'experiment', health: 'system', room: 'white' }[
@@ -1101,7 +1112,7 @@ function guide(root, index, section = 'room') {
     el('h2', t.title),
   );
   card.append(head);
-  const destinations = el('nav', undefined, 'row');
+  const destinations = el('nav', undefined, 'topic-destinations');
   destinations.setAttribute('aria-label', 'Open related room pages');
   for (const destination of t.links || []) {
     const a = link(
@@ -1109,9 +1120,11 @@ function guide(root, index, section = 'room') {
       destination.page === 'home' ? 'home' : 'tools-' + destination.page,
     );
     a.className = 'topic-destination';
+    const arrow = el('span', '→');
+    arrow.setAttribute('aria-hidden', 'true');
+    a.append(arrow);
     destinations.append(a);
   }
-  if (!t.actions && destinations.children.length) card.append(destinations);
   if (t.map) ceilingMap(card);
   else {
     if (t.visual) guideVisual(card, t.visual);
@@ -1128,13 +1141,21 @@ function guide(root, index, section = 'room') {
       feedback(card);
     }
     for (const p of paragraphs.slice(1)) card.append(el('p', p));
-    if (t.actions && destinations.children.length) card.append(destinations);
   }
+  if (destinations.children.length) card.append(destinations);
   root.append(card);
-  const nav = el('nav', undefined, 'row');
-  nav.append(link(section === 'controls' ? 'Control help topics' : 'Room tour topics', allTopics, 'guide'));
-  if (position > 0) nav.append(link('Previous', 'guide-' + indices[position - 1]));
-  if (position < indices.length - 1) nav.append(link('Next', 'guide-' + indices[position + 1]));
+  const nav = el('nav', undefined, 'guide-neighbours');
+  nav.setAttribute('aria-label', 'More ' + (section === 'controls' ? 'control help' : 'room tour') + ' topics');
+  if (position > 0) {
+    const previous = link('← ' + topics[indices[position - 1]].title, 'guide-' + indices[position - 1]);
+    previous.setAttribute('aria-label', 'Previous topic: ' + topics[indices[position - 1]].title);
+    nav.append(previous);
+  }
+  if (position < indices.length - 1) {
+    const next = link(topics[indices[position + 1]].title + ' →', 'guide-' + indices[position + 1]);
+    next.setAttribute('aria-label', 'Next topic: ' + topics[indices[position + 1]].title);
+    nav.append(next);
+  }
   root.append(nav);
 }
 function guideVisual(parent, kind) {
@@ -1231,25 +1252,19 @@ function ceilingMap(parent) {
 }
 function system(parent) {
   recoveryNotice(parent, true);
-  const cards = el('div', undefined, 'health-grid');
-  for (const [id, title] of [
-    ['panel-health', 'Panel health'],
-    ['room-health', 'Room connection'],
-  ]) {
-    const card = el('section', undefined, 'card'),
-      text = el(id === 'panel-health' ? 'div' : 'p', undefined, 'muted');
-    text.id = id;
-    if (id === 'panel-health')
-      for (const key of ['panel-memory', 'panel-storage', 'panel-power']) {
-        const line = el('p');
-        line.id = key;
-        text.append(line);
-      }
-    card.append(el('h3', title), text);
-    cards.append(card);
+  const health = el('div', undefined, 'health-grid'),
+    panel = el('section', undefined, 'panel-health'),
+    readings = el('div', undefined, 'panel-health-readings');
+  readings.id = 'panel-health';
+  for (const key of ['panel-memory', 'panel-storage', 'panel-temperature', 'panel-power']) {
+    const line = el('p');
+    line.id = key;
+    readings.append(line);
   }
-  parent.append(cards);
-  roomDiagnostics(parent);
+  panel.append(el('h3', 'Touch panel health'), readings);
+  health.append(panel);
+  roomDiagnostics(health);
+  parent.append(health);
   const views = el('section', undefined, 'card');
   views.id = 'panel-view-controls';
   const viewActions = el('div', undefined, 'row');
@@ -1294,55 +1309,65 @@ function system(parent) {
   parent.append(a);
 }
 function roomDiagnostics(parent) {
-  const details = el('details', undefined, 'card room-diagnostics'),
+  const section = el('section', undefined, 'room-diagnostics'),
+    header = el('div', undefined, 'room-service-heading'),
     status = el('p', undefined, 'muted'),
+    legacy = el('p', undefined, 'muted'),
     services = el('dl'),
-    observed = el('p', undefined, 'subtle'),
+    observed = el('p', undefined, 'room-services-observed'),
     check = button('Check now', () => command('refresh_status'), { action: 'refresh_status' });
   status.id = 'room-diagnostics-status';
   status.setAttribute('role', 'status');
   services.id = 'room-diagnostics-services';
   observed.id = 'room-diagnostics-observed';
   check.id = 'room-diagnostics-check';
-  details.append(el('summary', 'Room diagnostics'),
-    el('p', 'Service registrations on the room computer. Advertised services do not prove healthy sensors or current data.', 'muted'),
-    status, services, observed, check,
-    el('p', 'TV/Status receives readings; this panel has no current environment readout.', 'subtle'),
-    el('p', 'Panel health above describes this touch panel, including its CPU, memory and power.', 'subtle'));
-  parent.append(details);
+  legacy.id = 'room-health';
+  legacy.hidden = Boolean(state?.room_diagnostics);
+  header.append(el('h3', 'Room services'), check);
+  section.append(header, legacy, services, observed, status);
+  parent.append(section,
+    el('p', 'Service registrations only. TV/Status receives readings; this panel has no current environment readout.', 'room-services-note'));
 }
 function syncRoomDiagnostics() {
   const services = $('room-diagnostics-services');
   if (!services) return;
   const diagnostics = state?.room_diagnostics,
-    rows = diagnostics?.services || [],
+    recorded = diagnostics?.services || [],
+    rows = ['Lighting', 'Blinds', 'Environment', 'TOF'].map(name =>
+      recorded.find(service => service.name === name) || {name, state:'unknown'}),
+    hasObservation = recorded.length > 0 && Boolean(diagnostics?.observed_at),
     signature = JSON.stringify(rows);
   if (services.dataset.signature !== signature) {
     services.dataset.signature = signature;
     services.replaceChildren();
     for (const service of rows) {
       const row = el('div');
-      row.append(el('dt', service.name), el('dd', service.state === 'listed' ? 'Advertised' : service.state === 'missing' ? 'Missing' : 'Not checked'));
+      row.append(el('dt', service.name === 'TOF' ? 'Time of flight' : service.name), el('dd', service.state === 'listed' ? 'Advertised' : service.state === 'missing' ? 'Missing' : 'Not checked'));
       services.append(row);
     }
   }
+  if ($('room-health')) $('room-health').hidden = Boolean(diagnostics);
   update('room-diagnostics-status', !state?.available
-    ? 'The panel is unavailable.' + (rows.length ? ' Earlier room observations are retained.' : '')
+    ? 'The panel is unavailable.' + (hasObservation ? ' Earlier room observations are retained.' : '')
     : diagnostics?.checking
-      ? 'Checking room service registrations…' + (rows.length ? ' Previous results remain visible.' : '')
+      ? 'Checking room services…'
       : diagnostics?.state === 'unavailable'
-        ? 'The latest room check failed. ' + (diagnostics.detail || 'No current room observation is available.') + (rows.length ? ' Earlier results are retained.' : '')
+        ? 'The latest room check failed. ' + (diagnostics.detail || 'No current room observation is available.') + (hasObservation ? ' Earlier results are retained.' : '')
         : diagnostics?.state === 'available'
-          ? 'Room service registrations checked.'
+          ? ''
           : diagnostics?.detail || 'Room diagnostics are not configured.');
+  $('room-diagnostics-status').hidden = state?.available && diagnostics?.state === 'available' && !diagnostics.checking;
   const observed = diagnostics?.observed_at && new Date(diagnostics.observed_at),
     age = diagnostics?.age_s;
   update('room-diagnostics-observed', observed && Number.isFinite(observed.getTime())
-    ? 'Last successful observation: ' + new Intl.DateTimeFormat('en-US', {
+    ? 'Observed ' + new Intl.DateTimeFormat('en-US', {
         timeZone: state?.timezone || 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
       }).format(observed) + (Number.isFinite(age) ? ' · ' + (age < 60 ? Math.max(0, Math.floor(age)) + ' s ago' : Math.floor(age / 60) + ' min ago') : '')
-    : 'No successful room observation yet.');
+    : 'Not checked yet.');
   $('room-diagnostics-check').disabled = posting || !canCheckRoomStatus();
+}
+function healthNumber(value, decimals) {
+  return Number.isFinite(value) ? value.toFixed(decimals) : '—';
 }
 function powerControls(parent) {
   const card = el('section', undefined, 'card power-controls');
@@ -1606,11 +1631,13 @@ function sync() {
                   ? recoveryLabel || 'Lighting unavailable'
                   : state.busy
                     ? 'Sending'
-                    : state.can_control
-                      ? 'Ready'
-                      : s.state === 'failed'
-                        ? 'Uncertain'
-                        : 'Controls unavailable',
+                    : state.experiment?.running
+                      ? 'Instructions running'
+                      : state.can_control
+                        ? 'Ready'
+                        : s.state === 'failed'
+                          ? 'Uncertain'
+                          : 'Controls unavailable',
   );
   // Colour the header status: ready, waiting (connecting/sending/Legacy) or problem.
   $('connection').dataset.state =
@@ -1741,6 +1768,14 @@ function sync() {
         : ' · ' +
           (s.confirmed_age_s < 60 ? 'just now' : Math.floor(s.confirmed_age_s / 60) + ' min ago')),
   );
+  if ($('light-message')) $('light-message').className =
+    available && recovery.status === 'normal' && state.can_control &&
+      !posting && !unknown && !state.busy && !lightingBlocked &&
+      !state.experiment?.running && ['Light settings confirmed.', 'Lighting ready.'].includes(s.message)
+      ? 'visually-hidden' : '';
+  if ($('light-feedback')) $('light-feedback').dataset.state =
+    !available || recovery.needs_staff || s.state === 'failed' ? 'warning'
+      : posting || state.busy || ['applying', 'connecting'].includes(s.state) ? 'pending' : 'normal';
   const e = state?.experiment;
   if (e) {
     update('profile-title', e.profile.title);
@@ -1778,23 +1813,12 @@ function sync() {
   syncProfile();
   update('schedule-light_at', minutes(p.light_at ?? 420));
   update('schedule-dark_at', minutes(p.dark_at ?? 1140));
-  const h = state?.health;
-  if (h) {
-    update(
-      'panel-memory',
-      h.error
-        ? 'Resource reading unavailable'
-        : `Memory: ${h.ram_available ?? '—'} / ${h.ram_total ?? '—'} MiB free`,
-    );
-    update(
-      'panel-storage',
-      h.error
-        ? ''
-        : `Storage: ${h.disk_available ?? '—'} GiB free · CPU: ${h.temperature ?? '—'} °C`,
-    );
-    update('panel-power', h.power ? 'Power: ' + h.power : 'Power reading unavailable');
-    $('panel-power')?.classList.toggle('system-warning', h.power?.startsWith('Current') === true);
-  }
+  const h = state?.health || {};
+  update('panel-memory', `Memory: ${healthNumber(h.error ? null : h.ram_available, 0)} / ${healthNumber(h.error ? null : h.ram_total, 0)} MiB free`);
+  update('panel-storage', `Storage: ${healthNumber(h.error ? null : h.disk_available, 1)} GiB free`);
+  update('panel-temperature', `CPU: ${healthNumber(h.error ? null : h.temperature, 1)} °C`);
+  update('panel-power', 'Power: ' + (typeof h.power === 'string' && h.power.trim() ? h.power : '—'));
+  $('panel-power')?.classList.toggle('system-warning', typeof h.power === 'string' && h.power.startsWith('Current'));
   update('room-health', state?.room_status || 'No current room observation.');
   syncRoomDiagnostics();
   syncPower();

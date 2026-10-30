@@ -89,7 +89,7 @@ class PanelGuidance:
         self.label(row, "Blinds · " + blind_label, 13, True).pack(side="right")
         self.services_label = self.label(cards[1], size=13, muted=True)
         self.wrap_label(self.services_label).pack(fill="x")
-        diagnostics = self.button(cards[1], "Room diagnostics", self.toggle_room_diagnostics)
+        diagnostics = self.button(cards[1], "Room services", self.toggle_room_diagnostics)
         diagnostics.config(font=(self.font_family, 15), pady=8)
         diagnostics.pack(anchor="w", pady=(6, 0))
         self.recovery_contents(cards[1])
@@ -243,8 +243,8 @@ class PanelGuidance:
     def room_diagnostics_contents(self):
         heading = tk.Frame(self.body, bg=self.bg)
         heading.pack(fill="x", pady=(0, 12))
-        self.label(heading, "Room diagnostics", 27).pack(side="left")
-        back = self.button(heading, "Back to help", self.toggle_room_diagnostics)
+        self.label(heading, "Room services", 27).pack(side="left")
+        back = self.button(heading, "Back to System & help", self.toggle_room_diagnostics)
         back.config(font=(self.font_family, 17), pady=10)
         back.pack(side="right")
         self.wrap_label(self.label(
@@ -446,11 +446,19 @@ class PanelGuidance:
                 ("Previous", lambda: self.change_guide(-1), False),
                 ("Next", lambda: self.change_guide(1), False),
             ],
+            height=56,
         )
         # Keep navigation reachable; the topic card takes the remaining height.
-        buttons[0].master.pack_configure(side="bottom", before=card)
+        navigation = buttons[0].master
+        navigation.config(width=654)
+        navigation.pack_configure(side="bottom", fill="none", anchor="w", before=card)
+        for column, width in ((0, 300), (2, 180), (4, 150)):
+            navigation.columnconfigure(column, weight=0, uniform="", minsize=width)
         for button, kind in zip(buttons, ("guide", "chevron-left", "chevron-right")):
-            button.config(image=self.icon(kind, self.ink, 24), compound="left")
+            button.config(
+                image=self.icon(kind, self.ink, 24), compound="left",
+                font=(self.font_family, 17), pady=8,
+            )
         buttons[1].config(state="normal" if position else "disabled")
         buttons[2].config(
             state="normal" if position < len(indices) - 1 else "disabled"

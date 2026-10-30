@@ -412,10 +412,29 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 + self.confirmed_light.replace(" input / level ", " · level ")
                 + suffix,
             )
+            card = getattr(self, "light_feedback_card", None)
+            if card is not None and card.winfo_exists():
+                routine = (
+                    self.light_message in ("Light settings confirmed.", "Lighting ready.")
+                    and self.light_state == "ready"
+                    and recovery["status"] == "normal"
+                    and not getattr(self, "running", False)
+                    and not any(getattr(self, name, None) for name in (
+                        "pending", "queued_intent", "release_target", "closing"
+                    ))
+                )
+                message = card._message
+                if routine and message.winfo_manager():
+                    message.pack_forget()
+                elif not routine and not message.winfo_manager():
+                    message.pack(fill="x", before=card._detail)
+                colour = self.warning if self.light_state == "failed" or recovery.get("needs_staff") else self.ink
+                if message.cget("fg") != colour:
+                    message.config(fg=colour)
         self.update_power_highlights()
 
-    def feedback_card(self, parent, padding=12):
-        """Keep results in the page flow, with separate message and readback lines."""
+    def feedback_card(self, parent, padding=8):
+        """Keep dated readback inline; show another line for work or a problem."""
         if not hasattr(self, "feedback_message"):
             self.feedback_message = tk.StringVar()
             self.feedback_detail = tk.StringVar()
@@ -427,15 +446,14 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         )
         card.pack(fill="x", pady=(padding, 0))
         self.light_feedback_card = card
-        content = tk.Frame(card, bg=card.cget("bg"))
-        content.pack(fill="x", padx=14, pady=padding)
-        message = self.label(content, size=15)
-        message.config(textvariable=self.feedback_message)
+        message = self.label(card, size=14)
+        message.config(textvariable=self.feedback_message, font=(FONT, 14, "bold"))
         self.wrap_label(message).pack(fill="x")
-        detail = self.label(content, size=14, muted=True)
+        detail = self.label(card, size=14, muted=True)
         detail.config(textvariable=self.feedback_detail)
-        self.wrap_label(detail).pack(fill="x", pady=(4, 0))
-        self.recovery_contents(content)
+        self.wrap_label(detail).pack(fill="x", pady=(2, 0))
+        card._message, card._detail = message, detail
+        self.recovery_contents(card)
         self.refresh_confirmation_age()
 
     def update_power_highlights(self):

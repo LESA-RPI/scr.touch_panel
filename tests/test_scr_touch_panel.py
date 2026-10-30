@@ -727,6 +727,43 @@ def capture_lighting_feedback(state):
     return values
 
 
+def test_compact_feedback_keeps_progress_and_warning_beside_dated_readback(monkeypatch):
+    state = panel.Panel.__new__(panel.Panel)
+    monkeypatch.setattr(panel, "monotonic", lambda: 60)
+    state.light_state, state.confirmed_power, state.confirmed_light = "ready", "on", "Fid scene"
+    state.ink, state.warning = "ink", "warning"
+    state.pending = state.queued_intent = state.release_target = state.closing = None
+    feedback = capture_lighting_feedback(state)
+    state.light_message = "Light settings confirmed."
+    layout, options = {"manager": "pack"}, {"fg": "ink"}
+    message = SimpleNamespace(
+        winfo_manager=lambda: layout["manager"],
+        pack_forget=lambda: layout.update(manager=""),
+        pack=lambda **kwargs: layout.update(manager="pack", **kwargs),
+        cget=options.get,
+        config=lambda **kwargs: options.update(kwargs),
+    )
+    card = state.light_feedback_card = SimpleNamespace(
+        winfo_exists=lambda: True, _message=message, _detail=object(),
+    )
+    state.refresh_confirmation_age()
+    assert not message.winfo_manager()
+    assert feedback["feedback_detail"] == "Last confirmed: Lights on · Fid scene / 1 min ago"
+    for flag in ("pending", "queued_intent", "release_target", "closing"):
+        setattr(state, flag, True)
+        state.refresh_confirmation_age()
+        assert message.winfo_manager() and layout["before"] is card._detail
+        assert feedback["feedback_detail"].endswith("/ 1 min ago")
+        setattr(state, flag, None)
+        state.refresh_confirmation_age()
+        assert not message.winfo_manager()
+    state.light_state, state.light_message = "failed", "Result unconfirmed. Controls disabled."
+    state.refresh_confirmation_age()
+    assert message.winfo_manager()
+    assert feedback["feedback_message"] == "Result unconfirmed. Controls disabled."
+    assert feedback["feedback_detail"] == "Last confirmed: Lights on · Fid scene / 1 min ago"
+
+
 def test_home_power_confirmation_stays_in_dated_feedback_during_changes(monkeypatch):
     assert panel.confirmed_power({"state": "ready", "baseline": "Off"}) == "off"
     assert panel.confirmed_power({"state": "ready", "baseline": "Fid"}) == "on"

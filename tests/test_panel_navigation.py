@@ -282,6 +282,36 @@ def test_programme_cards_keep_their_start_and_stop_actions_after_navigation(view
     view.worker = None
 
 
+def test_warm_white_preset_only_applies_explicitly_and_keeps_lighting_guards(view):
+    shared_worker(view)
+    requests = []
+    view.request = lambda action, arguments=None: requests.append((action, arguments)) or True
+    view.open_advanced("white")
+    view.root.update()
+    apply, = [button for button in view.light_buttons
+              if isinstance(button, panel.tk.Button) and button.cget("text") == "Apply Warm white"]
+    assert not requests and apply.cget("state") == "normal"
+    apply.invoke()
+    assert requests == [("cct", {"cct": 3500, "intensity": 1000})]
+    white = view.advanced_detail
+    view.open_home()
+    view.open_advanced("white")
+    view.root.update()
+    assert view.advanced_detail is white
+    view.recovery.mark_uncertain("A previous test result was not confirmed")
+    view.light_state = "failed"
+    view.lighting_feedback("Lighting result unconfirmed. Check before trying again.")
+    view.update_light_buttons()
+    view.root.update()
+    assert apply.cget("state") == "disabled"
+    assert view.recovery_button.winfo_ismapped() and view.recovery_button.winfo_height() >= 44
+    assert view.light_feedback_card.winfo_height() >= view.light_feedback_card.winfo_reqheight()
+    assert all(control.winfo_height() >= 44 for control in view.light_buttons)
+    apply.invoke()
+    assert len(requests) == 1
+    view.worker = None
+
+
 def test_classic_and_home_keep_one_acquired_owner_without_hardware_work(view):
     worker = shared_worker(view)
     confirmed = (view.confirmed_light, view.confirmed_at, view.confirmed_power, view.confirmed_scene)

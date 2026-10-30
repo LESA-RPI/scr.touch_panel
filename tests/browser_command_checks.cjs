@@ -7,7 +7,7 @@ const source = fs.readFileSync(path.join(__dirname, '../browser/room.js'), 'utf8
 
 function website(respond, snapshot = () => ({available:true, session:'owner-one', revision:'one'})) {
   const elements = new Map();
-  for (const id of ['legacy-return', 'message', 'connection', 'legacy-banner', 'panel-mode-message', 'light-message', 'light-recent', 'blind-permission', 'gradient-controls', 'programme-controls', 'programmes-unavailable', 'programme-status'])
+  for (const id of ['legacy-return', 'message', 'connection', 'legacy-banner', 'panel-mode-message', 'light-feedback', 'light-message', 'light-recent', 'blind-permission', 'gradient-controls', 'programme-controls', 'programmes-unavailable', 'programme-status'])
     elements.set(id, {dataset:{}, textContent:''});
   const commands = [];
   const actionButtons = [];
@@ -62,7 +62,7 @@ function diagnosticsWebsite(respond) {
   return site;
 }
 
-function preferencesWebsite(page) {
+function preferencesWebsite(page, roomContent = {}) {
   let site;
   site = website((request, context) => {
     context.preferenceRequest = request;
@@ -70,7 +70,9 @@ function preferencesWebsite(page) {
     return {status:202, ok:true, json:async () => ({ok:true, code:202, id:request.id})};
   }, () => JSON.parse(site.run('JSON.stringify(state)')));
   site.context.settingsPage = page;
+  site.context.settingsContent = roomContent;
   site.run(`
+    content = settingsContent;
     const preferenceNodes = [], preferenceIds = new Map();
     function preferenceDescendants(node) {return [node, ...node.children.flatMap(preferenceDescendants)];}
     function preferenceNode(tag) {
@@ -170,7 +172,7 @@ function preferencesWebsite(page) {
   }
   const diagnosticRows = diagnosticsWebsite(() => {throw Error('Rendering room observations must not post');});
   diagnosticRows.run(`
-    const diagnosticsElements = new Map(['room-diagnostics-services', 'room-diagnostics-status', 'room-diagnostics-observed', 'room-diagnostics-check'].map(id => [id, {
+    const diagnosticsElements = new Map(['room-diagnostics-services', 'room-diagnostics-status', 'room-diagnostics-observed', 'room-diagnostics-check', 'room-health'].map(id => [id, {
       textContent:'', dataset:{}, children:[], replaceChildren(...children) {this.children = children;}, append(...children) {this.children.push(...children);},
     }]));
     const originalGet = document.getElementById;
@@ -180,13 +182,38 @@ function preferencesWebsite(page) {
       services:[{name:'Lighting', state:'listed'}, {name:'Environment', state:'missing'}]};
     syncRoomDiagnostics();
   `);
+  assert.equal(diagnosticRows.run("$('room-diagnostics-services').children.length"), 4, 'Room services stays a compact four-row summary even before every group is observed');
   assert.equal(diagnosticRows.run("$('room-diagnostics-services').children[0].children[1].textContent"), 'Advertised');
-  assert.equal(diagnosticRows.run("$('room-diagnostics-services').children[1].children[1].textContent"), 'Missing');
+  assert.equal(diagnosticRows.run("$('room-diagnostics-services').children.find(row => row.children[0].textContent === 'Environment').children[1].textContent"), 'Missing');
+  assert.equal(diagnosticRows.run("$('room-health').hidden"), true, 'Structured rows replace duplicate connection prose');
+  assert.equal(diagnosticRows.run("$('room-diagnostics-status').hidden"), true, 'Successful checks need no duplicate status paragraph');
   diagnosticRows.run("state.room_diagnostics.state = 'unavailable'; state.room_diagnostics.detail = 'Room connection timed out.'; state.room_diagnostics.age_s = 180; syncRoomDiagnostics();");
   assert.equal(diagnosticRows.run("$('room-diagnostics-services').children[0].children[1].textContent"), 'Advertised', 'A failed recheck retains the last successful registration observation');
   assert.match(diagnosticRows.run("$('room-diagnostics-status').textContent"), /latest room check failed.*timed out.*Earlier results/);
+  assert.equal(diagnosticRows.run("$('room-diagnostics-status').hidden"), false);
   assert.match(diagnosticRows.run("$('room-diagnostics-observed').textContent"), /3 min ago/);
   assert.equal(diagnosticRows.commands.length, 0);
+  const panelHealth = website(() => {throw Error('Formatting health cannot post commands');});
+  panelHealth.run(`
+    const healthElements = new Map(['panel-memory', 'panel-storage', 'panel-temperature', 'panel-power'].map(id => [id, {
+      textContent:'', classList:{toggle() {}},
+    }]));
+    const originalGet = document.getElementById;
+    document.getElementById = id => healthElements.get(id) || originalGet(id);
+    state = {available:true, can_control:true, lights:{}, health:{ram_available:123.9, ram_total:999.1, disk_available:41.234, temperature:54.678, power:'No current undervoltage'}};
+    shippedSync();
+  `);
+  assert.equal(panelHealth.run("$('panel-memory').textContent"), 'Memory: 124 / 999 MiB free');
+  assert.equal(panelHealth.run("$('panel-storage').textContent"), 'Storage: 41.2 GiB free');
+  assert.equal(panelHealth.run("$('panel-temperature').textContent"), 'CPU: 54.7 °C');
+  panelHealth.run("state.health = {ram_available:null, ram_total:NaN, disk_available:'41.234', temperature:Infinity, power:42}; shippedSync();");
+  assert.equal(panelHealth.run("$('panel-memory').textContent"), 'Memory: — / — MiB free');
+  assert.equal(panelHealth.run("$('panel-storage').textContent"), 'Storage: — GiB free');
+  assert.equal(panelHealth.run("$('panel-temperature').textContent"), 'CPU: — °C');
+  assert.equal(panelHealth.run("$('panel-power').textContent"), 'Power: —');
+  panelHealth.run("state.can_control = false; state.experiment = {running:true, profile:{title:'Instructions', stages:['Sit still'], annotations:[]}, stage:0, elapsed_s:0}; shippedSync();");
+  assert.equal(panelHealth.run("$('connection').textContent"), 'Instructions running');
+  assert.equal(panelHealth.commands.length, 0);
 
   const display = website(() => {throw Error('Presentation must not send commands');});
   for (const mode of ['guide', 'settings', 'health', 'about', 'experiment', 'classic']) {
@@ -312,13 +339,24 @@ function preferencesWebsite(page) {
     assert.match(guideContent.run(`topic${index}.children[0].textContent`), new RegExp((section === 'controls' ? 'Control help' : 'Room tour') + '.*' + (position + 1) + ' of ' + sectionTopics.length));
     const back = guideContent.run(`descendants(topic${index}).find(node => node.tagName === 'a' && node.textContent === '${section === 'controls' ? 'Control help topics' : 'Room tour topics'}')`);
     assert.equal(back.href, section === 'controls' ? '#guide-controls' : '#guide');
+    assert.equal(guideContent.run(`topic${index}.children[1].children[0]`), back, 'The topic return is beside the breadcrumb, before the story');
+    const neighbours = guideContent.run(`topic${index}.children.at(-1)`);
+    assert.equal(neighbours['aria-label'], 'More ' + (section === 'controls' ? 'control help' : 'room tour') + ' topics');
+    assert.deepEqual(Array.from(neighbours.children, node => node['aria-label']), [
+      ...(position > 0 ? ['Previous topic: ' + sectionTopics[position - 1].title] : []),
+      ...(position < sectionTopics.length - 1 ? ['Next topic: ' + sectionTopics[position + 1].title] : []),
+    ], 'Neighbour links identify the destination and stay in one group');
     const destinations = guideContent.run(`descendants(topic${index}).filter(node => node.className === 'topic-destination')`);
     assert.deepEqual(Array.from(destinations, node => [node.textContent, node.href]),
       topic.links.map(destination => [destination.label, '#' + (destination.page === 'home' ? 'home' : 'tools-' + destination.page)]));
     assert.equal(destinations.every(node => node.onclick === undefined), true, 'Guide destinations use ordinary navigation links');
+    assert.equal(destinations.every(node => node.children.some(child => child.textContent === '→' && child['aria-hidden'] === 'true')), true);
     assert.equal(topic.links.every(destination => destination.label.startsWith('Open ')), true, 'Navigation labels distinguish opening a page from applying a room action');
   }
   assert.equal(guideContent.commands.length, 0);
+  guideContent.run("const roomServiceRoot = guideNode('main'); roomDiagnostics(roomServiceRoot);");
+  assert.equal(guideContent.run("descendants(roomServiceRoot).some(node => node.tagName === 'details')"), false, 'Room services is always visible without a disclosure');
+  assert.equal(guideContent.run("descendants(roomServiceRoot).find(node => node.tagName === 'h3').textContent"), 'Room services');
   guideContent.context.ceilingReference = JSON.parse(fs.readFileSync(path.join(__dirname, '../app/ceiling_map.json'), 'utf8'));
   guideContent.run(`
     content.ceiling_map = ceilingReference;
@@ -378,11 +416,17 @@ function preferencesWebsite(page) {
     document.querySelectorAll = selector => selector === '[data-action=on],[data-action=off]' ? powerButtons
       : selector === '[data-preset]' ? [sceneButton]
       : selector === '[data-action]' ? [...powerButtons, sceneButton] : [];
-    state = {available:true, can_control:true, lights:{power:'on', confirmed_power:'on', scene:'Fid', recent:'Fid', confirmed_age_s:12}, blinds:{reason:'Locked in settings'}};
+    state = {available:true, can_control:true, lights:{message:'Light settings confirmed.', power:'on', confirmed_power:'on', scene:'Fid', recent:'Fid', confirmed_age_s:12}, blinds:{reason:'Locked in settings'}};
     shippedSync();
   `);
   assert.equal(homeState.run("$('blind-status').textContent"), 'Locked in settings');
   assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Lights on · Fid · just now');
+  assert.equal(homeState.run("$('light-message').className"), 'visually-hidden', 'Routine confirmation remains accessible without a second visible status line');
+  for (const guard of ['posting = true', 'unknown = "receipt"', 'state.busy = true']) {
+    homeState.run(`${guard}; shippedSync();`);
+    assert.equal(homeState.run("$('light-message').className"), '', 'Work or uncertainty must not collapse the current status');
+    homeState.run('posting = false; unknown = null; state.busy = false; shippedSync();');
+  }
   assert.equal(homeState.run('powerButtons.some(button => button["aria-pressed"] !== undefined || button.classList.selected)'), false, 'Lighting commands remain ordinary action buttons');
   assert.equal(homeState.run('sceneButton["aria-pressed"]'), undefined);
   assert.equal(homeState.run('sceneButton.classList.selected'), undefined);
@@ -390,9 +434,12 @@ function preferencesWebsite(page) {
   assert.equal(homeState.run("$('blind-status').textContent"), 'Not connected');
   assert.equal(homeState.run('powerButtons.every(button => button.disabled) && sceneButton.disabled'), true);
   assert.equal(homeState.run("$('light-message').textContent"), 'Selected: Off / waiting to send');
+  assert.equal(homeState.run("$('light-message').className"), '');
+  assert.equal(homeState.run("$('light-feedback').dataset.state"), 'pending');
   assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Lights on · Fid · just now', 'A pending selection cannot replace historical confirmation');
   homeState.run("posting = false; state.can_control = false; state.lighting_recovery = {status:'needs_staff', write_blocked:true}; state.lights.confirmed_age_s = 180; shippedSync();");
   assert.equal(homeState.run('powerButtons.every(button => button.disabled) && sceneButton.disabled'), true);
+  assert.equal(homeState.run("$('light-message').className"), '');
   assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Lights on · Fid · 3 min ago', 'Uncertainty preserves separately aged confirmed readback');
   homeState.run("state.lighting_recovery = {status:'normal'}; state.can_control = true; state.lights.power = state.lights.confirmed_power = 'off'; state.lights.recent = 'Off'; state.blinds.available = true; shippedSync();");
   assert.equal(homeState.run("$('blind-status').textContent"), 'Ready');
@@ -401,6 +448,24 @@ function preferencesWebsite(page) {
   assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Off · 3 min ago', 'Unknown confirmed power does not invent an On or Off state');
   assert.equal(homeState.run('powerButtons.some(button => button["aria-pressed"] !== undefined || button.classList.selected) || sceneButton["aria-pressed"] !== undefined || Boolean(sceneButton.classList.selected)'), false);
   assert.equal(homeState.commands.length, 0);
+
+  const whitePreset = preferencesWebsite('lighting-white', guideContent.context.generatedContent);
+  whitePreset.run(`
+    state.can_control = true;
+    shippedSync();
+    const quickApply = preferenceNodes.find(node => node['aria-label'] === 'Apply Warm white: 3500 K, level 1000.');
+  `);
+  assert.equal(whitePreset.run('quickApply.textContent'), 'Apply');
+  assert.equal(whitePreset.run('quickApply.parentElement.parentElement.className'), 'white-heading', 'The preset belongs with the White light heading, before the sliders');
+  assert.equal(whitePreset.run('quickApply.previousElementSibling.children[0].textContent'), 'Warm white');
+  assert.equal(whitePreset.run('quickApply.previousElementSibling.children[1].textContent'), '3500 K, level 1000.');
+  assert.equal(whitePreset.commands.length, 0, 'Rendering a preset never applies it');
+  await whitePreset.run('quickApply.onclick();');
+  assert.equal(whitePreset.commands.length, 1);
+  assert.equal(whitePreset.commands[0].action, 'cct');
+  assert.deepEqual(whitePreset.commands[0].arguments, {cct:3500, intensity:1000});
+  whitePreset.run('state.can_control = false; shippedSync();');
+  assert.equal(whitePreset.run('quickApply.disabled'), true, 'The integrated preset keeps the shared lighting guard');
 
   for (const [page, action, option, value, label] of [
     ['appearance', 'theme', '2', 'auto', 'Theme'],

@@ -275,15 +275,18 @@ class PanelViews:
         for button, (label, key) in zip(tabs, LIGHTING_TABS):
             button.config(font=(self.font_family, 17, "bold" if self.lighting_tab == key else "normal"))
         if self.lighting_tab == "white":
-            row = tk.Frame(self.body, bg=self.bg)
-            row.pack(fill="x", pady=(2, 8))
-            button = self.button(row, PREVIOUS_ON["label"], self.previous_on)
-            button.config(font=(self.font_family, 17), pady=6)
-            button.pack(side="left")
-            self.light_buttons.append(button)
+            row = tk.Frame(self.body, bg=self.surface)
+            row.pack(fill="x", pady=(2, 6))
+            preset = self.label(row, PREVIOUS_ON["label"], 17)
+            preset.config(font=(self.font_family, 17, "bold"))
+            preset.pack(side="left", padx=(16, 12), pady=6)
             self.label(
                 row, PREVIOUS_ON["detail"], 14, True
-            ).pack(side="left", padx=12)
+            ).pack(side="left")
+            button = self.button(row, "Apply " + PREVIOUS_ON["label"], self.previous_on)
+            button.config(font=(self.font_family, 17), pady=6)
+            button.pack(side="right", padx=12, pady=4)
+            self.light_buttons.append(button)
             self.slider_group(
                 self.body,
                 "Colour temperature",
@@ -305,6 +308,7 @@ class PanelViews:
                 compact=True,
             )
             self.feedback_card(self.body)
+            self.light_feedback_card.pack_configure(side="bottom", before=row)
         elif self.lighting_tab == "scenes":
             self.label(
                 self.body, "Choose a room lighting scene.", 16, True
@@ -395,11 +399,11 @@ class PanelViews:
             highlightbackground=self.border,
             highlightthickness=1,
         )
-        group.pack(fill="x", pady=(0, 8))
+        group.pack(fill="x", pady=(0, 6 if compact else 8))
         if not compact:
             self.label(group, title, 18).pack(anchor="w", padx=20, pady=(6, 0))
-        row = tk.Frame(group, bg=self.surface, height=56)
-        row.pack(fill="x", padx=20, pady=(14, 0) if compact else (8, 0))
+        row = tk.Frame(group, bg=self.surface, height=60 if compact else 56)
+        row.pack(fill="x", padx=20, pady=(6, 0) if compact else (8, 0))
         row.pack_propagate(False)
         minus_area, plus_area = tk.Frame(row, width=64), tk.Frame(row, width=64)
         plus_area.pack(side="right", fill="y")
@@ -417,7 +421,12 @@ class PanelViews:
         minus.pack(fill="both", expand=True)
         plus.pack(fill="both", expand=True)
         if compact:
-            self.label(row, title, 18).pack(side="left", padx=(0, 20))
+            caption = tk.Frame(row, bg=self.surface)
+            caption.pack(side="left", padx=(0, 20))
+            self.label(caption, title, 17).pack(anchor="w")
+            self.label(
+                caption, "Min {:,} · Max {:,} {}".format(low, high, unit), 13, True
+            ).pack(anchor="w")
         value = self.label(row, size=30 if compact else 33)
         value.config(textvariable=variable)
         value.pack(side="left")
@@ -436,12 +445,11 @@ class PanelViews:
             ink=self.ink,
         )
         scale.pack(fill="x", padx=20, pady=(4, 0))
-        limits = tk.Frame(group, bg=self.surface)
-        limits.pack(fill="x", padx=20, pady=(4, 8))
-        self.label(limits, "Min {:,} {}".format(low, unit), 13, True).pack(side="left")
-        self.label(limits, "Max {:,} {}".format(high, unit), 13, True).pack(
-            side="right"
-        )
+        if not compact:
+            limits = tk.Frame(group, bg=self.surface)
+            limits.pack(fill="x", padx=20, pady=(4, 8))
+            self.label(limits, "Min {:,} {}".format(low, unit), 13, True).pack(side="left")
+            self.label(limits, "Max {:,} {}".format(high, unit), 13, True).pack(side="right")
         self.bind_slider(scale, "cct")
         self.light_buttons.extend([minus, plus, scale])
 

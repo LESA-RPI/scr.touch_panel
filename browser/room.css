@@ -277,7 +277,6 @@ svg {
 .disabled-group button {
   background: var(--bg);
 }
-.feedback,
 .card {
   border: 0;
   padding: 20px 22px;
@@ -287,11 +286,24 @@ svg {
   margin-top: 12px;
 }
 .feedback {
-  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 8px;
+  padding: 6px 0;
   font-size: 16px;
 }
-.feedback p + p {
-  margin-top: 6px;
+.feedback p,
+.topic-body .feedback p {
+  margin: 0;
+  font-size: inherit;
+}
+.feedback[data-state='pending'] #light-message,
+.feedback[data-state='warning'] #light-message {
+  font-weight: 700;
+}
+.feedback[data-state='warning'] #light-message {
+  color: var(--warning, #875709);
 }
 .lighting-recovery {
   border: 0;
@@ -594,6 +606,25 @@ input[type='range'] {
 .white-grid {
   min-width: 0;
 }
+.white-heading,
+.white-preset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+}
+.white-heading {
+  justify-content: space-between;
+  margin: 20px 0 12px;
+}
+.white-preset-description {
+  display: flex;
+  flex-direction: column;
+  font-size: 16px;
+}
+.white-preset-description small {
+  font-size: 14px;
+}
 .lighting-tabs {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -720,15 +751,42 @@ input[type='range'] {
   color: var(--muted);
 }
 .topic-destination {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
   min-height: 48px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  background: var(--control);
-  text-align: center;
+  padding: 8px 0;
+  font-size: 17px;
   text-decoration: none;
+}
+.topic-destinations,
+.guide-return,
+.guide-neighbours {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 24px;
+}
+.guide-return {
+  margin: 4px 0 16px;
+}
+.guide-neighbours {
+  margin-top: 20px;
+}
+.guide-return a,
+.guide-neighbours a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 8px 0;
+  font-size: 17px;
+  text-decoration: none;
+}
+.guide-return a:hover,
+.guide-neighbours a:hover,
+.topic-destination:hover {
+  text-decoration: underline;
 }
 .topic svg {
   width: 24px;
@@ -865,15 +923,19 @@ pre code {
 /* System and power */
 .health-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin: 14px 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px 32px;
+  margin: 20px 0;
 }
-.health-grid p + p {
-  margin-top: 8px;
+.health-grid > section {
+  min-width: 0;
 }
-.health-grid .card > h3 + div {
+.panel-health-readings {
   margin-top: 12px;
+  font-size: 16px;
+}
+.panel-health-readings p + p {
+  margin-top: 7px;
 }
 .system-warning {
   color: var(--warning);
@@ -1197,7 +1259,6 @@ summary {
     padding: 10px 12px;
   }
   .feedback {
-    padding: 14px 16px;
     font-size: 15px;
   }
   .sidebar {
@@ -1523,10 +1584,23 @@ summary {
   stroke-width: 0.75;
 }
 .room-diagnostics {
-  margin: 16px 0;
+  min-width: 0;
+}
+.room-service-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.room-service-heading button {
+  flex-shrink: 0;
+  min-height: 48px;
+  padding: 7px 12px;
+  font-size: 15px;
 }
 .room-diagnostics dl {
-  margin: 14px 0;
+  margin: 8px 0;
+  font-size: 16px;
 }
 .room-diagnostics dl > div {
   display: flex;
@@ -1537,6 +1611,18 @@ summary {
 }
 .room-diagnostics dd {
   margin: 0;
+}
+.room-diagnostics > p,
+.room-services-note {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.room-diagnostics > p + p {
+  margin-top: 8px;
+}
+.room-services-note {
+  grid-column: 1 / -1;
 }
 @media (max-width: 650px) {
   .experiment-card {

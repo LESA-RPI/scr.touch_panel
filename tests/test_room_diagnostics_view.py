@@ -45,7 +45,7 @@ def test_secondary_room_diagnostics_refreshes_cached_results_and_returns_to_help
     view.open_advanced("system")
     view.root.update()
     assert not getattr(view, "system_diagnostics_visible", False)
-    button(view, "Room diagnostics").invoke()
+    button(view, "Room services").invoke()
     view.root.update()
     assert view.advanced_page == "system" and view.system_diagnostics_visible
     assert len(view.diagnostics_rows.winfo_children()) == 4
@@ -76,11 +76,11 @@ def test_secondary_room_diagnostics_refreshes_cached_results_and_returns_to_help
     view.open_advanced("system")
     view.root.update()
     view.update_health()  # Reopening must not access the destroyed overview labels.
-    button(view, "Back to help").invoke()
+    button(view, "Back to System & help").invoke()
     view.root.update()
     view.update_health()
     assert not view.system_diagnostics_visible
-    assert button(view, "Room diagnostics").winfo_ismapped()
+    assert button(view, "Room services").winfo_ismapped()
 
 
 def test_unobserved_room_diagnostics_never_invents_missing_services(view):
@@ -91,7 +91,7 @@ def test_unobserved_room_diagnostics_never_invents_missing_services(view):
     }
     view.open_advanced("system")
     view.root.update()
-    button(view, "Room diagnostics").invoke()
+    button(view, "Room services").invoke()
     view.root.update()
     assert view.diagnostics_age.cget("text") == "No successful service check yet."
     assert view.diagnostics_check.cget("state") == "disabled"
