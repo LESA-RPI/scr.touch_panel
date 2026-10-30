@@ -31,7 +31,7 @@ class PanelRecovery:
         # The current write may finish, but no new actuator may start while it is pending.
         return bool(recovery and (recovery.error or recovery.pending or recovery.state["status"] not in ("normal", "writing")))
 
-    def recovery_snapshot(self):
+    def recovery_snapshot(self, ignore_touch=False):
         recovery = getattr(self, "recovery", None)
         if recovery is None:
             return {"status": "normal", "can_check": False, "write_blocked": False}
@@ -52,7 +52,7 @@ class PanelRecovery:
             result.update(status="needs_staff", title="Lighting result unconfirmed")
         elif result["status"] == "normal" and self.light_state not in ("ready", "applying"):
             result.update(status="offline", title="Lighting connection unavailable", detail="Check the connection without changing the lights.")
-        result["can_check"] = bool(result["can_check"] and self.args.live_lights and not self.pending and not self.queued_intent and not self.power_busy() and not self.release_target and not self.closing and not self.running and not self.press_active and self.mode != "original")
+        result["can_check"] = bool(result["can_check"] and self.args.live_lights and not self.pending and not self.queued_intent and not self.power_busy() and not self.release_target and not self.closing and not self.running and (ignore_touch or not self.press_active) and self.mode != "original")
         if self.worker and (not getattr(self, "worker_ready", False) or self.worker.stdin.closed or self.worker.poll() is not None):
             result["can_check"] = False
         if self.recovery_check_at is not None and result["needs_staff"]:
@@ -66,13 +66,15 @@ class PanelRecovery:
         self.recovery_label = self.label(card, size=14, muted=True)
         self.recovery_label._card = card
         self.wrap_label(self.recovery_label).pack(fill="x")
-        self.recovery_button = self.button(card, "Check connection", self.check_connection)
+        self.recovery_button = self.button(card, "Check connection", self.check_connection_after_release)
         self.recovery_button.config(font=(self.font_family, 15), pady=10)
         self.recovery_button.pack(anchor="w", pady=(6, 0))
         self.update_recovery_view()
 
     def update_recovery_view(self):
-        state = self.recovery_snapshot()
+        # Keep the button in place during its own press; dispatch still checks
+        # normal readiness after Tk's global release handler clears the touch.
+        state = self.recovery_snapshot(ignore_touch=True)
         label = getattr(self, "recovery_label", None)
         if label is not None and label.winfo_exists():
             card = label._card
@@ -102,6 +104,13 @@ class PanelRecovery:
                     button.pack(anchor="w", pady=(6, 0))
             elif button.winfo_manager():
                 button.pack_forget()
+
+    def check_connection_after_release(self):
+        def check_if_available():
+            if self.recovery_snapshot()["can_check"]:
+                self.check_connection()
+
+        self.root.after_idle(check_if_available)
 
     def check_connection(self):
         if not self.recovery_snapshot()["can_check"]:

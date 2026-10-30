@@ -180,6 +180,35 @@ def test_header_and_footer_commands_open_their_labeled_pages(view):
     assert view.mode == "room" and view.body.winfo_ismapped()
 
 
+@pytest.mark.parametrize("busy_before_release", [False, True])
+def test_connection_check_waits_for_real_touch_release_and_rechecks_readiness(
+    view, busy_before_release
+):
+    shared_worker(view)
+    view.open_advanced("system")
+    view.root.update()
+    requests = []
+    view.request = lambda action: requests.append(action) or True
+    button = view.recovery_button
+    assert button.winfo_ismapped() and button.cget("state") == "normal"
+    button.event_generate("<Enter>")
+    button.event_generate("<ButtonPress-1>", x=10, y=10)
+    view.root.update()
+    assert view.press_active and not view.recovery_snapshot()["can_check"]
+    with pytest.raises(RuntimeError, match="Wait for the current controller"):
+        view.check_connection()
+    view.update_recovery_view()  # A periodic refresh must not hide a held button.
+    assert button.winfo_ismapped() and button.cget("state") == "normal"
+    if busy_before_release:
+        view.pending = {"action": "check"}
+    button.event_generate("<ButtonRelease-1>", x=10, y=10)
+    view.root.update()
+    assert not view.press_active
+    assert requests == ([] if busy_before_release else ["check"])
+    view.pending = None
+    view.worker = None
+
+
 def test_home_explains_why_running_instructions_disable_lighting(view):
     view.open_advanced("experiment")
     view.start_preview()
