@@ -13,6 +13,80 @@ from panel_control import command, handoff_command
 TOKEN = "private-experiment-token-123"
 
 
+@pytest.fixture
+def transport(monkeypatch):
+    class Socket:
+        def __init__(self):
+            self.parts = []
+            self.now = 0
+            self.advance = 1
+            self.timeouts = []
+            self.sent = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *unused):
+            pass
+
+        def settimeout(self, value):
+            self.timeouts.append(value)
+
+        def connect(self, path):
+            self.path = path
+
+        def sendall(self, value):
+            self.sent.append(value)
+
+        def recv(self, size):
+            self.now += self.advance
+            value = self.parts.pop(0) if self.parts else b""
+            assert len(value) <= size
+            return value
+
+    connection = Socket()
+    monkeypatch.setattr(client.socket, "AF_UNIX", 1, raising=False)
+    monkeypatch.setattr(client.socket, "socket", lambda *args: connection)
+    monkeypatch.setattr(client.time, "monotonic", lambda: connection.now)
+    return connection
+
+
+def test_trickled_private_reply_has_one_deadline_and_one_request(transport):
+    transport.parts = [b'{', b'"', b'o', b'k', b'":true}\n']
+    with pytest.raises(TimeoutError, match="deadline"):
+        client.exchange("owner.sock", {"op": "read"})
+    assert transport.parts == [b'":true}\n']
+    assert transport.timeouts[-4:] == pytest.approx([4, 3, 2, 1])
+    assert transport.sent == [b'{"op": "read"}\n']
+
+
+def test_private_reply_stops_at_first_complete_line(transport):
+    transport.parts = [b'{"available":', b'true}\nunused']
+    assert client.exchange("owner.sock", {"op": "read"}) == {"available": True}
+
+
+@pytest.mark.parametrize("raw", [b'null\n', b'[]\n', b'{"x":NaN}\n', b'{"x":Infinity}\n', b'{}'])
+def test_invalid_private_reply_does_not_grant_ownership(transport, raw):
+    transport.parts = [raw]
+    with pytest.raises((ValueError, RuntimeError), match="Invalid panel"):
+        client.exchange("owner.sock", {"op": "read"})
+    assert len(transport.sent) == 1
+
+
+def test_private_reply_size_is_bounded(transport):
+    transport.advance = 0
+    transport.parts = [b' ' * 4096] * 16 + [b' ']
+    with pytest.raises(RuntimeError, match="Invalid panel reply"):
+        client.exchange("owner.sock", {"op": "read"})
+    assert transport.parts == [] and len(transport.sent) == 1
+
+
+def test_oversized_private_request_is_rejected_before_sending(transport):
+    with pytest.raises(ValueError, match="too large"):
+        client.exchange("owner.sock", {"label": "x" * 4096})
+    assert not transport.sent
+
+
 def test_private_handoff_is_not_an_ordinary_browser_command():
     value = dict(op="lighting_handoff", id="private-request-001", revision="current", action="reserve", arguments={"token": TOKEN, "label": "Experiment"})
     assert handoff_command(value)["action"] == "handoff_reserve"

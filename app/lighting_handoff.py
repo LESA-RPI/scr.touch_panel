@@ -8,15 +8,42 @@ import uuid
 
 
 def exchange(path, value):
+    raw = json.dumps(value, allow_nan=False).encode() + b"\n"
+    if len(raw) > 4096:
+        raise ValueError("Ownership request is too large")
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+        deadline = time.monotonic() + 4
         client.settimeout(4)
         client.connect(path)
-        client.sendall(json.dumps(value).encode() + b"\n")
-        with client.makefile("rb") as stream:
-            raw = stream.readline(65537)
-    if len(raw) > 65536 or not raw.endswith(b"\n"):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError("Panel reply deadline exceeded; do not repeat an ownership request")
+        client.settimeout(remaining)
+        client.sendall(raw)
+        reply = bytearray()
+        while len(reply) <= 65536:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("Panel reply deadline exceeded; do not repeat an ownership request")
+            client.settimeout(remaining)
+            part = client.recv(min(4096, 65537 - len(reply)))
+            if not part:
+                break
+            reply.extend(part)
+            newline = reply.find(b"\n")
+            if newline >= 0:
+                reply = reply[:newline + 1]
+                break
+    if len(reply) > 65536 or not reply.endswith(b"\n"):
         raise RuntimeError("Invalid panel reply; do not repeat an ownership request")
-    return json.loads(raw)
+
+    def invalid_constant(value):
+        raise ValueError("Invalid panel number; do not repeat an ownership request")
+
+    value = json.loads(reply, parse_constant=invalid_constant)
+    if not isinstance(value, dict):
+        raise RuntimeError("Invalid panel reply; do not repeat an ownership request")
+    return value
 
 
 def main(argv=None):
