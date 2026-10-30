@@ -68,6 +68,11 @@ def test_guide_light_actions_keep_shared_requests_and_one_feedback_card(view):
     assert len(view.light_buttons) == 2
     assert len([w for w in widgets(view.body)
                 if w.winfo_class() == "Button" and w.cget("text") == "Check connection"]) == 1
+    view.lighting_feedback("Light settings confirmed.")
+    view.root.update()
+    action = view.light_buttons[0]
+    readback_gap = view.light_feedback_card._detail.winfo_rooty() - (action.winfo_rooty() + action.winfo_height())
+    assert 0 <= readback_gap <= 24
     for button in view.light_buttons:
         view.light_state = "ready"  # Each mock request has received its confirmation.
         view.update_light_buttons()

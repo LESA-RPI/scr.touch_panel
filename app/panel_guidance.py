@@ -385,15 +385,20 @@ class PanelGuidance:
         self.label(
             heading, "%s · %d of %d" % (section, position + 1, len(indices)), 15, True
         ).pack(side="right")
+        flexible = bool(topic.get("map"))
+        background = self.surface if flexible else self.bg
         card = tk.Frame(
             self.body,
-            bg=self.surface,
+            bg=background,
             highlightbackground=self.border,
-            highlightthickness=1,
+            highlightthickness=1 if flexible else 0,
         )
-        card.pack(fill="both", expand=True)
-        content = tk.Frame(card, bg=self.surface)
-        content.pack(fill="both", expand=True, padx=24, pady=10 if topic.get("actions") else 22)
+        card.pack(fill="both" if flexible else "x", expand=flexible)
+        content = tk.Frame(card, bg=background)
+        content.pack(
+            fill="both" if flexible else "x", expand=flexible,
+            padx=24 if flexible else 0, pady=22 if flexible else 0,
+        )
         if topic.get("map"):
             self.ceiling_map(content)
         else:
