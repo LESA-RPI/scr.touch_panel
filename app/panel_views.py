@@ -345,6 +345,7 @@ class PanelViews:
                 self.light_buttons.append(button)
                 self.scene_buttons.append((button, scene["id"]))
             self.feedback_card(self.body)
+            self.light_feedback_card.pack_configure(side="bottom", before=grid)
         elif self.lighting_tab == "programmes":
             self.programme_buttons = []
             grid = tk.Frame(self.body, bg=self.bg)
@@ -382,10 +383,11 @@ class PanelViews:
             self.programme_buttons.append(stop)
             self.wrap_label(self.label(
                 self.body,
-                "Start and stop lighting programmes. Live programme status is unavailable. Manual lighting stops programmes before applying.",
+                "Live programme status is unavailable. Manual lighting stops programmes before applying.",
                 16, True,
             )).pack(fill="x", pady=(12, 8))
             self.feedback_card(self.body)
+            self.light_feedback_card.pack_configure(side="bottom", before=grid)
         else:
             self.channels_view(embedded=True)
         self.update_light_buttons()
@@ -463,7 +465,8 @@ class PanelViews:
             self.body, "Adjust the eight room-wide channel percentages.", 16, True
         ).pack(anchor="w", pady=(4, 8))
         editor = tk.Frame(self.body, bg=self.bg)
-        editor.pack(fill="x", pady=14)
+        editor.pack(fill="both", expand=True, pady=14)
+        editor.rowconfigure(0, weight=1)
         for index, (name, value) in enumerate(zip(CHANNELS, self.channel_values)):
             editor.columnconfigure(index, weight=1, uniform="channel")
             cell = tk.Frame(editor, bg=self.bg)
@@ -491,6 +494,7 @@ class PanelViews:
             self.bind_slider(scale, "channels")
             self.light_buttons.append(scale)
         self.feedback_card(self.body)
+        self.light_feedback_card.pack_configure(side="bottom", before=editor)
         self.update_light_buttons()
 
     def experiment_view(self):

@@ -312,6 +312,44 @@ def test_warm_white_preset_only_applies_explicitly_and_keeps_lighting_guards(vie
     view.worker = None
 
 
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize("tab", ["white", "scenes", "programmes", "channels"])
+def test_retained_lighting_tabs_keep_uncertain_recovery_and_controls_inside_the_view(view, theme, tab):
+    view.choose_theme(theme)
+    worker = shared_worker(view)
+    view.open_advanced("lighting")
+    view.choose_lighting_tab(tab)
+    view.root.update()
+    assert view.lighting_tab == tab  # "scenes" is also an older Channels navigation alias.
+    retained = view.advanced_detail
+    view.open_home()
+    view.open_advanced("lighting")
+    view.choose_lighting_tab(tab)
+    view.root.update()
+    assert view.advanced_detail is retained
+    view.recovery.mark_uncertain("A previous test result was not confirmed")
+    view.light_state = "failed"
+    view.lighting_feedback("Lighting result unconfirmed. Check before trying again.")
+    view.update_light_buttons()
+    view.root.update()
+    assert view.recovery_button.winfo_ismapped() and view.recovery_button.winfo_height() >= 44
+    assert view.light_feedback_card.winfo_height() >= view.light_feedback_card.winfo_reqheight()
+    for control in view.light_buttons + view.programme_buttons + [view.recovery_button]:
+        assert control.winfo_ismapped() and control.winfo_height() >= 44
+        left, top = control.winfo_rootx(), control.winfo_rooty()
+        right, bottom = left + control.winfo_width(), top + control.winfo_height()
+        ancestor = control.master
+        while True:
+            assert ancestor.winfo_rootx() <= left and ancestor.winfo_rooty() <= top
+            assert right <= ancestor.winfo_rootx() + ancestor.winfo_width()
+            assert bottom <= ancestor.winfo_rooty() + ancestor.winfo_height()
+            if ancestor is view.advanced_detail:
+                break
+            ancestor = ancestor.master
+    assert not worker.stdin.getvalue()  # Navigation and readback never dispatch a device action.
+    view.worker = None
+
+
 def test_classic_and_home_keep_one_acquired_owner_without_hardware_work(view):
     worker = shared_worker(view)
     confirmed = (view.confirmed_light, view.confirmed_at, view.confirmed_power, view.confirmed_scene)
