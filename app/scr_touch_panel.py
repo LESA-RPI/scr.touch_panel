@@ -573,10 +573,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         return "break"
 
     def return_from_idle(self):
-        if (not self.idle_active or self.release_target or self.closing
-                or self.power_busy() or getattr(self, "legacy_probe", None)):
+        if not self.idle_active:
             return
-        self.idle_active = False
         self.activity(False)
         self.show("room")
 

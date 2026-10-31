@@ -687,7 +687,11 @@ def test_idle_guards_and_wake_do_not_dispatch_a_touch(monkeypatch):
     state.idle_timeout, state.last_touch, state.section = 300, 0, "channels"
     state.idle_active = False
     shown, restored, deferred = [], [], []
-    state.show = lambda mode: (shown.append(mode), setattr(state, "mode", mode))
+    def show(mode):
+        shown.append(mode)
+        state.mode, state.idle_active = mode, mode == "visitor"
+
+    state.show = show
     state.channel_view = lambda: restored.append("channels")
     state.status_text = SimpleNamespace(set=lambda value: None)
     state.root = SimpleNamespace(focus_set=lambda: None, after_idle=deferred.append)
