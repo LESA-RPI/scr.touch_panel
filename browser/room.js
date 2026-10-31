@@ -54,9 +54,6 @@ function icon(name) {
   }
   return n;
 }
-function asset(path) {
-  return window.SCR_ASSETS?.[path] || path;
-}
 function button(text, fn, opts = {}) {
   const n = el('button', text, opts.primary ? 'primary' : '');
   n.type = 'button';
@@ -207,11 +204,14 @@ function command(action, args = {}, revision = state?.revision) {
       return false;
     })
     .finally(async () => {
-      posting = false;
       dragging = false;
       rangeRevision = null;
-      await refresh();
-      sync();
+      try {
+        await refresh(true);
+      } finally {
+        posting = false;
+        sync();
+      }
     });
 }
 // Routine confirmations fade after a few seconds; warnings stay until replaced.
@@ -2088,11 +2088,15 @@ function weather() {
     }
   }
 }
-let fetching = false,
+let fetching = null,
   failures = 0;
-async function refresh() {
-  if (fetching || document.hidden) return;
-  fetching = true;
+function refresh(fresh = false) {
+  if (fetching) return fresh ? fetching.then(() => refresh(true)) : fetching;
+  if (document.hidden && !fresh) return Promise.resolve();
+  fetching = readController().finally(() => { fetching = null; });
+  return fetching;
+}
+async function readController() {
   try {
     const response = await fetch('/api/controller', {
       cache: 'no-store',
@@ -2168,8 +2172,6 @@ async function refresh() {
           : 'The panel is shutting down. This website will disconnect until the panel is powered on again.',
       );
     sync();
-  } finally {
-    fetching = false;
   }
 }
 // Only explicit buttons change the panel; moving around this website never does.

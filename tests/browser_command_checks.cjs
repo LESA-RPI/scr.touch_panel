@@ -149,6 +149,39 @@ function preferencesWebsite(page, roomContent = {}) {
   await rejected.run("command('off')");
   assert.equal(rejected.commands.length, 2, 'A known rejection allows a newly reviewed action');
 
+  let finishOldPoll, finishFreshPoll, overlapReads = 0;
+  const oldPollState = new Promise(resolve => {finishOldPoll = resolve;}),
+    freshPollState = new Promise(resolve => {finishFreshPoll = resolve;});
+  const overlap = website(request => ({status:202, ok:true, json:async () => ({ok:true, code:202, id:request.id})}),
+    () => ++overlapReads === 1 ? oldPollState : freshPollState);
+  overlap.actionButtons.push({dataset:{action:'off'}, disabled:false});
+  overlap.run("sync = shippedSync; state = {available:true, session:'owner-one', revision:'before', csrf:'local', mode:'room', can_control:true, lights:{state:'ready'}}; const oldPoll = refresh(), reusedPoll = refresh();");
+  assert.equal(overlap.run('oldPoll === reusedPoll'), true, 'Overlapping normal polls share one read');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(overlapReads, 1);
+  const overlapCommand = overlap.run("command('off')");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(overlap.run('posting'), true);
+  assert.equal(overlap.actionButtons[0].disabled, true);
+  assert.equal(overlapReads, 1, 'The post-command read waits for the older poll to finish');
+  overlap.run('document.hidden = true;');
+  finishOldPoll({available:true, session:'owner-one', revision:'before', csrf:'local', mode:'room', can_control:true, lights:{state:'ready'}});
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(overlapReads, 2, 'Exactly one fresh post-command read starts, including after the page becomes hidden');
+  assert.equal(overlap.run('state.revision'), 'before');
+  assert.equal(overlap.run('posting'), true);
+  assert.equal(overlap.actionButtons[0].disabled, true, 'An older snapshot cannot re-enable pre-command controls');
+  overlap.run('refresh(); refresh();');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(overlapReads, 2, 'Normal polls also reuse the fresh post-command read');
+  finishFreshPoll({available:true, session:'owner-one', revision:'after', csrf:'local', mode:'room', can_control:true, lights:{state:'ready'}});
+  assert.equal(await overlapCommand, true);
+  assert.equal(overlap.run('state.revision'), 'after');
+  assert.equal(overlap.run('posting'), false);
+  assert.equal(overlap.actionButtons[0].disabled, false, 'Controls return only with the fresh revision');
+  assert.equal(overlapReads, 2);
+  assert.equal(overlap.commands.length, 1, 'Refreshing never retries the command');
+
   let receipt;
   const recovered = website(request => {receipt={id:request.id,ok:true,code:202};return {status:503,ok:false,json:async () => ({ok:false,code:503})};}, () => ({available:true,session:'owner-one',revision:'two',receipts:receipt?[receipt]:[]}));
   await recovered.run("command('off')");
