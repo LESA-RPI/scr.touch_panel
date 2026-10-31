@@ -35,7 +35,7 @@ def test_ceiling_family_selection_uses_reference_positions_without_room_requests
                     sum(canvas.coords(dot)[1::2]) / 2) for dot in dots]
         assert all(0 < x < canvas.winfo_width() and 0 < y < canvas.winfo_height()
                    for x, y in centers)
-        grid = [canvas.coords(item) for item in canvas.find_all() if canvas.type(item) == "line"]
+        grid = [canvas.coords(item) for item in canvas.find_withtag("grid")]
         left, right = min(min(line[::2]) for line in grid), max(max(line[::2]) for line in grid)
         top, bottom = min(min(line[1::2]) for line in grid), max(max(line[1::2]) for line in grid)
         cell_width = (right - left) / CEILING_MAP["grid"]["columns"]
@@ -46,6 +46,20 @@ def test_ceiling_family_selection_uses_reference_positions_without_room_requests
         assert left >= 42 - 1e-6 and right <= canvas.winfo_width() - 18 + 1e-6
         assert top >= 12 - 1e-6 and bottom <= canvas.winfo_height() - 32 + 1e-6
         assert canvas.winfo_height() >= 100
+        fixtures = CEILING_MAP["fixtures"]
+        assert {fixture["kind"]: len(fixture["positions"]) for fixture in fixtures} == {
+            "hvac": 6, "troffer": 10, "sprinkler": 6,
+        }
+        fixture_items = canvas.find_withtag("fixture")
+        assert len(fixture_items) == 6 * 3 + 10 + 6 * 2
+        assert max(fixture_items) < min(dots)  # Context stays behind interactive sensor markers.
+        for fixture in fixtures:
+            for position in fixture["positions"]:
+                items = canvas.find_withtag(position["reference_id"])
+                assert len(items) == {"hvac": 3, "troffer": 1, "sprinkler": 2}[fixture["kind"]]
+                assert all("sensor" not in canvas.gettags(item)
+                           and canvas.itemcget(item, "fill" if canvas.type(item) == "line" else "outline") == view.border
+                           for item in items)
         for item in canvas.find_all():
             if canvas.type(item) == "text":
                 x0, y0, x1, y1 = canvas.bbox(item)
@@ -81,6 +95,17 @@ def test_ceiling_family_selection_uses_reference_positions_without_room_requests
         view.root.update()
         assert any(w.cget("text").startswith("%s · R%dC%d · No registered position" % (
             family["label"], *empty
+        )) for w in labels)
+        fixture_cell = fixtures[0]["positions"][0]["cell"]
+        canvas.event_generate("<ButtonPress-1>", x=round(left + (fixture_cell[0] - .5) * cell_width),
+                              y=round(bottom - (fixture_cell[1] - .5) * cell_height))
+        canvas.event_generate("<ButtonRelease-1>", x=round(left + (fixture_cell[0] - .5) * cell_width),
+                              y=round(bottom - (fixture_cell[1] - .5) * cell_height))
+        view.root.update()
+        sensor = next((p for p in family["positions"] if p["cell"] == fixture_cell), None)
+        expected = "Reference " + sensor["reference_id"] if sensor else "No registered position"
+        assert any(w.cget("text").startswith("%s · R%dC%d · %s" % (
+            family["label"], *fixture_cell, expected
         )) for w in labels)
         assert all(w.winfo_height() >= w.winfo_reqheight()
                    for w in labels if w.winfo_ismapped())

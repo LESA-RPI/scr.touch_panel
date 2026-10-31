@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "app_version": "0.2.13",
+  "app_version": "0.2.14",
   "icons": {
     "tools": [
       {
@@ -976,7 +976,7 @@
       "row_one_edge": "bottom"
     },
     "orientation": "Reference grid: R1–R14 along the long axis; C1–C5 across. The displayed origin is at the lower left.",
-    "note": "Source-backed approximate ceiling annotations, not surveyed locations or live status. Four side-mounted Color sensors and other room equipment are omitted.",
+    "note": "Faint squares: light troffers; slatted squares: HVAC vents; crosses: sprinklers. Approximate positions; symbols do not show size or live status. Four side-mounted Color sensors omitted.",
     "source": {
       "repository": "Project-X-Ceiling",
       "path": "data/output/sensor-extraction/sensors_all_m.csv",
@@ -2037,7 +2037,232 @@
           "dark": "#d55e00"
         }
       }
-    ]
+    ],
+    "fixtures": [
+      {
+        "kind": "troffer",
+        "label": "Light troffers",
+        "positions": [
+          {
+            "cell": [
+              2,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-007"
+          },
+          {
+            "cell": [
+              2,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-008"
+          },
+          {
+            "cell": [
+              6,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-009"
+          },
+          {
+            "cell": [
+              6,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-010"
+          },
+          {
+            "cell": [
+              9,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-011"
+          },
+          {
+            "cell": [
+              9,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-012"
+          },
+          {
+            "cell": [
+              13,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-013"
+          },
+          {
+            "cell": [
+              13,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-014"
+          },
+          {
+            "cell": [
+              4,
+              3
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-015"
+          },
+          {
+            "cell": [
+              11,
+              3
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-016"
+          }
+        ]
+      },
+      {
+        "kind": "hvac",
+        "label": "HVAC vents",
+        "positions": [
+          {
+            "cell": [
+              4,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-001"
+          },
+          {
+            "cell": [
+              4,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-002"
+          },
+          {
+            "cell": [
+              8,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-003"
+          },
+          {
+            "cell": [
+              8,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-004"
+          },
+          {
+            "cell": [
+              11,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-005"
+          },
+          {
+            "cell": [
+              11,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-006"
+          }
+        ]
+      },
+      {
+        "kind": "sprinkler",
+        "label": "Sprinklers",
+        "positions": [
+          {
+            "cell": [
+              1,
+              1
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-017"
+          },
+          {
+            "cell": [
+              14,
+              1
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-018"
+          },
+          {
+            "cell": [
+              1,
+              5
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-019"
+          },
+          {
+            "cell": [
+              14,
+              5
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-020"
+          },
+          {
+            "cell": [
+              8,
+              1
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-021"
+          },
+          {
+            "cell": [
+              8,
+              5
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-022"
+          }
+        ]
+      }
+    ],
+    "fixtures_source": {
+      "repository": "Project-X-Ceiling",
+      "path": "data/field-map/ceiling_field_map.yaml",
+      "sha256": "89dd5512aed1bd3127926e067d4762875cec1397265db6e0936c1a73b733790c",
+      "updated": "2026-10-24T22:29:06Z",
+      "note": "Tile-level annotations; symbols do not represent measured footprints or live status."
+    }
   },
   "help": [
     {

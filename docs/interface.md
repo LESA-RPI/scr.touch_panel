@@ -295,6 +295,9 @@ The nested ceiling-map schema is version 2. Each family position has `cell`
 ([R index, C index]), `reference_id`, and lower-left-normalized `u`/`v` offsets.
 These are dated source annotations and logical references, not live device IDs
 or surveyed positions. Family colours come from the same reference layout.
+Optional `fixtures` groups use the same position fields for quiet troffer,
+HVAC and sprinkler symbols. `fixtures_source` records their provenance;
+these annotations add no controls, measured footprints or live status.
 
 `room_diagnostics` contains `state`, copied `services` rows (`name`,
 `listed`/`missing` state), `observed_at`, monotonic `age_s`, `checking`, `can_check`

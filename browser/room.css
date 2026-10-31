@@ -1722,6 +1722,13 @@ summary {
 .ceiling-map-point {
   cursor: pointer;
 }
+.ceiling-map-context {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1;
+  opacity: 0.45;
+  pointer-events: none;
+}
 .ceiling-map-hit {
   fill: transparent;
   stroke: none;

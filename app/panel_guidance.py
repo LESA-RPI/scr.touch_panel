@@ -530,7 +530,7 @@ class PanelGuidance:
             left, top, right, bottom, cell = plot_geometry()
             for column in range(columns + 1):
                 x = left + column * cell
-                canvas.create_line(x, top, x, bottom, fill=self.border)
+                canvas.create_line(x, top, x, bottom, fill=self.border, tags="grid")
                 if column < columns:
                     canvas.create_text(
                         x + cell / 2, bottom + 18, text="R%d" % (column + 1),
@@ -538,12 +538,33 @@ class PanelGuidance:
                     )
             for row in range(rows + 1):
                 y = bottom - row * cell
-                canvas.create_line(left, y, right, y, fill=self.border)
+                canvas.create_line(left, y, right, y, fill=self.border, tags="grid")
                 if row < rows:
                     canvas.create_text(
                         left - 20, y - cell / 2, text="C%d" % (row + 1),
                         font=(self.font_family, 12), fill=self.muted,
                     )
+            half = min(10, cell / 4)
+            for fixture in CEILING_MAP.get("fixtures", []):
+                for position in fixture["positions"]:
+                    column, row = position["cell"]
+                    x = left + (column - 1 + position["u"]) * cell
+                    y = bottom - (row - 1 + position["v"]) * cell
+                    tags = ("fixture", fixture["kind"], position["reference_id"])
+                    if fixture["kind"] in ("troffer", "hvac"):
+                        canvas.create_rectangle(
+                            x - half, y - half, x + half, y + half,
+                            outline=self.border, tags=tags,
+                        )
+                    if fixture["kind"] == "hvac":
+                        for offset in (-half / 3, half / 3):
+                            canvas.create_line(
+                                x - half * .7, y + offset, x + half * .7, y + offset,
+                                fill=self.border, tags=tags,
+                            )
+                    elif fixture["kind"] == "sprinkler":
+                        canvas.create_line(x - half, y, x + half, y, fill=self.border, tags=tags)
+                        canvas.create_line(x, y - half, x, y + half, fill=self.border, tags=tags)
             radius = min(8, max(4, cell / 5))
             for position in selected["positions"]:
                 column, row = position["cell"]

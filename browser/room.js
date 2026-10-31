@@ -1265,6 +1265,24 @@ function ceilingMap(parent) {
       shape('text', { x: left + (column - 0.5) * cell, y: 17 }, 'R' + column);
     for (let row = 1; row <= rows; row++)
       shape('text', { x: 10, y: top + (rows - row + 0.5) * cell + 4 }, 'C' + row);
+    const fixtureGlyphs = {
+      troffer:'M-8-8H8V8H-8Z',
+      hvac:'M-8-8H8V8H-8ZM-5-4H5M-5 0H5M-5 4H5',
+      sprinkler:'M-6 0H6M0-6V6',
+    };
+    if (map.fixtures?.length) {
+      const context = shape('g', {class:'ceiling-map-context', 'aria-hidden':'true', 'pointer-events':'none'});
+      for (const fixture of map.fixtures) {
+        if (!fixtureGlyphs[fixture.kind]) continue;
+        for (const position of fixture.positions) {
+          const [column, row] = position.cell,
+            x = left + (column - 1 + position.u) * cell,
+            y = top + (rows - row + 1 - position.v) * cell;
+          shape('path', {d:fixtureGlyphs[fixture.kind], transform:`translate(${x} ${y})`,
+            'data-kind':fixture.kind}, undefined, context);
+        }
+      }
+    }
     const points = [];
     for (const position of family.positions) {
       const [column, row] = position.cell,

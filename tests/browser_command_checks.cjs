@@ -393,7 +393,7 @@ function preferencesWebsite(page, roomContent = {}) {
     const familyControls = descendants(ceilingRoot).filter(node => node.tagName === 'button');
     const ceilingDiagram = descendants(ceilingRoot).find(node => node.tagName === 'svg');
     const familyDescription = descendants(ceilingRoot).find(node => node.className === 'ceiling-map-description');
-    let currentPoint;
+    let currentPoint, fixtureLayer;
   `);
   assert.equal(guideContent.run('familyControls.length'), 3);
   assert.equal(guideContent.run('ceilingDiagram.preserveAspectRatio'), 'xMidYMid meet', 'The ceiling map uses one uniform scale for square cells');
@@ -411,6 +411,12 @@ function preferencesWebsite(page, roomContent = {}) {
     assert.equal(guideContent.run("ceilingDiagram.style['--sensor-light']"), family.colours.light);
     assert.equal(guideContent.run("ceilingDiagram.style['--sensor-dark']"), family.colours.dark);
     assert.equal(guideContent.run("ceilingDiagram.role"), 'group', 'Interactive reference points remain accessible inside the diagram');
+    guideContent.run("fixtureLayer = ceilingDiagram.children.find(node => node.class === 'ceiling-map-context');");
+    assert.equal(guideContent.run("fixtureLayer['aria-hidden']"), 'true');
+    assert.equal(guideContent.run("fixtureLayer['pointer-events']"), 'none');
+    assert.equal(guideContent.run('fixtureLayer.children.length'), 22, 'All documented ceiling fixtures remain a small static background layer');
+    assert.deepEqual(Array.from(guideContent.run('fixtureLayer.children'), node => node['data-kind']).reduce((counts, kind) => {counts[kind] = (counts[kind] || 0) + 1; return counts;}, {}), {troffer:10, hvac:6, sprinkler:6});
+    assert.equal(guideContent.run("ceilingDiagram.children.indexOf(fixtureLayer) < ceilingDiagram.children.findIndex(node => node.class === 'ceiling-map-point')"), true, 'Fixture marks stay behind sensor hit areas');
     const first = family.positions[0];
     guideContent.run("currentPoint = descendants(ceilingDiagram).find(node => node.role === 'button'); currentPoint.onclick();");
     assert.match(guideContent.run('familyDescription.textContent'), new RegExp(`R${first.cell[0]}C${first.cell[1]}.*${first.reference_id}`));
