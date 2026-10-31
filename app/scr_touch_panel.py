@@ -767,6 +767,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             button.pack(side="right", padx=(0, gap), pady=8)
             self.navigation_buttons.append(button)
         status = self.label(self.footer, size=17, muted=True)
+        self.footer_status = status
         status.config(textvariable=self.status_text)
         self.wrap_label(status)
         status.pack(side="left", fill="both", expand=True)
@@ -1027,6 +1028,13 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 button.config(font=(FONT, size, "bold" if current else "normal"))
 
     def render(self):
+        navigation = getattr(self, "guide_footer_navigation", None)
+        if navigation is not None and navigation.winfo_exists():
+            navigation.destroy()
+        self.guide_footer_navigation = None
+        status = getattr(self, "footer_status", None)
+        if status is not None and status.winfo_exists():
+            status.pack(side="left", fill="both", expand=True)
         self.cancel_intent()
         if getattr(self, "blank_hint", None) is not None:
             self.blank_hint.place_forget()

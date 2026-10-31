@@ -440,18 +440,19 @@ class PanelGuidance:
             for button in links:
                 self.style_guide_link(button)
         buttons = self.row_buttons(
-            self.body,
+            self.footer,
             [
                 ("Back to topics", lambda: self.choose_guide(-1), False),
                 ("Previous", lambda: self.change_guide(-1), False),
                 ("Next", lambda: self.change_guide(1), False),
             ],
-            height=56,
+            height=64,
         )
-        # Keep navigation reachable; the topic card takes the remaining height.
+        self.footer_status.pack_forget()
         navigation = buttons[0].master
+        self.guide_footer_navigation = navigation
         navigation.config(width=654)
-        navigation.pack_configure(side="bottom", fill="none", anchor="w", before=card)
+        navigation.pack_configure(side="left", fill="none", anchor="w", pady=8)
         for column, width in ((0, 300), (2, 180), (4, 150)):
             navigation.columnconfigure(column, weight=0, uniform="", minsize=width)
         for button, kind in zip(buttons, ("chevron-left", "chevron-left", "chevron-right")):
@@ -515,6 +516,13 @@ class PanelGuidance:
         selected = families[0]
         selected_cell = None
         columns, rows = CEILING_MAP["grid"]["columns"], CEILING_MAP["grid"]["rows"]
+        layout = tk.Frame(parent, bg=parent.cget("bg"))
+        layout.pack(fill="both", expand=True)
+        rail = tk.Frame(layout, bg=parent.cget("bg"), width=270)
+        rail.pack(side="right", fill="y", padx=(20, 0))
+        rail.pack_propagate(False)
+        plot = tk.Frame(layout, bg=parent.cget("bg"))
+        plot.pack(side="left", fill="both", expand=True)
 
         def plot_geometry():
             width, height = canvas.winfo_width() - 60, canvas.winfo_height() - 44
@@ -581,7 +589,7 @@ class PanelGuidance:
             nonlocal selected, selected_cell
             selected = family
             selected_cell = None
-            detail.config(text="%s · %d ceiling positions. Tap a cell or marker.\n%s" % (
+            detail.config(text="%s · %d positions\nTap a cell or marker.\n%s" % (
                 family["label"], len(family["positions"]), family["description"]
             ))
             for button, candidate in zip(buttons, families):
@@ -614,23 +622,24 @@ class PanelGuidance:
             selected_cell = (column, row)
             reference = ("Reference " + position["reference_id"] if position
                          else "No registered position")
-            detail.config(text="%s · R%dC%d · %s\n%s" % (
+            detail.config(text="%s · R%dC%d\n%s\n%s" % (
                 selected["label"], column, row, reference, selected["description"]
             ))
             draw()
 
-        buttons = self.row_buttons(
-            parent,
-            [(family["label"], lambda family=family: choose(family), False)
-             for family in families],
-            height=52,
-        )
-        for button in buttons:
+        buttons = []
+        for family in families:
+            slot = tk.Frame(rail, bg=rail.cget("bg"), height=52)
+            slot.pack(fill="x", pady=(0, 8))
+            slot.pack_propagate(False)
+            button = self.button(slot, family["label"], lambda family=family: choose(family))
             button.config(font=(self.font_family, 17), pady=8)
-        detail = self.wrap_label(self.label(parent, size=16))
-        detail.pack(fill="x", pady=(4, 8))
+            button.pack(fill="both", expand=True)
+            buttons.append(button)
+        detail = self.wrap_label(self.label(rail, size=14))
+        detail.pack(fill="x", pady=(4, 0))
         canvas = tk.Canvas(
-            parent, height=220, bg=parent.cget("bg"),
+            plot, height=220, bg=parent.cget("bg"),
             highlightthickness=0, borderwidth=0,
         )
         canvas.pack(fill="both", expand=True)
@@ -638,7 +647,7 @@ class PanelGuidance:
         canvas.bind("<ButtonRelease-1>", inspect_cell)
         self.wrap_label(self.label(
             parent, CEILING_MAP["orientation"] + " " + CEILING_MAP["note"], 13, True
-        )).pack(side="bottom", fill="x", pady=(6, 0), before=canvas)
+        )).pack(side="bottom", fill="x", pady=(6, 0), before=layout)
         choose(selected)
 
     def guide_visual(self, parent, kind):

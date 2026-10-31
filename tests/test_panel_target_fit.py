@@ -14,7 +14,7 @@ def widgets(parent):
 
 
 def visible_buttons(view):
-    return [w for w in widgets(view.body)
+    return [w for parent in (view.body, view.footer) for w in widgets(parent)
             if isinstance(w, panel.tk.Button) and w.winfo_ismapped()]
 
 

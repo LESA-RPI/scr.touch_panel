@@ -41,6 +41,9 @@ def test_ceiling_family_selection_uses_reference_positions_without_room_requests
         cell_width = (right - left) / CEILING_MAP["grid"]["columns"]
         cell_height = (bottom - top) / CEILING_MAP["grid"]["rows"]
         assert cell_width == pytest.approx(cell_height)
+        if height == 800:
+            assert 800 <= right - left <= 900
+            assert cell_width >= 55
         assert (left + right) / 2 == pytest.approx((42 + canvas.winfo_width() - 18) / 2)
         assert (top + bottom) / 2 == pytest.approx((12 + canvas.winfo_height() - 32) / 2)
         assert left >= 42 - 1e-6 and right <= canvas.winfo_width() - 18 + 1e-6
@@ -75,15 +78,20 @@ def test_ceiling_family_selection_uses_reference_positions_without_room_requests
                    for i, a in enumerate(centers) for j, b in enumerate(centers)
                    if family["positions"][i]["cell"][1] < family["positions"][j]["cell"][1])
         labels = [w for w in widgets(view.body) if isinstance(w, panel.tk.Label)]
+        rail_buttons = [w for w in widgets(view.body) if isinstance(w, panel.tk.Button)
+                        and w.cget("text") in [f["label"] for f in CEILING_MAP["families"]]]
+        assert len({button.winfo_rootx() for button in rail_buttons}) == 1
+        assert min(button.winfo_rootx() for button in rail_buttons) >= canvas.winfo_rootx() + canvas.winfo_width()
+        assert all(button.winfo_height() >= 44 for button in rail_buttons)
         assert any(w.cget("text").startswith(
-            "%s · %d ceiling positions." % (family["label"], len(dots))
+            "%s · %d positions" % (family["label"], len(dots))
         ) for w in labels)
         point = family["positions"][0]
         canvas.event_generate("<ButtonPress-1>", x=round(centers[0][0]), y=round(centers[0][1]))
         canvas.event_generate("<ButtonRelease-1>", x=round(centers[0][0]), y=round(centers[0][1]))
         view.root.update()
         assert not view.press_active
-        assert any(w.cget("text").startswith("%s · R%dC%d · Reference %s" % (
+        assert any(w.cget("text").startswith("%s · R%dC%d\nReference %s" % (
             family["label"], *point["cell"], point["reference_id"]
         )) for w in labels)
         empty = next((column, row) for column in range(1, 15) for row in range(1, 6)
@@ -93,7 +101,7 @@ def test_ceiling_family_selection_uses_reference_positions_without_room_requests
         canvas.event_generate("<ButtonRelease-1>", x=round(left + (empty[0] - 0.5) * cell_width),
                               y=round(bottom - (empty[1] - 0.5) * cell_height))
         view.root.update()
-        assert any(w.cget("text").startswith("%s · R%dC%d · No registered position" % (
+        assert any(w.cget("text").startswith("%s · R%dC%d\nNo registered position" % (
             family["label"], *empty
         )) for w in labels)
         fixture_cell = fixtures[0]["positions"][0]["cell"]
@@ -104,7 +112,7 @@ def test_ceiling_family_selection_uses_reference_positions_without_room_requests
         view.root.update()
         sensor = next((p for p in family["positions"] if p["cell"] == fixture_cell), None)
         expected = "Reference " + sensor["reference_id"] if sensor else "No registered position"
-        assert any(w.cget("text").startswith("%s · R%dC%d · %s" % (
+        assert any(w.cget("text").startswith("%s · R%dC%d\n%s" % (
             family["label"], *fixture_cell, expected
         )) for w in labels)
         assert all(w.winfo_height() >= w.winfo_reqheight()

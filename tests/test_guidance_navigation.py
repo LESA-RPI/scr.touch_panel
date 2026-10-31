@@ -40,11 +40,13 @@ def test_guide_links_open_pages_and_return_to_same_topic(view, index):
     assert view.mode == "guide" and view.guide_page == -1
     view.choose_guide(index)
     view.root.update()
-    all_topics, = [w for w in widgets(view.body)
+    all_topics, = [w for w in widgets(view.footer)
                    if w.winfo_class() == "Button" and w.cget("text") == "Back to topics"]
+    assert all_topics.master.master is view.footer
     all_topics.invoke()
     view.root.update()
     assert view.guide_page == -1
+    assert view.guide_footer_navigation is None and view.footer_status.winfo_ismapped()
     overview = [w for w in widgets(view.body)
                 if w.winfo_class() == "Button" and "\n" in w.cget("text")]
     assert {w.cget("text") for w in overview} == {
