@@ -214,6 +214,77 @@ def test_legacy_return_stops_programmes_and_reads_exactly_twice_without_changing
     assert lights.release()["preserved"] and room.state == original
 
 
+def test_manual_write_accepts_stable_drive_change_from_its_own_programme_stop():
+    room = Room()
+
+    def stop():
+        room.state = dict.fromkeys(room.state, adapter.setter_words(adapter.PRESETS["Sat"]))
+
+    programmes = LegacyProgrammes(stop)
+    lights = adapter.Lights(room.call, keep_settings=True, programmes=programmes,
+                            sleep=lambda seconds: None)
+    lights.acquire()
+    result = lights.apply("channels", {"values": list(adapter.PRESETS["Off"])})
+    assert result["state"] == "completed" and result["words"] == [0] * 8
+    assert programmes.requests == ["stop"] and room.writes == [adapter.PRESETS["Off"]]
+    assert not lights.failed and lights.release()["preserved"]
+
+
+def test_external_change_blocks_before_programme_stop_or_manual_setter():
+    room, programmes = Room(), LegacyProgrammes()
+    lights = adapter.Lights(room.call, keep_settings=True, programmes=programmes,
+                            sleep=lambda seconds: None)
+    lights.acquire()
+    room.state = dict.fromkeys(room.state, adapter.setter_words(adapter.PRESETS["Sat"]))
+    with pytest.raises(ValueError, match="ownership lost"):
+        lights.apply("channels", {"values": list(adapter.PRESETS["Off"])})
+    assert lights.failed and not programmes.requests and not room.writes
+    with pytest.raises(ValueError, match="unavailable"):
+        lights.apply("channels", {"values": list(adapter.PRESETS["Off"])})
+    with pytest.raises(ValueError, match="unknown"):
+        lights.release()
+    assert not programmes.requests and not room.writes
+
+
+@pytest.mark.parametrize("failure", ["before_stop_read", "stop", "after_stop_read", "unstable"])
+def test_manual_cleanup_failure_latches_without_setter_restore_or_replay(failure):
+    room, reads = Room(), []
+
+    def stop():
+        if failure == "stop":
+            raise TimeoutError("Programme stop response lost")
+
+    programmes = LegacyProgrammes(stop)
+
+    def call(name, *args):
+        if name == "get_lights":
+            reads.append(True)
+            if (failure == "before_stop_read" and not programmes.requests
+                    or failure == "after_stop_read" and programmes.requests):
+                raise TimeoutError("Fixture readback expired")
+            if failure == "unstable" and programmes.requests and len(reads) == 3:
+                room.state[min(room.state)] = (1,) * 8
+        return room.call(name, *args)
+
+    lights = adapter.Lights(room.call, keep_settings=True, programmes=programmes,
+                            sleep=lambda seconds: None)
+    lights.acquire()
+    lights.call = call
+    error = ValueError if failure == "unstable" else TimeoutError
+    detail = "still changing" if failure == "unstable" else "expired|response lost"
+    with pytest.raises(error, match=detail):
+        lights.apply("channels", {"values": list(adapter.PRESETS["Off"])})
+    assert lights.failed and not room.writes
+    expected_stops = [] if failure == "before_stop_read" else ["stop"]
+    assert programmes.requests == expected_stops
+    previous_reads = list(reads)
+    with pytest.raises(ValueError, match="unavailable"):
+        lights.apply("channels", {"values": list(adapter.PRESETS["Off"])})
+    with pytest.raises(ValueError, match="unknown"):
+        lights.release()
+    assert programmes.requests == expected_stops and reads == previous_reads and not room.writes
+
+
 @pytest.mark.parametrize("persistent, observing, configured", [
     (False, False, True), (True, True, True), (True, False, False),
 ])

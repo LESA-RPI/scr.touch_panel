@@ -338,10 +338,11 @@ class Lights(object):
         if self.observe_only:
             raise ValueError("Connection checks are read-only")
         if self.programmes and self.keep_settings:
-            previous, active = self.current, self.programme is not None or self.baseline is None
-            self.stop_programmes()
-            if not active and self.current != previous:
+            active = self.programme is not None or self.baseline is None
+            # Check ownership before our programme cleanup can change the drive.
+            if not active and self.read() != self.current:
                 raise ValueError("Another controller changed the lights; trial ownership lost")
+            self.stop_programmes()
         elif self.read() != self.current:
             raise ValueError("Another controller changed the lights; trial ownership lost")
 
