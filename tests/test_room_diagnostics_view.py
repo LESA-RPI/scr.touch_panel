@@ -2,7 +2,7 @@
 
 import pytest
 
-from test_panel_navigation import panel, view
+from test_panel_navigation import panel, view, shared_worker
 
 
 def widgets(parent):
@@ -15,6 +15,72 @@ def button(view, text):
     found, = [w for w in widgets(view.body)
               if isinstance(w, panel.tk.Button) and w.cget("text") == text]
     return found
+
+
+@pytest.mark.parametrize("origin", ["home", "system"])
+@pytest.mark.parametrize("remembered", ["services", "commands"])
+def test_contextual_status_opens_visible_lighting_recovery_without_a_room_action(view, origin, remembered):
+    worker = shared_worker(view)
+    view.open_advanced("system")
+    if remembered == "services":
+        view.toggle_room_diagnostics()
+    else:
+        view.support_page, view.support_step, view.support_commands_visible = 3, 1, True
+        view.rebuild_advanced_detail()
+    if origin == "home":
+        view.open_home()
+        view.open_advanced("system")
+        assert getattr(view, "system_diagnostics_visible", False) == (remembered == "services")
+        assert view.support_commands_visible == (remembered == "commands")
+        view.open_home()
+    view.recovery.mark_uncertain("An earlier result needs checking")
+    assert view.recovery.settled.wait(2)
+    view.light_state = "failed"
+    view.update_connection_badges()
+    view.connection_badges[0][0].invoke()
+    view.root.update()
+    assert view.mode == "health" and view.advanced_page == "system"
+    assert not view.system_diagnostics_visible and not view.support_commands_visible
+    assert (view.support_page, view.support_step) == (0, 0)
+    assert view.recovery_button.winfo_ismapped()
+    assert view.recovery_button.cget("text") == "Check connection"
+    assert view.recovery_button.cget("state") == "normal"
+    assert button(view, "Restart panel").winfo_ismapped()
+    assert button(view, "Shut down panel").winfo_ismapped()
+    assert not worker.stdin.getvalue()
+    view.worker = None
+
+
+def test_home_and_system_blind_status_follow_connection_permission_and_busy_state(view):
+    worker = shared_worker(view)
+    controls = tuple(view.blind_buttons)
+    assert len(controls) == 3
+    view.blinds_enabled, view.blinds_connected = False, False
+    view.tick()
+    assert view.blind_status_label.cget("text") == "Not connected"
+    assert all(control.winfo_ismapped() for control in controls)
+    view.open_advanced("system")
+    assert view.system_blind_status_label.cget("text") == "Blinds · Not connected"
+    view.adapter_metadata({"blinds_connected": True})
+    view.tick()
+    assert view.system_blind_status_label.cget("text") == "Blinds · Locked in settings"
+    view.blinds_enabled = True
+    view.tick()
+    assert view.system_blind_status_label.cget("text") == "Blinds · Ready"
+    view.pending = {"action": "blind"}
+    view.tick()
+    assert view.system_blind_status_label.cget("text") == "Blinds · Room controls busy"
+    view.pending = None
+    view.open_home()
+    view.root.update()
+    assert tuple(view.blind_buttons) == controls
+    assert all(control.winfo_ismapped() and control.cget("state") == "normal" for control in controls)
+    view.adapter_metadata({"blinds_connected": False})
+    view.tick()
+    assert view.blind_status_label.cget("text") == "Not connected"
+    assert all(control.winfo_ismapped() and control.cget("state") == "disabled" for control in controls)
+    assert not worker.stdin.getvalue()
+    view.worker = None
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])

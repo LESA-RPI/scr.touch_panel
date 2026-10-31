@@ -45,6 +45,7 @@ PAGE_REFERENCES = (
     "scene_buttons",
     "blind_buttons",
     "blind_status_label",
+    "system_blind_status_label",
     "light_feedback_card",
     "recovery_label",
     "recovery_button",

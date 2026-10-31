@@ -445,6 +445,7 @@ def test_slow_resource_read_never_holds_navigation_or_starts_a_second_query(
     state.health_details = state.services_label = SimpleNamespace(
         config=lambda **kw: shown.append(kw)
     )
+    state.power_label, state.muted = SimpleNamespace(config=lambda **kw: shown.append(kw)), "muted"
     try:
         state.update_health()  # Returns while the resource read is held below.
         assert entered.wait(1) and state.health_worker.is_alive()

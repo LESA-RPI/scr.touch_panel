@@ -50,7 +50,7 @@ def test_guide_links_open_pages_and_return_to_same_topic(view, index):
     overview = [w for w in widgets(view.body)
                 if w.winfo_class() == "Button" and "\n" in w.cget("text")]
     assert {w.cget("text") for w in overview} == {
-        topic["title"] + "\n" + topic["caption"] for topic in DEMO
+        topic["title"] + "  ›\n" + topic["caption"] for topic in DEMO
     }
     assert all(w.winfo_ismapped() and w.winfo_height() >= 44 for w in overview)
     assert {"Room tour", "Control help"}.issubset({

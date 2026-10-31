@@ -13,6 +13,7 @@ from panel_control import command, Bridge
 from panel_remote import execute
 from panel_remote import snapshot
 from design_tokens import THEMES
+from room_controls import blind_readiness
 
 
 def envelope(action="off", arguments=None, revision="current", id="test-command-00001"):
@@ -22,6 +23,19 @@ def envelope(action="off", arguments=None, revision="current", id="test-command-
         "action": action,
         "arguments": arguments or {},
     }
+
+
+@pytest.mark.parametrize("enabled", [False, True])
+@pytest.mark.parametrize("connected", [False, True])
+@pytest.mark.parametrize("busy", [False, True])
+def test_blind_readiness_prioritizes_connection_without_changing_permission(enabled, connected, busy):
+    state = blind_readiness(enabled, connected, busy)
+    assert state["enabled"] is enabled and state["connected"] is connected
+    assert state["available"] is (enabled and connected and not busy)
+    assert state["reason"] == (
+        "Not connected" if not connected else "Locked in settings" if not enabled
+        else "Room controls busy" if busy else "Controls unlocked"
+    )
 
 
 def test_commands_reject_blinds_shell_paths_extra_fields_and_invalid_numbers():
@@ -166,7 +180,7 @@ def test_blind_permission_is_strict_and_independent_of_visibility_and_connection
         assert command(envelope("blind", {"name": name}))
         assert not state.blind_command(name)
     assert state.blind_state()["detail"] == "Disabled"
-    assert state.blind_state()["reason"] == "Locked in settings"
+    assert state.blind_state()["reason"] == "Not connected"
     state.blinds_enabled = True
     assert not state.blind_command("open")
     assert state.blind_state()["detail"] == "Disabled"

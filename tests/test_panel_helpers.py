@@ -111,11 +111,62 @@ def test_room_service_status_refreshes_independently_of_panel_resource_errors(re
     services = []
     state.services_label = SimpleNamespace(config=lambda **value: services.append(value["text"]))
     state.health_details = SimpleNamespace(config=lambda **value: None)
+    state.power_label, state.muted = SimpleNamespace(config=lambda **value: None), "muted"
     state.update_health()
     state.room_status = "Lighting service: missing"
     state.update_health()
     state.update_health()
     assert services == ["Checking advertised services", "Lighting service: missing"]
+
+
+def test_resource_failure_removes_current_power_claim_until_a_new_reading():
+    state = panel.Panel.__new__(panel.Panel)
+    state.mode, state.theme, state.health_rendered, state.muted = "health", "light", None, "muted"
+    state.room_status, state.refresh_resources = "Services checked", lambda: None
+    state.services_label = state.health_details = SimpleNamespace(config=lambda **value: None)
+    power = {}
+    state.power_label = SimpleNamespace(config=lambda **value: power.update(value))
+    healthy = {"ram_available": 100, "ram_total": 1000, "disk_available": 2,
+               "temperature": 45, "power": "Current power warning"}
+    state.health_cache = healthy
+    state.update_health()
+    assert power["text"] == "Power: Current power warning"
+    state.health_cache = {"error": "Reading failed"}
+    state.update_health()
+    assert power == {"text": "Power reading unavailable.", "fg": "muted"}
+    state.health_cache = dict(healthy, power="No current power warning")
+    state.update_health()
+    assert power == {"text": "Power: No current power warning", "fg": "muted"}
+
+
+@pytest.mark.parametrize("same_page", [False, True])
+def test_contextual_lighting_help_resets_only_its_view_state(same_page):
+    state = panel.Panel.__new__(panel.Panel)
+    state.release_target = state.closing = state.legacy_probe = None
+    state.power_busy = lambda: False
+    state.mode, state.advanced_page = ("health", "system") if same_page else ("room", None)
+    state.system_diagnostics_visible = state.support_commands_visible = True
+    state.support_page, state.support_step = 3, 2
+    calls = []
+    state.open_advanced = lambda page: calls.append(("open", page))
+    state.rebuild_advanced_detail = lambda: calls.append(("refresh", "system"))
+    state.open_lighting_help()
+    assert (state.support_page, state.support_step) == (0, 0)
+    assert not state.system_diagnostics_visible and not state.support_commands_visible
+    assert calls == [("refresh" if same_page else "open", "system")]
+
+
+@pytest.mark.parametrize("field", ["release_target", "closing", "legacy_probe", "power_busy"])
+def test_contextual_lighting_help_preserves_busy_navigation_guards(field):
+    state = panel.Panel.__new__(panel.Panel)
+    state.release_target = state.closing = state.legacy_probe = None
+    state.power_busy = lambda: False
+    state.support_page, state.support_step = 3, 2
+    state.system_diagnostics_visible = state.support_commands_visible = True
+    setattr(state, field, (lambda: True) if field == "power_busy" else True)
+    state.open_lighting_help()
+    assert (state.support_page, state.support_step) == (3, 2)
+    assert state.system_diagnostics_visible and state.support_commands_visible
 
 
 def test_status_helper_launch_failure_is_reported_without_raising(monkeypatch):

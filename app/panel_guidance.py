@@ -28,8 +28,8 @@ class PanelGuidance:
         fallback.pack(side="right", padx=(12, 0), fill="y")
         self.original_fallback_button = fallback
         for operation, title in (
-            ("shutdown", "Shut down Pi"),
-            ("reboot", "Restart Pi"),
+            ("shutdown", "Shut down panel"),
+            ("reboot", "Restart panel"),
         ):
             button = self.button(
                 heading,
@@ -43,7 +43,7 @@ class PanelGuidance:
         if not self.support_commands_visible:
             self.label(
                 self.body,
-                "Read-only checks. Available services may not be producing sensor data.",
+                "Checks are read-only. Restart and shutdown affect this panel.",
                 15,
                 True,
             ).pack(anchor="w", pady=(0, 10))
@@ -76,17 +76,9 @@ class PanelGuidance:
         state = self.label(row, size=20)
         state.config(textvariable=self.connection_text)
         state.pack(side="left")
-        blinds = self.blind_state()
-        blind_label = (
-            "Disabled"
-            if not blinds["enabled"]
-            else (
-                "Disconnected"
-                if not blinds["connected"]
-                else "Ready" if blinds["available"] else "Busy"
-            )
-        )
-        self.label(row, "Blinds · " + blind_label, 13, True).pack(side="right")
+        self.system_blind_status_label = self.label(row, size=13, muted=True)
+        self.system_blind_status_label.pack(side="right")
+        self.update_blind_buttons()
         self.services_label = self.label(cards[1], size=13, muted=True)
         self.wrap_label(self.services_label).pack(fill="x")
         diagnostics = self.button(cards[1], "Room services", self.toggle_room_diagnostics)
@@ -361,7 +353,7 @@ class PanelGuidance:
                     row.pack(fill="x", pady=(0, 8))
                     row.pack_propagate(False)
                     button = self.button(
-                        row, topic["title"] + "\n" + topic["caption"],
+                        row, topic["title"] + "  ›\n" + topic["caption"],
                         lambda index=index: self.choose_guide(index),
                     )
                     button.config(

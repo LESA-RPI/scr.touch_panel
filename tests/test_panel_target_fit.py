@@ -56,7 +56,7 @@ def test_guide_and_home_recovery_keep_full_touch_targets(view, theme):
     view.recovery.mark_uncertain("A previous test result was not confirmed")
     view.light_state = "failed"
     for enabled, controller, reason in (
-        (False, None, "Locked in settings"),
+        (False, None, "Not connected"),
         (True, None, "Not connected"),
         (True, SimpleNamespace(connected=True), "Room controls busy"),
     ):

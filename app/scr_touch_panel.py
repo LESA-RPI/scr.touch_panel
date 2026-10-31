@@ -833,7 +833,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         else:
             frame.grid(row=0, column=column, padx=(0, 12))
         frame.pack_propagate(False)
-        button = self.button(frame, "", lambda: self.open_advanced("system"))
+        button = self.button(frame, "", self.open_lighting_help)
         button.config(
             font=(FONT, 15), padx=6, compound="left",
             bg=self.bg, activebackground=self.bg,
@@ -1233,11 +1233,12 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 style = "normal" if readiness["available"] else "disabled"
                 if button.cget("state") != style:
                     button.config(state=style)
-        label = getattr(self, "blind_status_label", None)
-        if label is not None and label.winfo_exists():
-            text = readiness["detail"] if readiness["available"] else readiness["reason"]
-            if label.cget("text") != text:
-                label.config(text=text)
+        text = readiness["detail"] if readiness["available"] else readiness["reason"]
+        for name, caption in (("blind_status_label", text),
+                              ("system_blind_status_label", "Blinds · " + text)):
+            label = getattr(self, name, None)
+            if label is not None and label.winfo_exists() and label.cget("text") != caption:
+                label.config(text=caption)
 
     def adapter_metadata(self, response):
         previous = getattr(self, "blinds_connected", False)
@@ -1856,6 +1857,11 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             return
         self.health_rendered = key
         self.services_label.config(text=self.room_status)
+        if not h or "error" in h:
+            self.power_label.config(
+                text="Power reading unavailable." if h else "Checking panel power…",
+                fg=self.muted,
+            )
         if not h:
             self.health_details.config(text="Checking panel resources…")
             return
@@ -2048,8 +2054,17 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.emit("idle_timeout_selected", seconds=seconds)
 
     def open_lighting_help(self):
+        if self.release_target or self.closing or self.power_busy() or getattr(self, "legacy_probe", None):
+            return
+        changed = (getattr(self, "system_diagnostics_visible", False)
+                   or self.support_commands_visible or self.support_page != 0 or self.support_step != 0)
         self.support_page = 0
-        self.open_advanced("system")
+        self.support_step = 0
+        self.support_commands_visible = self.system_diagnostics_visible = False
+        if self.mode == "health" and self.advanced_page == "system" and changed:
+            self.rebuild_advanced_detail()
+        else:
+            self.open_advanced("system")
 
     def choose_tips(self, enabled):
         if enabled == self.help_on:
@@ -2613,6 +2628,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         set_changed(self.visitor_date, time.strftime("%A, %d %B %Y"))
         set_changed(self.preference_text, self.preference_summary())
         self.update_connection_badges()
+        self.update_blind_buttons()
         self.update_recovery_view()
         self.update_navigation_buttons()
         self.refresh_confirmation_age()

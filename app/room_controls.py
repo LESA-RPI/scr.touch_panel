@@ -38,6 +38,14 @@ BLIND_ACTIONS = (
 
 
 def blind_readiness(enabled, connected, busy=False):
+    if not connected:
+        return {
+            "enabled": bool(enabled),
+            "connected": False,
+            "available": False,
+            "detail": "Disabled",
+            "reason": "Not connected",
+        }
     if not enabled:
         return {
             "enabled": False,
@@ -45,14 +53,6 @@ def blind_readiness(enabled, connected, busy=False):
             "available": False,
             "detail": "Disabled",
             "reason": "Locked in settings",
-        }
-    if not connected:
-        return {
-            "enabled": True,
-            "connected": False,
-            "available": False,
-            "detail": "Disabled",
-            "reason": "Not connected",
         }
     if busy:
         return {
