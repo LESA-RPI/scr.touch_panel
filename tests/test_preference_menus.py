@@ -1,4 +1,4 @@
-"""Current-value preference menus keep the existing saved choices and room guards."""
+"""Visible binary choices and longer menus keep saved values and room guards."""
 
 import pytest
 
@@ -12,6 +12,24 @@ def widgets(parent):
 
 
 def select(view, title, label):
+    row, = [w.master for w in widgets(view.body) if isinstance(w, panel.tk.Label)
+            and w.cget("text") == title]
+    buttons = [w for w in widgets(row) if isinstance(w, panel.tk.Button)]
+    if buttons:
+        assert len(buttons) == 2
+        assert all(button.winfo_ismapped() and button.winfo_height() >= 44 for button in buttons)
+        assert all(button.winfo_width() >= button.winfo_reqwidth() for button in buttons)
+        assert all(button.winfo_rootx() >= row.winfo_rootx()
+                   and button.winfo_rootx() + button.winfo_width() <= row.winfo_rootx() + row.winfo_width()
+                   for button in buttons)
+        assert len([button for button in buttons if button.cget("text").startswith("✓ ")]) == 1
+        button, = [button for button in buttons if button.cget("text").removeprefix("✓ ") == label]
+        button.invoke()
+        view.root.update()
+        saved, = [w for w in widgets(view.body) if isinstance(w, panel.tk.Button)
+                  and w.cget("text") == "✓ " + label]
+        assert saved.winfo_ismapped()
+        return
     menu, = [w for w in widgets(view.body) if isinstance(w, panel.tk.OptionMenu)
              and any(isinstance(c, panel.tk.Label) and c.cget("text") == title
                      for c in w.master.winfo_children())]
@@ -28,7 +46,7 @@ def texts(view):
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
-def test_current_value_menus_change_preferences_without_room_requests(view, theme):
+def test_visible_binary_choices_and_longer_menus_save_without_room_requests(view, theme):
     def blocked(*args, **kwargs):
         pytest.fail("Preference selection must not request room equipment")
 

@@ -819,7 +819,7 @@ def test_compact_feedback_keeps_progress_and_warning_beside_dated_readback(monke
     assert feedback["feedback_detail"] == "Last confirmed: Lights on · Fid scene / 1 min ago"
 
 
-def test_home_power_confirmation_stays_in_dated_feedback_during_changes(monkeypatch):
+def test_home_power_highlight_uses_confirmed_readback_and_clears_during_changes(monkeypatch):
     assert panel.confirmed_power({"state": "ready", "baseline": "Off"}) == "off"
     assert panel.confirmed_power({"state": "ready", "baseline": "Fid"}) == "on"
     assert panel.confirmed_power({"state": "completed", "words": [0] * 8}) == "off"
@@ -845,6 +845,14 @@ def test_home_power_confirmation_stays_in_dated_feedback_during_changes(monkeypa
         "border",
     )
     state.icon = lambda *args: None
+    state.good, state.bg = "confirmed", "page"
+    state.mode, state.worker_ready = "room", True
+    state.worker = SimpleNamespace(poll=lambda: None, stdin=BytesIO())
+    state.recovery = SimpleNamespace(state={"status": "normal"}, error=None, pending=False)
+    state.recovery_snapshot = lambda **kwargs: {
+        "status": state.recovery.state["status"], "title": "Lighting unavailable",
+    }
+    state.power_busy = lambda: False
     buttons = [
         SimpleNamespace(winfo_exists=lambda: True, config=lambda **kw: None)
         for _ in range(2)
@@ -856,11 +864,14 @@ def test_home_power_confirmation_stays_in_dated_feedback_during_changes(monkeypa
         (buttons[1], "off", "Lights off"),
     ]
     feedback = capture_lighting_feedback(state)
+    state.args.live_lights = True
     state.refresh_confirmation_age()
     assert feedback["feedback_detail"] == "Last confirmed: Lights off · Off scene / 1 min ago"
     assert [button.options["text"] for button in buttons] == ["Lights on", "Lights off"]
-    assert all(button.options["bg"] == "neutral" and button.options["fg"] == "ink" for button in buttons)
-    for field in ("pending", "queued_intent", "release_target", "closing"):
+    assert [button.options["bg"] for button in buttons] == ["neutral", "confirmed"]
+    assert buttons[1].options["fg"] == "page" and buttons[1].options["font"][-1] == "bold"
+    for field in ("pending", "queued_intent", "release_target", "closing", "running",
+                  "observing", "legacy_probe", "press_active"):
         setattr(state, field, True)
         state.light_message = "Waiting for lighting confirmation."
         state.refresh_confirmation_age()
@@ -868,6 +879,23 @@ def test_home_power_confirmation_stays_in_dated_feedback_during_changes(monkeypa
         assert feedback["feedback_detail"].startswith("Last confirmed: Lights off · Off scene")
         assert all(button.options["bg"] == "neutral" for button in buttons)
         setattr(state, field, None)
+        state.update_power_highlights()
+        assert buttons[1].options["bg"] == "confirmed"
+    for status in ("uncertain", "reserved", "legacy", "recovering", "writing"):
+        state.recovery.state["status"] = status
+        state.update_power_highlights()
+        assert all(button.options["bg"] == "neutral" for button in buttons)
+    state.recovery.state["status"] = "normal"
+    state.confirmed_at = None
+    state.update_power_highlights()
+    assert all(button.options["bg"] == "neutral" for button in buttons)
+    state.confirmed_at, state.worker_ready = 0, False
+    state.update_power_highlights()
+    assert all(button.options["bg"] == "neutral" for button in buttons)
+    state.worker_ready, state.confirmed_power = True, "on"
+    state.update_power_highlights()
+    assert [button.options["bg"] for button in buttons] == ["confirmed", "neutral"]
+    state.confirmed_power = "off"
     state.light_state = "failed"
     state.light_message = "Result unconfirmed. Controls disabled."
     state.refresh_confirmation_age()

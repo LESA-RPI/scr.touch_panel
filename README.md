@@ -11,7 +11,7 @@ Earlier navigation, reliability and Legacy-parity changes are reviewed in
 [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1). An installed cabinet may
 run a different commit; check its release identity before maintenance.
 
-The current source version is **0.2.12**, owned by
+The current source version is **0.2.13**, owned by
 [app/panel_version.py](app/panel_version.py).
 It is for About and internal development/GitHub tracking; everyday headers say
 Beta. Legacy is the preserved older baseline for backtracking, identified by Git
@@ -36,6 +36,9 @@ links and a clear return to each list.
 The tour explains the ten lights and eight channels, COMBO distance/colour sensing,
 IRMA distance arrays and the separate Color network. Its ceiling schematic lets
 visitors select a sensor family; positions are a dated reference, not live status.
+Markers use the reference layout's colours and approximate within-cell positions.
+Tap a marker or cell for its reference ID and R/C grid name. Back to topics returns
+to the topic list. Two-choice preferences show both options directly.
 The [LESA room guide](https://app.notion.com/p/f8f36eb121b04faeac3259d5ce380308)
 provides broader room and research context.
 Browsing starts no equipment. Explicit scene buttons in the lighting story can

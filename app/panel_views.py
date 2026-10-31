@@ -563,6 +563,20 @@ class PanelViews:
         row = tk.Frame(parent, bg=parent.cget("bg"))
         row.pack(fill="x", pady=(10, 6))
         self.label(row, title, 18).pack(side="left")
+        if len(choices) == 2:
+            buttons = self.row_buttons(
+                row,
+                [("✓ " + label if value == current else label,
+                  lambda value=value: choose(value), value == current)
+                 for label, value in choices],
+                height=52,
+            )
+            controls = buttons[0].master
+            controls.config(width=500)
+            controls.pack_configure(side="right", fill="none", pady=0)
+            for button, (_, value) in zip(buttons, choices):
+                button.config(font=(self.font_family, 17, "bold" if value == current else "normal"), pady=8)
+            return controls
         values = dict(choices)
         selected = tk.StringVar(
             master=self.root,

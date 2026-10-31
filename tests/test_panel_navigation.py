@@ -283,6 +283,44 @@ def shared_worker(view):
     return worker
 
 
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_home_highlight_tracks_trusted_confirmation_across_cached_navigation(view, theme):
+    worker = shared_worker(view)
+    view.choose_theme(theme)
+    view.open_home()
+    view.root.update()
+    home = view.body
+    for confirmed in ("on", "off"):
+        view.confirmed_power = confirmed
+        view.update_light_buttons()
+        view.root.update()
+        for button, power, label in view.home_power_buttons:
+            selected = power == confirmed
+            assert button.cget("text") == label
+            assert button.cget("bg") == (view.good if selected else view.control)
+            assert button.cget("fg") == (view.bg if selected else view.ink)
+            assert button.cget("highlightbackground") == button.cget("bg")
+            assert button.winfo_height() >= 44
+        view.pending = {"action": "channels"}
+        view.update_light_buttons()
+        assert all(button.cget("bg") == view.control for button, _, _ in view.home_power_buttons)
+        view.pending = None
+    view.open_advanced("lighting")
+    view.open_home()
+    view.root.update()
+    assert view.body is home
+    assert [button.cget("bg") for button, _, _ in view.home_power_buttons] == [view.control, view.good]
+    view.recovery.mark_uncertain("A prior lighting result is unconfirmed")
+    view.light_state = "failed"
+    view.update_light_buttons()
+    view.root.update()
+    assert all(button.cget("bg") == view.control and button.cget("state") == "disabled"
+               for button, _, _ in view.home_power_buttons)
+    assert view.recovery_button.winfo_ismapped() and view.recovery_button.winfo_height() >= 44
+    assert not worker.stdin.getvalue()
+    view.worker = None
+
+
 def test_programme_cards_keep_their_start_and_stop_actions_after_navigation(view):
     shared_worker(view)
     requests = []

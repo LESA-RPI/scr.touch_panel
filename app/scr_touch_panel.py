@@ -456,21 +456,44 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.refresh_confirmation_age()
 
     def update_power_highlights(self):
-        """Keep action buttons neutral; dated readback carries confirmation."""
+        """Highlight only trusted current power; keep dated readback for history."""
+        current = getattr(self, "confirmed_power", None)
+        worker, recovery = getattr(self, "worker", None), getattr(self, "recovery", None)
+        available = (
+            current in ("on", "off")
+            and getattr(self, "confirmed_at", None) is not None
+            and getattr(getattr(self, "args", None), "live_lights", False)
+            and self.light_state == "ready"
+            and getattr(self, "worker_ready", False)
+            and worker is not None and worker.poll() is None and not worker.stdin.closed
+            and (recovery is None or recovery.state["status"] == "normal")
+            and not self.ownership_blocked() and not self.power_busy()
+            and getattr(self, "mode", None) not in ("original", "black")
+            and not any(getattr(self, name, None) for name in (
+                "pending", "queued_intent", "release_target", "closing", "closed",
+                "running", "observing", "legacy_probe", "press_active",
+            ))
+        )
         for button, power, label in getattr(self, "home_power_buttons", []):
             if button.winfo_exists():
-                style = (self.control, self.ink, self.icon_colour)
+                selected = available and current == power
+                background = self.good if selected else self.control
+                foreground = self.bg if selected else self.ink
+                icon_colour = foreground if selected else self.icon_colour
+                style = (background, foreground, icon_colour, selected)
                 if getattr(button, "_power_style", None) == style:
                     continue
                 button._power_style = style
                 button.config(
-                    bg=self.control,
-                    highlightbackground=self.control,
-                    fg=self.ink,
-                    activeforeground=self.ink,
-                    activebackground=self.pressed_colour(),
+                    bg=background,
+                    highlightbackground=background,
+                    highlightcolor=self.ink if getattr(self, "keyboard_navigation", False) else background,
+                    fg=foreground,
+                    activeforeground=foreground,
+                    activebackground=background if selected else self.pressed_colour(),
+                    font=(getattr(self, "font_family", FONT), 22, "bold" if selected else "normal"),
                     text=label,
-                    image=self.icon(power, self.icon_colour),
+                    image=self.icon(power, icon_colour),
                 )
         for button, name in getattr(self, "scene_buttons", []):
             if button.winfo_exists():

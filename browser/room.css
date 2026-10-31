@@ -274,6 +274,10 @@ svg {
   font-size: 22px;
   margin-bottom: 12px;
 }
+#light-group button.confirmed-power {
+  background: var(--good, #1d6f44);
+  color: var(--bg);
+}
 .disabled-group button {
   background: var(--bg);
 }
@@ -1595,6 +1599,24 @@ summary {
   min-height: 48px;
   width: min(100%, 280px);
 }
+.preference-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 280px;
+  max-width: 100%;
+}
+.preference-choices button {
+  min-height: 48px;
+  padding: 10px 14px;
+  font-size: 16px;
+}
+.preference-check {
+  visibility: hidden;
+}
+.preference-choices [aria-pressed='true'] .preference-check {
+  visibility: visible;
+}
 .schedule-actions {
   margin: 0;
 }
@@ -1630,6 +1652,9 @@ summary {
   display: none;
 }
 @media (max-width: 900px) {
+  .preference-choices {
+    width: 100%;
+  }
   .setting {
     grid-template-columns: 1fr;
   }
@@ -1667,6 +1692,14 @@ summary {
   min-width: 0;
   padding: 10px 8px;
 }
+.ceiling-sensor-colour {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border: 1px solid var(--ink);
+  border-radius: 50%;
+  background: var(--sensor-light);
+}
 .ceiling-map-description {
   min-height: 3em;
 }
@@ -1682,9 +1715,26 @@ summary {
   stroke-width: 1;
 }
 .ceiling-map-diagram circle {
-  fill: var(--accent);
-  stroke: var(--surface);
+  fill: var(--sensor-light);
+  stroke: var(--ink);
   stroke-width: 1.5;
+}
+.ceiling-map-point {
+  cursor: pointer;
+}
+.ceiling-map-hit {
+  fill: transparent;
+  stroke: none;
+}
+.ceiling-map-point:focus-visible circle,
+.ceiling-map-point[aria-pressed='true'] circle {
+  stroke-width: 3;
+}
+[data-theme='dark'] .ceiling-sensor-colour {
+  background: var(--sensor-dark);
+}
+[data-theme='dark'] .ceiling-map-diagram circle {
+  fill: var(--sensor-dark);
 }
 .ceiling-map-diagram text {
   fill: var(--muted);

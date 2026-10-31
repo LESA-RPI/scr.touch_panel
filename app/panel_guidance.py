@@ -442,7 +442,7 @@ class PanelGuidance:
         buttons = self.row_buttons(
             self.body,
             [
-                (section + " topics", lambda: self.choose_guide(-1), False),
+                ("Back to topics", lambda: self.choose_guide(-1), False),
                 ("Previous", lambda: self.change_guide(-1), False),
                 ("Next", lambda: self.change_guide(1), False),
             ],
@@ -454,7 +454,7 @@ class PanelGuidance:
         navigation.pack_configure(side="bottom", fill="none", anchor="w", before=card)
         for column, width in ((0, 300), (2, 180), (4, 150)):
             navigation.columnconfigure(column, weight=0, uniform="", minsize=width)
-        for button, kind in zip(buttons, ("guide", "chevron-left", "chevron-right")):
+        for button, kind in zip(buttons, ("chevron-left", "chevron-left", "chevron-right")):
             button.config(
                 image=self.icon(kind, self.ink, 24), compound="left",
                 font=(self.font_family, 17), pady=8,
@@ -463,7 +463,7 @@ class PanelGuidance:
         buttons[2].config(
             state="normal" if position < len(indices) - 1 else "disabled"
         )
-        for button, kind in zip(buttons, ("guide", "chevron-left", "chevron-right")):
+        for button, kind in zip(buttons, ("chevron-left", "chevron-left", "chevron-right")):
             button.config(
                 image=self.icon(
                     kind,
@@ -513,6 +513,7 @@ class PanelGuidance:
     def ceiling_map(self, parent):
         families = CEILING_MAP["families"]
         selected = families[0]
+        selected_cell = None
         columns, rows = CEILING_MAP["grid"]["columns"], CEILING_MAP["grid"]["rows"]
 
         def draw(event=None):
@@ -527,7 +528,7 @@ class PanelGuidance:
                 canvas.create_line(x, top, x, bottom, fill=self.border)
                 if column < columns:
                     canvas.create_text(
-                        x + cell_width / 2, bottom + 18, text=str(column + 1),
+                        x + cell_width / 2, bottom + 18, text="R%d" % (column + 1),
                         font=(self.font_family, 12), fill=self.muted,
                     )
             for row in range(rows + 1):
@@ -535,22 +536,26 @@ class PanelGuidance:
                 canvas.create_line(left, y, right, y, fill=self.border)
                 if row < rows:
                     canvas.create_text(
-                        left - 20, y - cell_height / 2, text=str(row + 1),
+                        left - 20, y - cell_height / 2, text="C%d" % (row + 1),
                         font=(self.font_family, 12), fill=self.muted,
                     )
             radius = min(8, max(4, min(cell_width, cell_height) / 5))
-            for column, row in selected["positions"]:
-                x = left + (column - 0.5) * cell_width
-                y = bottom - (row - 0.5) * cell_height
+            for position in selected["positions"]:
+                column, row = position["cell"]
+                x = left + (column - 1 + position["u"]) * cell_width
+                y = bottom - (row - 1 + position["v"]) * cell_height
                 canvas.create_oval(
                     x - radius, y - radius, x + radius, y + radius,
-                    fill=self.accent, outline="", tags="sensor",
+                    fill=selected["colours"][self.theme], outline=self.ink,
+                    width=3 if selected_cell == (column, row) else 1,
+                    tags=("sensor", position["reference_id"]),
                 )
 
         def choose(family):
-            nonlocal selected
+            nonlocal selected, selected_cell
             selected = family
-            detail.config(text="%s · %d ceiling positions. %s" % (
+            selected_cell = None
+            detail.config(text="%s · %d ceiling positions. Tap a cell or marker.\n%s" % (
                 family["label"], len(family["positions"]), family["description"]
             ))
             for button, candidate in zip(buttons, families):
@@ -561,6 +566,32 @@ class PanelGuidance:
                     highlightbackground=self.control,
                     activebackground=self.pressed_colour(), activeforeground=self.ink,
                 )
+            draw()
+
+        def inspect_cell(event):
+            nonlocal selected_cell
+            left, top = 42, 12
+            right, bottom = canvas.winfo_width() - 18, canvas.winfo_height() - 32
+            hits = canvas.find_overlapping(event.x - 1, event.y - 1, event.x + 1, event.y + 1)
+            references = {tag for item in hits if "sensor" in canvas.gettags(item)
+                          for tag in canvas.gettags(item)}
+            position = next((point for point in selected["positions"]
+                             if point["reference_id"] in references), None)
+            if position:
+                column, row = position["cell"]
+            else:
+                if not (left <= event.x < right and top <= event.y < bottom):
+                    return
+                column = min(columns, int((event.x - left) * columns / (right - left)) + 1)
+                row = min(rows, int((bottom - event.y) * rows / (bottom - top)) + 1)
+                position = next((point for point in selected["positions"]
+                                 if point["cell"] == [column, row]), None)
+            selected_cell = (column, row)
+            reference = ("Reference " + position["reference_id"] if position
+                         else "No registered position")
+            detail.config(text="%s · R%dC%d · %s\n%s" % (
+                selected["label"], column, row, reference, selected["description"]
+            ))
             draw()
 
         buttons = self.row_buttons(
@@ -579,6 +610,7 @@ class PanelGuidance:
         )
         canvas.pack(fill="both", expand=True)
         canvas.bind("<Configure>", draw)
+        canvas.bind("<ButtonRelease-1>", inspect_cell)
         self.wrap_label(self.label(
             parent, CEILING_MAP["orientation"] + " " + CEILING_MAP["note"], 13, True
         )).pack(side="bottom", fill="x", pady=(6, 0), before=canvas)

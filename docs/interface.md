@@ -291,6 +291,10 @@ grid cells, with source date and hash. It carries no device endpoint or health
 state and makes no network request. Channel/grid diagrams are static schematics.
 Explicit guide scene buttons use existing owner actions; navigation is passive.
 No new poller or background service is used by guides or profile setup.
+The nested ceiling-map schema is version 2. Each family position has `cell`
+([R index, C index]), `reference_id`, and lower-left-normalized `u`/`v` offsets.
+These are dated source annotations and logical references, not live device IDs
+or surveyed positions. Family colours come from the same reference layout.
 
 `room_diagnostics` contains `state`, copied `services` rows (`name`,
 `listed`/`missing` state), `observed_at`, monotonic `age_s`, `checking`, `can_check`

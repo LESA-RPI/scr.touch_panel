@@ -100,13 +100,14 @@ function preferencesWebsite(page, roomContent = {}) {
     function preferenceDescendants(node) {return [node, ...node.children.flatMap(preferenceDescendants)];}
     function preferenceNode(tag) {
       const node = {tagName:tag, children:[], dataset:{}, style:{}, textContent:'', value:'',
+        classList:{toggle(name, value) {this[name] = Boolean(value);}},
         get options() {return this.children;},
         get id() {return this.elementId;}, set id(value) {this.elementId = value; preferenceIds.set(value, this);},
         append(...children) {this.children.push(...children); this.attach();},
         prepend(...children) {this.children.unshift(...children); this.attach();},
         replaceChildren(...children) {this.children = children; this.attach();},
         attach() {this.children.forEach((child, index) => {child.parentElement = this; child.previousElementSibling = this.children[index - 1];});},
-        setAttribute(name, value) {this[name] = value;},
+        getAttribute(name) {return this[name];}, setAttribute(name, value) {this[name] = value;},
         querySelector(tag) {return preferenceDescendants(this).find(child => child.tagName === tag) || null;},
       };
       preferenceNodes.push(node);
@@ -328,7 +329,7 @@ function preferencesWebsite(page, roomContent = {}) {
   guideContent.run(`
     content = generatedContent;
     function guideNode(tag) {
-      return {tagName:tag, children:[], dataset:{}, style:{}, textContent:'',
+      return {tagName:tag, children:[], dataset:{}, style:{setProperty(name, value) {this[name] = value;}}, textContent:'',
         append(...children) {this.children.push(...children);},
         prepend(...children) {this.children.unshift(...children);},
         replaceChildren(...children) {this.children = children;},
@@ -361,8 +362,9 @@ function preferencesWebsite(page, roomContent = {}) {
     assert.equal(heading.length, 1);
     assert.equal(heading[0].textContent, topic.title, 'Each leaf has its actual topic as the page heading');
     assert.match(guideContent.run(`topic${index}.children[0].textContent`), new RegExp((section === 'controls' ? 'Control help' : 'Room tour') + '.*' + (position + 1) + ' of ' + sectionTopics.length));
-    const back = guideContent.run(`descendants(topic${index}).find(node => node.tagName === 'a' && node.textContent === '${section === 'controls' ? 'Control help topics' : 'Room tour topics'}')`);
+    const back = guideContent.run(`descendants(topic${index}).find(node => node.tagName === 'a' && node.textContent === 'Back to topics')`);
     assert.equal(back.href, section === 'controls' ? '#guide-controls' : '#guide');
+    assert.equal(back['aria-label'], 'Back to ' + (section === 'controls' ? 'control help' : 'room tour') + ' topics');
     assert.equal(guideContent.run(`topic${index}.children[1].children[0]`), back, 'The topic return is beside the breadcrumb, before the story');
     const neighbours = guideContent.run(`topic${index}.children.at(-1)`);
     assert.equal(neighbours['aria-label'], 'More ' + (section === 'controls' ? 'control help' : 'room tour') + ' topics');
@@ -391,21 +393,40 @@ function preferencesWebsite(page, roomContent = {}) {
     const familyControls = descendants(ceilingRoot).filter(node => node.tagName === 'button');
     const ceilingDiagram = descendants(ceilingRoot).find(node => node.tagName === 'svg');
     const familyDescription = descendants(ceilingRoot).find(node => node.className === 'ceiling-map-description');
+    let currentPoint;
   `);
   assert.equal(guideContent.run('familyControls.length'), 3);
   for (const [index, family] of guideContent.context.ceilingReference.families.entries()) {
     const expected = {color:53, combo:40, irma:18}[family.id];
     assert.equal(family.positions.length, expected, 'The map keeps the recorded family totals');
-    assert.equal(new Set(family.positions.map(position => position.join(','))).size, expected);
-    assert.ok(family.positions.every(([column, row]) => Number.isInteger(column) && column >= 1 && column <= 14 && Number.isInteger(row) && row >= 1 && row <= 5));
+    assert.equal(new Set(family.positions.map(position => position.reference_id)).size, expected);
+    assert.ok(family.positions.every(({cell:[column, row], u, v}) => Number.isInteger(column) && column >= 1 && column <= 14 && Number.isInteger(row) && row >= 1 && row <= 5 && u >= 0 && u <= 1 && v >= 0 && v <= 1));
     guideContent.run(`familyControls[${index}].onclick();`);
-    assert.equal(guideContent.run("ceilingDiagram.children.filter(node => node.tagName === 'circle').length"), expected);
+    assert.equal(guideContent.run("descendants(ceilingDiagram).filter(node => node.tagName === 'circle').length"), expected);
     assert.match(guideContent.run('familyDescription.textContent'), new RegExp(family.label + '.*' + expected));
     assert.equal(guideContent.run(`familyControls[${index}]['aria-pressed']`), 'true');
-    assert.match(guideContent.run("ceilingDiagram['aria-label']"), /reference grid cells.*not live status/);
+    assert.match(guideContent.run("ceilingDiagram['aria-label']"), /reference positions.*not live readings/);
+    assert.equal(guideContent.run("ceilingDiagram.style['--sensor-light']"), family.colours.light);
+    assert.equal(guideContent.run("ceilingDiagram.style['--sensor-dark']"), family.colours.dark);
+    assert.equal(guideContent.run("ceilingDiagram.role"), 'group', 'Interactive reference points remain accessible inside the diagram');
+    const first = family.positions[0];
+    guideContent.run("currentPoint = descendants(ceilingDiagram).find(node => node.role === 'button'); currentPoint.onclick();");
+    assert.match(guideContent.run('familyDescription.textContent'), new RegExp(`R${first.cell[0]}C${first.cell[1]}.*${first.reference_id}`));
+    assert.match(guideContent.run('familyDescription.textContent'), /Reference position only; no live readings/);
+    assert.equal(guideContent.run("currentPoint['aria-pressed']"), 'true');
   }
-  guideContent.run("const irmaDots = ceilingDiagram.children.filter(node => node.tagName === 'circle');");
+  guideContent.run("const irmaDots = descendants(ceilingDiagram).filter(node => node.tagName === 'circle');");
   assert.ok(guideContent.run('irmaDots[0].cy > irmaDots[2].cy'), 'Row 1 is displayed below row 5');
+  guideContent.run(`
+    const pointButtons = descendants(ceilingDiagram).filter(node => node.role === 'button');
+    let preventedPointKeys = 0;
+    pointButtons[1].onkeydown({key:'Enter', preventDefault() {preventedPointKeys++;}});
+    pointButtons[2].onkeydown({key:' ', preventDefault() {preventedPointKeys++;}});
+  `);
+  assert.equal(guideContent.run('preventedPointKeys'), 2);
+  assert.equal(guideContent.run("pointButtons.filter(point => point['aria-pressed'] === 'true').length"), 1);
+  assert.equal(guideContent.run("pointButtons[2]['aria-pressed']"), 'true', 'Keyboard selection changes the same local reference detail');
+  assert.equal(guideContent.run("ceilingDiagram.children.filter(node => node.tagName === 'text').map(node => node.textContent).join(',')"), 'R1,R2,R3,R4,R5,R6,R7,R8,R9,R10,R11,R12,R13,R14,C1,C2,C3,C4,C5');
   assert.equal(guideContent.commands.length, 0, 'Changing reference-map families works offline without hardware commands');
   guideContent.run(`
     const channelsRoot = guideNode('main'), distanceRoot = guideNode('main');
@@ -431,46 +452,61 @@ function preferencesWebsite(page, roomContent = {}) {
     document.getElementById = id => homeElements.get(id) || originalGet(id);
     const powerButtons = ['on', 'off'].map(action => ({
       dataset:{action}, classList:{toggle(name, value) {this[name] = Boolean(value);}},
-      setAttribute(name, value) {this[name] = value;}, removeAttribute(name) {delete this[name];},
+      getAttribute(name) {return this[name];}, setAttribute(name, value) {this[name] = value;}, removeAttribute(name) {delete this[name];},
     }));
     const sceneButton = {dataset:{action:'preset', preset:'Fid'},
       classList:{toggle(name, value) {this[name] = Boolean(value);}},
       setAttribute(name, value) {this[name] = value;}, removeAttribute(name) {delete this[name];},
     };
-    document.querySelectorAll = selector => selector === '[data-action=on],[data-action=off]' ? powerButtons
+    document.querySelectorAll = selector => selector === '#light-group [data-action]' ? powerButtons
       : selector === '[data-preset]' ? [sceneButton]
       : selector === '[data-action]' ? [...powerButtons, sceneButton] : [];
-    state = {available:true, can_control:true, lights:{message:'Light settings confirmed.', power:'on', confirmed_power:'on', scene:'Fid', recent:'Fid', confirmed_age_s:12}, blinds:{reason:'Locked in settings'}};
+    state = {available:true, can_control:true, lights:{state:'ready', message:'Light settings confirmed.', power:'on', confirmed_power:'on', scene:'Fid', recent:'Fid', confirmed_age_s:12}, blinds:{reason:'Locked in settings'}};
     shippedSync();
   `);
   assert.equal(homeState.run("$('blind-status').textContent"), 'Locked in settings');
   assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Lights on · Fid · just now');
   assert.equal(homeState.run("$('light-message').className"), 'visually-hidden', 'Routine confirmation remains accessible without a second visible status line');
+  assert.equal(homeState.run("powerButtons.filter(button => button.classList['confirmed-power']).map(button => button.dataset.action).join(',')"), 'on', 'Only the confirmed Home power action is active');
+  assert.equal(homeState.run("powerButtons[0]['aria-pressed']"), 'true');
+  assert.equal(homeState.run("powerButtons[1]['aria-pressed']"), 'false');
   for (const guard of ['posting = true', 'unknown = "receipt"', 'state.busy = true']) {
     homeState.run(`${guard}; shippedSync();`);
     assert.equal(homeState.run("$('light-message').className"), '', 'Work or uncertainty must not collapse the current status');
+    assert.equal(homeState.run("powerButtons.some(button => button.classList['confirmed-power'])"), false, 'Pending or uncertain commands cannot show an active current power state');
     homeState.run('posting = false; unknown = null; state.busy = false; shippedSync();');
   }
-  assert.equal(homeState.run('powerButtons.some(button => button["aria-pressed"] !== undefined || button.classList.selected)'), false, 'Lighting commands remain ordinary action buttons');
+  assert.equal(homeState.run("powerButtons[0]['aria-pressed']"), 'true', 'A fresh confirmed state restores the Home indicator');
   assert.equal(homeState.run('sceneButton["aria-pressed"]'), undefined);
   assert.equal(homeState.run('sceneButton.classList.selected'), undefined);
   homeState.run("state.blinds.reason = 'Not connected'; posting = true; state.lights.power = null; state.lights.message = 'Selected: Off / waiting to send'; shippedSync();");
   assert.equal(homeState.run("$('blind-status').textContent"), 'Not connected');
   assert.equal(homeState.run('powerButtons.every(button => button.disabled) && sceneButton.disabled'), true);
+  assert.equal(homeState.run("powerButtons.some(button => button.classList['confirmed-power'])"), false);
   assert.equal(homeState.run("$('light-message').textContent"), 'Selected: Off / waiting to send');
   assert.equal(homeState.run("$('light-message').className"), '');
   assert.equal(homeState.run("$('light-feedback').dataset.state"), 'pending');
   assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Lights on · Fid · just now', 'A pending selection cannot replace historical confirmation');
   homeState.run("posting = false; state.can_control = false; state.lighting_recovery = {status:'needs_staff', write_blocked:true}; state.lights.confirmed_age_s = 180; shippedSync();");
   assert.equal(homeState.run('powerButtons.every(button => button.disabled) && sceneButton.disabled'), true);
+  assert.equal(homeState.run("powerButtons.every(button => button['aria-pressed'] === 'false')"), true, 'Historical readback is not an active indicator while recovery is required');
   assert.equal(homeState.run("$('light-message').className"), '');
   assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Lights on · Fid · 3 min ago', 'Uncertainty preserves separately aged confirmed readback');
   homeState.run("state.lighting_recovery = {status:'normal'}; state.can_control = true; state.lights.power = state.lights.confirmed_power = 'off'; state.lights.recent = 'Off'; state.blinds.available = true; shippedSync();");
   assert.equal(homeState.run("$('blind-status').textContent"), 'Ready');
   assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Lights off · Off · 3 min ago');
+  assert.equal(homeState.run("powerButtons.filter(button => button.classList['confirmed-power']).map(button => button.dataset.action).join(',')"), 'off');
+  homeState.run("state.lights.power = 'on'; shippedSync();");
+  assert.equal(homeState.run("powerButtons[1]['aria-pressed']"), 'true', 'The active indicator follows confirmed power, not a selected value');
+  for (const guard of ["reachable = false", "state.lights.state = 'applying'", 'state.can_control = false', 'state.available = false']) {
+    homeState.run(`${guard}; shippedSync();`);
+    assert.equal(homeState.run("powerButtons.some(button => button.classList['confirmed-power'])"), false, 'Unavailable or changing lighting has no active current indicator');
+    homeState.run("reachable = true; state.lights.state = 'ready'; state.can_control = true; state.available = true; shippedSync();");
+  }
   homeState.run('state.lights.power = state.lights.confirmed_power = null; shippedSync();');
   assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Off · 3 min ago', 'Unknown confirmed power does not invent an On or Off state');
-  assert.equal(homeState.run('powerButtons.some(button => button["aria-pressed"] !== undefined || button.classList.selected) || sceneButton["aria-pressed"] !== undefined || Boolean(sceneButton.classList.selected)'), false);
+  assert.equal(homeState.run("powerButtons.every(button => button['aria-pressed'] === 'false' && !button.classList['confirmed-power'])"), true);
+  assert.equal(homeState.run('sceneButton["aria-pressed"] !== undefined || Boolean(sceneButton.classList.selected)'), false);
   for (const [recent, expected] of [
     ['Not checked', 'Lighting not checked yet.'],
     ['Programme request accepted; live state unavailable', 'Programme request accepted; live state unavailable'],
@@ -481,6 +517,7 @@ function preferencesWebsite(page, roomContent = {}) {
     homeState.run("state.lights.confirmed_age_s = null; state.lights.confirmed_power = 'on'; state.lights.recent = untimedRecent; state.lights.message = 'Waiting for controller confirmation.'; shippedSync();");
     assert.equal(homeState.run("$('light-recent').textContent"), expected, 'Untimed status cannot claim a confirmed power or lighting readback');
     assert.equal(homeState.run("$('light-message').textContent"), 'Waiting for controller confirmation.');
+    assert.equal(homeState.run("powerButtons.some(button => button.classList['confirmed-power'])"), false, 'Untimed status cannot show an active confirmed power state');
   }
   assert.equal(homeState.commands.length, 0);
 
@@ -512,14 +549,23 @@ function preferencesWebsite(page, roomContent = {}) {
   ]) {
     const preference = preferencesWebsite(page);
     preference.context.preferenceAction = action;
-    preference.run("const select = preferenceNodes.find(node => node.dataset.preference === preferenceAction);");
-    assert.equal(preference.run("select['aria-label']"), label);
-    preference.run(`select.value = '${option}';`);
-    await preference.run('select.onchange()');
+    preference.context.preferenceValue = String(value);
+    preference.run("const controls = preferenceNodes.filter(node => node.dataset.preference === preferenceAction), select = controls.find(node => node.dataset.value === preferenceValue) || controls[0];");
+    if (['tips', 'clock', 'temperature', 'blinds_display'].includes(action)) {
+      assert.equal(preference.run('controls.length'), 2, 'A pair stays visible side by side');
+      assert.equal(preference.run("select.parentElement['aria-label']"), label);
+      await preference.run('select.onclick()');
+      assert.equal(preference.run("select['aria-pressed']"), 'true', 'The pair reflects the saved value');
+    } else {
+      assert.equal(preference.run('controls.length'), 1, 'Longer lists retain one select');
+      assert.equal(preference.run("select['aria-label']"), label);
+      preference.run(`select.value = '${option}';`);
+      await preference.run('select.onchange()');
+      assert.equal(preference.run('select.value'), option, 'The select reflects the saved preference');
+    }
     assert.equal(preference.commands.length, 1);
     assert.equal(preference.commands[0].action, action);
     assert.equal(preference.commands[0].arguments.value, value, 'Native options retain the command value type');
-    assert.equal(preference.run('select.value'), option, 'The select reflects the confirmed preference');
   }
   const autoTheme = preferencesWebsite('appearance');
   assert.equal(autoTheme.run("preferenceNodes.filter(node => node.dataset.autoSchedule).every(node => node.hidden)"), true);
@@ -534,6 +580,11 @@ function preferencesWebsite(page, roomContent = {}) {
   assert.equal(guardedPreference.commands.length, 0);
   assert.equal(guardedPreference.run('themeSelect.value'), '0', 'An unsent preference returns to its confirmed value');
   assert.equal(guardedPreference.run('unknown'), 'pending-light');
+  guardedPreference.run("const tipsChoice = preferenceNodes.find(node => node.dataset.preference === 'tips' && node.dataset.value === 'false');");
+  assert.equal(guardedPreference.run('tipsChoice.disabled'), true);
+  await guardedPreference.run('tipsChoice.onclick()');
+  assert.equal(guardedPreference.commands.length, 0, 'The visible pair keeps the same unknown-command guard');
+  assert.equal(guardedPreference.run("tipsChoice['aria-pressed']"), 'false', 'An unsent choice cannot replace the saved preference');
   const blindPermission = preferencesWebsite('screen');
   assert.equal(blindPermission.run("$('blind-lock').textContent"), 'Unlock blind controls');
   await blindPermission.run("$('blind-lock').onclick()");

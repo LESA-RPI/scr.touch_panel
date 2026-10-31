@@ -80,7 +80,7 @@ def test_map_gives_navigation_and_note_priority_when_font_layout_needs_more_room
     view.choose_guide(next(i for i, topic in enumerate(DEMO) if topic.get("map")))
     view.root.update()
     buttons = visible_buttons(view)
-    assert {"Room tour topics", "Previous", "Next"}.issubset({b.cget("text") for b in buttons})
+    assert {"Back to topics", "Previous", "Next"}.issubset({b.cget("text") for b in buttons})
     assert all(button.winfo_height() >= 44 for button in buttons)
     canvas, = [w for w in widgets(view.body) if isinstance(w, panel.tk.Canvas)]
     assert canvas.winfo_height() >= 100

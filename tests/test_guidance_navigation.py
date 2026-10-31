@@ -41,9 +41,7 @@ def test_guide_links_open_pages_and_return_to_same_topic(view, index):
     view.choose_guide(index)
     view.root.update()
     all_topics, = [w for w in widgets(view.body)
-                   if w.winfo_class() == "Button" and w.cget("text") == (
-                       "Room tour topics" if DEMO[index]["section"] == "room" else "Control help topics"
-                   )]
+                   if w.winfo_class() == "Button" and w.cget("text") == "Back to topics"]
     all_topics.invoke()
     view.root.update()
     assert view.guide_page == -1

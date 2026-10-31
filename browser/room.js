@@ -501,10 +501,28 @@ function setting(parent, title, note) {
   parent.append(row);
   return control;
 }
-// Native selects show the saved preference; command values retain their original types.
+// Show both choices for a pair; longer lists use a select. Keep command values typed.
 function choices(parent, items) {
+  const title = parent.previousElementSibling.querySelector('h3').textContent;
+  if (items.length === 2) {
+    const group = el('div', undefined, 'preference-choices');
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', title);
+    for (const [label, action, value] of items) {
+      const choice = button(label, () => command(action, { value }), { action }),
+        mark = el('span', '✓', 'preference-check');
+      mark.setAttribute('aria-hidden', 'true');
+      choice.append(mark);
+      choice.dataset.preference = action;
+      choice.dataset.value = String(value);
+      choice.setAttribute('aria-pressed', 'false');
+      group.append(choice);
+    }
+    parent.append(group);
+    return;
+  }
   const select = el('select', undefined, 'preference-select');
-  select.setAttribute('aria-label', parent.previousElementSibling.querySelector('h3').textContent);
+  select.setAttribute('aria-label', title);
   select.dataset.action = select.dataset.preference = items[0][1];
   for (const [index, [label, action, value]] of items.entries()) {
     const option = el('option', label);
@@ -1106,7 +1124,9 @@ function guide(root, index, section = 'room') {
     ' · ' + (position + 1) + ' of ' + indices.length, 'eyebrow'));
   const back = el('nav', undefined, 'guide-return');
   back.setAttribute('aria-label', 'Guide topics');
-  back.append(link(section === 'controls' ? 'Control help topics' : 'Room tour topics', allTopics, 'guide'));
+  const backLink = link('Back to topics', allTopics, 'guide');
+  backLink.setAttribute('aria-label', 'Back to ' + (section === 'controls' ? 'control help' : 'room tour') + ' topics');
+  back.append(backLink);
   root.append(back);
   head.append(
     icon(
@@ -1214,15 +1234,16 @@ function ceilingMap(parent) {
   controls.setAttribute('aria-label', 'Sensor family');
   description.setAttribute('role', 'status');
   diagram.setAttribute('class', 'ceiling-map-diagram');
-  diagram.setAttribute('role', 'img');
+  diagram.setAttribute('role', 'group');
   diagram.setAttribute('focusable', 'false');
   const columns = map.grid.columns, rows = map.grid.rows, cell = 36, left = 24, top = 28;
   diagram.setAttribute('viewBox', `0 0 ${columns * cell + 48} ${rows * cell + 56}`);
-  function shape(tag, attributes, text) {
+  function shape(tag, attributes, text, parent = diagram) {
     const node = document.createElementNS(diagram.namespaceURI, tag);
     for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
     if (text !== undefined) node.textContent = text;
-    diagram.append(node);
+    parent.append(node);
+    return node;
   }
   const buttons = new Map();
   function select(family) {
@@ -1231,21 +1252,47 @@ function ceilingMap(parent) {
       control.setAttribute('aria-pressed', String(id === family.id));
     }
     description.textContent = family.label + ' · ' + family.positions.length + ' ceiling sensors. ' + family.description;
-    diagram.setAttribute('aria-label', family.label + ': ' + family.positions.length + ' registered ceiling sensors. Dots mark reference grid cells, not live status or measured positions within each cell.');
+    diagram.setAttribute('aria-label', family.label + ': ' + family.positions.length + ' reference positions. Select a point for its reference cell and ID, not live readings.');
+    diagram.style.setProperty('--sensor-light', family.colours.light);
+    diagram.style.setProperty('--sensor-dark', family.colours.dark);
     diagram.replaceChildren();
     for (let column = 0; column <= columns; column++)
       shape('line', { x1: left + column * cell, x2: left + column * cell, y1: top, y2: top + rows * cell });
     for (let row = 0; row <= rows; row++)
       shape('line', { x1: left, x2: left + columns * cell, y1: top + row * cell, y2: top + row * cell });
     for (let column = 1; column <= columns; column++)
-      shape('text', { x: left + (column - 0.5) * cell, y: 17 }, column);
+      shape('text', { x: left + (column - 0.5) * cell, y: 17 }, 'R' + column);
     for (let row = 1; row <= rows; row++)
-      shape('text', { x: 11, y: top + (rows - row + 0.5) * cell + 4 }, row);
-    for (const [column, row] of family.positions)
-      shape('circle', { cx: left + (column - 0.5) * cell, cy: top + (rows - row + 0.5) * cell, r: 6 });
+      shape('text', { x: 10, y: top + (rows - row + 0.5) * cell + 4 }, 'C' + row);
+    const points = [];
+    for (const position of family.positions) {
+      const [column, row] = position.cell,
+        name = family.label + ' · R' + column + 'C' + row + ' · Reference ' + position.reference_id,
+        point = shape('g', {class:'ceiling-map-point', role:'button', tabindex:0, 'aria-label':name, 'aria-pressed':'false'});
+      shape('rect', {x:left + (column - 1) * cell, y:top + (rows - row) * cell,
+        width:cell, height:cell, class:'ceiling-map-hit'}, undefined, point);
+      shape('circle', {cx:left + (column - 1 + position.u) * cell,
+        cy:top + (rows - row + 1 - position.v) * cell, r:6}, undefined, point);
+      point.onclick = () => {
+        for (const other of points) other.setAttribute('aria-pressed', String(other === point));
+        description.textContent = name + '. ' + family.description + ' Reference position only; no live readings.';
+      };
+      point.onkeydown = event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          point.onclick();
+        }
+      };
+      points.push(point);
+    }
   }
   for (const family of map.families) {
-    const control = button(family.label, () => select(family));
+    const control = button(family.label, () => select(family)),
+      colour = el('span', undefined, 'ceiling-sensor-colour');
+    colour.style.setProperty('--sensor-light', family.colours.light);
+    colour.style.setProperty('--sensor-dark', family.colours.dark);
+    colour.setAttribute('aria-hidden', 'true');
+    control.prepend(colour);
     buttons.set(family.id, control);
     controls.append(control);
   }
@@ -1753,6 +1800,13 @@ function sync() {
       else b.removeAttribute?.('aria-describedby');
     }
   }
+  for (const b of document.querySelectorAll('#light-group [data-action]')) {
+    const confirmed = !b.disabled && recovery.status === 'normal' && s.state === 'ready' &&
+      Number.isFinite(s.confirmed_age_s) && s.confirmed_power === b.dataset.action;
+    b.classList.toggle('confirmed-power', confirmed);
+    const pressed = String(confirmed);
+    if (b.getAttribute('aria-pressed') !== pressed) b.setAttribute('aria-pressed', pressed);
+  }
   for (const input of document.querySelectorAll('[data-range]')) {
     const number = $('value-' + input.dataset.range);
     input.disabled = number.disabled =
@@ -1767,9 +1821,16 @@ function sync() {
       }
     }
   }
-  for (const select of document.querySelectorAll('[data-preference]')) {
-    const saved = Array.from(select.options).find(option => option.dataset.value === String(p[select.dataset.preference]));
-    if (saved && select.value !== saved.value) select.value = saved.value;
+  for (const control of document.querySelectorAll('[data-preference]')) {
+    if (control.dataset.value !== undefined) {
+      const selected = control.dataset.value === String(p[control.dataset.preference]);
+      control.classList.toggle('selected', selected);
+      const pressed = String(selected);
+      if (control.getAttribute('aria-pressed') !== pressed) control.setAttribute('aria-pressed', pressed);
+    } else {
+      const saved = Array.from(control.options).find(option => option.dataset.value === String(p[control.dataset.preference]));
+      if (saved && control.value !== saved.value) control.value = saved.value;
+    }
   }
   for (const row of document.querySelectorAll('[data-auto-schedule]')) row.hidden = p.theme !== 'auto';
   update(
