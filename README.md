@@ -11,7 +11,7 @@ Earlier navigation, reliability and Legacy-parity changes are reviewed in
 [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1). An installed cabinet may
 run a different commit; check its release identity before maintenance.
 
-The current source version is **0.2.10**, owned by
+The current source version is **0.2.11**, owned by
 [app/panel_version.py](app/panel_version.py).
 It is for About and internal development/GitHub tracking; everyday headers say
 Beta. Legacy is the preserved older baseline for backtracking, identified by Git
@@ -36,6 +36,8 @@ links and a clear return to each list.
 The tour explains the ten lights and eight channels, COMBO distance/colour sensing,
 IRMA distance arrays and the separate Color network. Its ceiling schematic lets
 visitors select a sensor family; positions are a dated reference, not live status.
+The [LESA room guide](https://app.notion.com/p/f8f36eb121b04faeac3259d5ce380308)
+provides broader room and research context.
 Browsing starts no equipment. Explicit scene buttons in the lighting story can
 change room lights through the same guarded controller as Lighting. Direct page
 links and remembered topics make it easy to explore, try controls and return.
@@ -104,8 +106,10 @@ Browsing Guide, Settings, About or paused Experiment mode does not disable light
 on the other interface. Running instructions, experiment ownership, pending work, Legacy, a blank panel
 and uncertain results retain their control guards.
 
-White light shows the minimum and maximum beside each slider. System & help
-separates panel health, room connection and guidance. Reference commands are
+White light shows the minimum and maximum beside each slider, and lighting
+sliders explain that their values apply automatically. The lighting status badge
+opens connection guidance directly, even after browsing other help.
+System & help separates panel health, room connection and guidance. Reference commands are
 available through View command steps and are never executed by the panel.
 Room diagnostics shows dated service registrations and keeps earlier results
 after a failed check. Check now reuses the existing metadata worker. The website

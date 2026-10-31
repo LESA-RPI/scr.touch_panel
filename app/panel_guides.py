@@ -65,7 +65,7 @@ DEMO = (
         "icon": "home",
         "caption": "Lighting, sensing and shared space",
         "text": "The Smart Conference Room brings lighting and several kinds of sensors into one shared space. Researchers compare their different views to study presence, movement and the room environment.\n\n"
-        "Ceiling sensors measure distance or light colour. Research cameras can provide colour, depth and infrared recordings. Each gives a different kind of information.\n\n"
+        "Ceiling sensors measure distance or light colour. Four Azure Kinect cameras provide colour, depth and infrared reference views for comparing sensors.\n\n"
         "This tour starts no equipment or recording. A sensor appearing on the map does not mean it is currently connected or recording.",
         "links": [],
     },
@@ -85,9 +85,9 @@ DEMO = (
         "visual": "distance",
         "icon": "experiment",
         "caption": "COMBO, IRMA and Color",
-        "text": "COMBO times reflected light to measure distance on an 8 × 8 grid, and also measures light colour.\n\n"
-        "IRMA Matrix provides 25 × 20 distance samples and reflected-signal strength. These are distance measurements, not heat images.\n\n"
-        "Color sensors measure light colour without forming a photograph. Raw values need calibration for absolute measurements.",
+        "text": "COMBO combines a coarse 8 × 8 distance grid with light-colour sensing. It times reflected light to estimate distance.\n\n"
+        "IRMA Matrix gives a denser 25 × 20 distance view and reflected-signal strength. It measures distance, not body heat.\n\n"
+        "Color sensors track light-colour changes without taking a photograph. Raw values need calibration for absolute measurements.",
         "links": [],
     },
     {

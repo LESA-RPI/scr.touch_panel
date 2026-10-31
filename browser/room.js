@@ -907,7 +907,7 @@ function lighting(detail, tab) {
     controls.append(grid, stop, status);
     detail.append(unavailable, controls);
   } else if (tab === 'channels') {
-    detail.append(el('p', 'Adjust the eight room-wide channel percentages.', 'muted'));
+    detail.append(el('p', 'Eight room-wide channel percentages · changes apply automatically.', 'muted'));
     const grid = el('div', undefined, 'channel-grid');
     for (const [i, label] of [
       'Blue 1',
@@ -936,7 +936,7 @@ function lighting(detail, tab) {
       heading.append(preset);
     }
     detail.append(heading);
-    detail.append(el('p', 'Selected values apply after your touch settles.', 'muted'));
+    detail.append(el('p', 'Whole room · slider changes apply automatically.', 'muted'));
     const grid = el('div', undefined, 'white-grid');
     range(grid, 'Colour temperature', 'cct', 1600, 10000, 100, 'K');
     range(grid, 'Light level', 'intensity', 0, 1900, 25, 'controller units');

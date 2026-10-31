@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "app_version": "0.2.10",
+  "app_version": "0.2.11",
   "icons": {
     "tools": [
       {
@@ -919,7 +919,7 @@
       "title": "A room for research",
       "icon": "home",
       "caption": "Lighting, sensing and shared space",
-      "text": "The Smart Conference Room brings lighting and several kinds of sensors into one shared space. Researchers compare their different views to study presence, movement and the room environment.\n\nCeiling sensors measure distance or light colour. Research cameras can provide colour, depth and infrared recordings. Each gives a different kind of information.\n\nThis tour starts no equipment or recording. A sensor appearing on the map does not mean it is currently connected or recording.",
+      "text": "The Smart Conference Room brings lighting and several kinds of sensors into one shared space. Researchers compare their different views to study presence, movement and the room environment.\n\nCeiling sensors measure distance or light colour. Four Azure Kinect cameras provide colour, depth and infrared reference views for comparing sensors.\n\nThis tour starts no equipment or recording. A sensor appearing on the map does not mean it is currently connected or recording.",
       "links": []
     },
     {
@@ -943,7 +943,7 @@
       "visual": "distance",
       "icon": "experiment",
       "caption": "COMBO, IRMA and Color",
-      "text": "COMBO times reflected light to measure distance on an 8 × 8 grid, and also measures light colour.\n\nIRMA Matrix provides 25 × 20 distance samples and reflected-signal strength. These are distance measurements, not heat images.\n\nColor sensors measure light colour without forming a photograph. Raw values need calibration for absolute measurements.",
+      "text": "COMBO combines a coarse 8 × 8 distance grid with light-colour sensing. It times reflected light to estimate distance.\n\nIRMA Matrix gives a denser 25 × 20 distance view and reflected-signal strength. It measures distance, not body heat.\n\nColor sensors track light-colour changes without taking a photograph. Raw values need calibration for absolute measurements.",
       "links": []
     },
     {

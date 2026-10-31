@@ -259,7 +259,13 @@ class PanelViews:
         self.rebuild_advanced_detail()
 
     def lighting_contents(self):
-        self.label(self.body, "Lighting", 27).pack(anchor="w")
+        heading = tk.Frame(self.body, bg=self.bg)
+        heading.pack(fill="x")
+        self.label(heading, "Lighting", 27).pack(side="left")
+        if self.lighting_tab == "white":
+            self.label(
+                heading, "Whole room · slider changes apply automatically.", 16, True
+            ).pack(side="right", anchor="s", pady=(0, 4))
         tabs = self.row_buttons(
             self.body,
             [
@@ -462,7 +468,7 @@ class PanelViews:
         if not embedded:
             self.label(self.body, "Lighting channels", 27).pack(anchor="w")
         self.label(
-            self.body, "Adjust the eight room-wide channel percentages.", 16, True
+            self.body, "Eight room-wide channel percentages · changes apply automatically.", 16, True
         ).pack(anchor="w", pady=(4, 8))
         editor = tk.Frame(self.body, bg=self.bg)
         editor.pack(fill="both", expand=True, pady=14)
