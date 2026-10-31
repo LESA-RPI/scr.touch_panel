@@ -52,6 +52,8 @@ class PanelRecovery:
             result.update(status="needs_staff", title="Lighting result unconfirmed")
         elif result["status"] == "normal" and self.light_state not in ("ready", "applying"):
             result.update(status="offline", title="Lighting connection unavailable", detail="Check the connection without changing the lights.")
+        if self.pending and self.pending.get("action") == "check":
+            result.update(status="checking", title="Checking lighting", detail="Reading settings safely.", can_check=False)
         result["can_check"] = bool(result["can_check"] and self.args.live_lights and not self.pending and not self.queued_intent and not self.power_busy() and not self.release_target and not self.closing and not self.running and (ignore_touch or not self.press_active) and self.mode != "original")
         if self.worker and (not getattr(self, "worker_ready", False) or self.worker.stdin.closed or self.worker.poll() is not None):
             result["can_check"] = False
@@ -96,10 +98,14 @@ class PanelRecovery:
                 card.pack(fill="x", pady=(6, 0))
         button = getattr(self, "recovery_button", None)
         if button is not None and button.winfo_exists():
+            checking = state["status"] == "checking"
+            text = "Checking…" if checking else "Check connection"
+            if button.cget("text") != text:
+                button.config(text=text)
             style = "normal" if state["can_check"] else "disabled"
             if button.cget("state") != style:
                 button.config(state=style)
-            if state["can_check"]:
+            if state["can_check"] or checking:
                 if not button.winfo_manager():
                     button.pack(anchor="w", pady=(6, 0))
             elif button.winfo_manager():
@@ -120,11 +126,12 @@ class PanelRecovery:
         if self.worker:
             if not self.request("check"):
                 raise RuntimeError("The lighting connection could not be checked.")
+            self.lighting_feedback("Checking current light settings. No lighting command is sent.")
         elif self.recovery.state["status"] == "normal":
             self.start_worker()  # Acquisition is read-only; no old command is replayed.
         else:
             self.start_worker(observe_only=True)
-        self.update_recovery_view()
+        self.update_light_buttons()
 
     def begin_legacy_return(self, mode, advanced_page):
         """Cover Legacy input, then wait for its unchanged callback loop to respond."""

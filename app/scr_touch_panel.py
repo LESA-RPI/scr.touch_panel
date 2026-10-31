@@ -569,7 +569,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         return "break"
 
     def return_from_idle(self):
-        if not self.idle_active:
+        if (not self.idle_active or self.release_target or self.closing
+                or self.power_busy() or getattr(self, "legacy_probe", None)):
             return
         self.idle_active = False
         self.activity(False)
@@ -873,6 +874,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         if self.args.live_lights:
             status = self.recovery_snapshot()["status"]
             text, kind, colour = {
+                "checking": ("Checking", "clock", "waiting"),
                 "reserved": ("Reserved", "experiment", "waiting"),
                 "releasing": ("Checking", "clock", "waiting"),
                 "returning": ("Checking", "clock", "waiting"),
