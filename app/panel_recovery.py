@@ -268,7 +268,8 @@ class PanelRecovery:
                 self.recovery.ready(stable=True)
         elif action == "check" and state == "checked":
             self.recovery_check_at = time.monotonic()
-            self.lighting_feedback("Current light settings checked. " + ("Staff must confirm ownership before controls return." if self.ownership_blocked() else "No lighting command was sent."))
+            detail = response["detail"] if response.get("programme") in ("Sun", "Circ") else "Current light settings checked."
+            self.lighting_feedback(detail + " " + ("Staff must confirm ownership before controls return." if self.ownership_blocked() else "No lighting command was sent."))
             if self.observing:
                 self.request("release")
         elif state == "failed" and action in ("acquire", "check"):

@@ -206,17 +206,19 @@ class Lights(object):
                 self.failed = True
             raise
         stable = first == state
+        programme_requested = (not self.observe_only and self.programme in ("Sun", "Circ")
+                               and self.current is None)
         # An established owner must retain its expected state. A check is not
         # permission to overwrite somebody else's settings or clear uncertainty.
         external_change = (not self.observe_only and self.current is not None
                            and state != self.current)
-        if not self.observe_only and (not stable or external_change):
+        if not self.observe_only and ((not stable and not programme_requested) or external_change):
             self.failed = True
         try:
             name = restore_preset(state)
         except ValueError:
             name = None
-        blocked = not stable or self.failed or self.blinds_failed
+        blocked = self.failed or self.blinds_failed or (not stable and not programme_requested)
         result = {
             "state": "failed" if blocked else "checked",
             "stable": stable,
@@ -226,7 +228,9 @@ class Lights(object):
             "power": "on" if any(any(values) for values in state.values()) else "off",
             "ownership_verified": False,
             "outcome_unknown": self.failed or self.blinds_failed,
-            "detail": ("Light settings are changing; connection is not confirmed."
+            "detail": ("Programme requested; readings may change. Stop for a stable check. Running status is unverified."
+                       if programme_requested and not blocked else
+                       "Light settings are changing; connection is not confirmed."
                        if not stable else
                        "Another controller changed the lights; control remains blocked."
                        if external_change else

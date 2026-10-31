@@ -211,6 +211,10 @@ Panel and browser use these same study guards.
 `on` applies the Fid preset. White light's Warm white uses `cct` with 3500 K
 and intensity 1000; Fid remains a separately selectable scene.
 Acceptance is not lighting confirmation, annotation persistence or recording.
+A read-only check during a requested Sun/Circ programme may observe changing
+readings. Those expected changes do not clear or create ownership uncertainty;
+read failures and pre-existing uncertainty still block writes. Stop remains
+available after a successful read, without claiming the programme is running.
 
 `legacy` (alias `original_fallback`) takes no arguments and opens `mode: "original"`
 after preserving release and successful helper exit. The unchanged original app

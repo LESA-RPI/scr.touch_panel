@@ -234,6 +234,20 @@ def test_legacy_cannot_bypass_unresolved_ownership(recoverable, status):
     assert recoverable.recovery_snapshot()["write_blocked"]
 
 
+@pytest.mark.parametrize("programme", ["Sun", "Circ"])
+def test_programme_check_keeps_its_explanation_and_ownership(recoverable, monkeypatch, programme):
+    messages = []
+    monkeypatch.setattr(recoverable, "lighting_feedback", messages.append)
+    before = dict(recoverable.recovery.state)
+    detail = "Programme requested; readings may change. Stop for a stable check. Running status is unverified."
+    recoverable.recovery_result(
+        {"action": "check"},
+        {"state": "checked", "programme": programme, "detail": detail},
+    )
+    assert messages[0].startswith(detail)
+    assert recoverable.recovery.state == before
+
+
 def test_reservation_token_is_absent_from_public_snapshot_and_events(recoverable, monkeypatch):
     live_helper(recoverable)
     events = []

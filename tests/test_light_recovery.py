@@ -105,6 +105,101 @@ def test_unstable_check_is_unconfirmed_and_never_stops_programmes_or_restores():
     assert lights.release()["preserved"] and not room.writes
 
 
+@pytest.mark.parametrize("programme", ["Sun", "Circ"])
+def test_check_of_requested_programme_accepts_changing_readings_and_keeps_stop_usable(programme):
+    room, programmes = Room(), LegacyProgrammes()
+    programmes.start = programmes.requests.append
+    lights = adapter.Lights(room.call, keep_settings=True, programmes=programmes,
+                            sleep=lambda seconds: None)
+    lights.acquire()
+    lights.run_programme(programme)
+    before_check = list(programmes.requests)
+    scans = []
+
+    def changing(name, *args):
+        if name == "get_lights":
+            scans.append(True)
+            room.state[min(room.state)] = (len(scans) * 1000,) * 8
+        return room.call(name, *args)
+
+    lights.call = changing
+    result = lights.check()
+    assert result["state"] == "checked" and result["stable"] is False
+    assert result["programme"] == programme and result["programme_confirmed"] is False
+    assert result["manual_blocked"] and result["ownership_verified"] is False
+    assert result["outcome_unknown"] is False and not lights.failed
+    assert "Stop for a stable check" in result["detail"] and "unverified" in result["detail"]
+    assert lights.current is None and len(scans) == 2
+    assert programmes.requests == before_check and not room.writes
+    lights.call = room.call
+    stopped = lights.run_programme("Stop")
+    assert stopped["state"] == "completed" and stopped["programme"] is None
+    assert not stopped["manual_blocked"] and programmes.requests == before_check + ["stop"]
+    assert not room.writes
+
+
+@pytest.mark.parametrize("previous_failure", ["failed", "blinds_failed"])
+def test_programme_check_never_clears_a_previous_uncertain_result(previous_failure):
+    room = Room()
+    lights = adapter.Lights(room.call, keep_settings=True, sleep=lambda seconds: None)
+    lights.acquire()
+    lights.programme, lights.current = "Sun", None
+    setattr(lights, previous_failure, True)
+    scans = []
+
+    def changing(name, *args):
+        if name == "get_lights":
+            scans.append(True)
+            room.state[min(room.state)] = (len(scans) * 1000,) * 8
+        return room.call(name, *args)
+
+    lights.call = changing
+    result = lights.check()
+    assert result["state"] == "failed" and result["outcome_unknown"]
+    assert result["manual_blocked"] and getattr(lights, previous_failure)
+    with pytest.raises(ValueError, match="unknown"):
+        lights.release()
+    assert not room.writes
+
+
+def test_requested_programme_read_error_still_latches_failure_without_stopping_or_retrying():
+    room, programmes = Room(), LegacyProgrammes()
+    lights = adapter.Lights(room.call, keep_settings=True, programmes=programmes)
+    lights.acquire()
+    lights.programme, lights.current = "Circ", None
+
+    def timeout(name, *args):
+        raise TimeoutError("Fixture readback expired")
+
+    lights.call = timeout
+    with pytest.raises(TimeoutError, match="expired"):
+        lights.check()
+    assert lights.failed and lights.programme == "Circ"
+    with pytest.raises(ValueError, match="unavailable"):
+        lights.run_programme("Stop")
+    assert not programmes.requests and not room.writes
+
+
+@pytest.mark.parametrize("programme", [None, "Sun"])
+def test_unstable_static_owner_check_still_latches_failure(programme):
+    room = Room()
+    lights = adapter.Lights(room.call, keep_settings=True, sleep=lambda seconds: None)
+    lights.acquire()
+    lights.programme = programme  # A retained current drive is still a static ownership claim.
+    scans = []
+
+    def changing(name, *args):
+        if name == "get_lights":
+            scans.append(True)
+            room.state[min(room.state)] = (len(scans) * 1000,) * 8
+        return room.call(name, *args)
+
+    lights.call = changing
+    result = lights.check()
+    assert result["state"] == "failed" and result["stable"] is False
+    assert result["outcome_unknown"] and lights.failed and not room.writes
+
+
 @pytest.mark.parametrize("identities", [list(adapter.COORDINATES)[:-1],
                                        [(0, 0)] * 10,
                                        list(adapter.COORDINATES)[:-1] + [(9, 9)]])
