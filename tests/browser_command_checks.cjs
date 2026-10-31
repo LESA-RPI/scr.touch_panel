@@ -396,6 +396,7 @@ function preferencesWebsite(page, roomContent = {}) {
     let currentPoint;
   `);
   assert.equal(guideContent.run('familyControls.length'), 3);
+  assert.equal(guideContent.run('ceilingDiagram.preserveAspectRatio'), 'xMidYMid meet', 'The ceiling map uses one uniform scale for square cells');
   for (const [index, family] of guideContent.context.ceilingReference.families.entries()) {
     const expected = {color:53, combo:40, irma:18}[family.id];
     assert.equal(family.positions.length, expected, 'The map keeps the recorded family totals');
@@ -403,6 +404,7 @@ function preferencesWebsite(page, roomContent = {}) {
     assert.ok(family.positions.every(({cell:[column, row], u, v}) => Number.isInteger(column) && column >= 1 && column <= 14 && Number.isInteger(row) && row >= 1 && row <= 5 && u >= 0 && u <= 1 && v >= 0 && v <= 1));
     guideContent.run(`familyControls[${index}].onclick();`);
     assert.equal(guideContent.run("descendants(ceilingDiagram).filter(node => node.tagName === 'circle').length"), expected);
+    assert.equal(guideContent.run("descendants(ceilingDiagram).filter(node => node.class === 'ceiling-map-hit').every(node => node.width === node.height)"), true, 'Reference point hit areas keep the same square grid geometry');
     assert.match(guideContent.run('familyDescription.textContent'), new RegExp(family.label + '.*' + expected));
     assert.equal(guideContent.run(`familyControls[${index}]['aria-pressed']`), 'true');
     assert.match(guideContent.run("ceilingDiagram['aria-label']"), /reference positions.*not live readings/);

@@ -516,34 +516,39 @@ class PanelGuidance:
         selected_cell = None
         columns, rows = CEILING_MAP["grid"]["columns"], CEILING_MAP["grid"]["rows"]
 
+        def plot_geometry():
+            width, height = canvas.winfo_width() - 60, canvas.winfo_height() - 44
+            cell = max(0, min(width / columns, height / rows))
+            left, top = 42 + (width - columns * cell) / 2, 12 + (height - rows * cell) / 2
+            return left, top, left + columns * cell, top + rows * cell, cell
+
         def draw(event=None):
             width, height = canvas.winfo_width(), canvas.winfo_height()
             if width < 150 or height < 80:
                 return
             canvas.delete("all")
-            left, top, right, bottom = 42, 12, width - 18, height - 32
-            cell_width, cell_height = (right - left) / columns, (bottom - top) / rows
+            left, top, right, bottom, cell = plot_geometry()
             for column in range(columns + 1):
-                x = left + column * cell_width
+                x = left + column * cell
                 canvas.create_line(x, top, x, bottom, fill=self.border)
                 if column < columns:
                     canvas.create_text(
-                        x + cell_width / 2, bottom + 18, text="R%d" % (column + 1),
+                        x + cell / 2, bottom + 18, text="R%d" % (column + 1),
                         font=(self.font_family, 12), fill=self.muted,
                     )
             for row in range(rows + 1):
-                y = bottom - row * cell_height
+                y = bottom - row * cell
                 canvas.create_line(left, y, right, y, fill=self.border)
                 if row < rows:
                     canvas.create_text(
-                        left - 20, y - cell_height / 2, text="C%d" % (row + 1),
+                        left - 20, y - cell / 2, text="C%d" % (row + 1),
                         font=(self.font_family, 12), fill=self.muted,
                     )
-            radius = min(8, max(4, min(cell_width, cell_height) / 5))
+            radius = min(8, max(4, cell / 5))
             for position in selected["positions"]:
                 column, row = position["cell"]
-                x = left + (column - 1 + position["u"]) * cell_width
-                y = bottom - (row - 1 + position["v"]) * cell_height
+                x = left + (column - 1 + position["u"]) * cell
+                y = bottom - (row - 1 + position["v"]) * cell
                 canvas.create_oval(
                     x - radius, y - radius, x + radius, y + radius,
                     fill=selected["colours"][self.theme], outline=self.ink,
@@ -570,8 +575,7 @@ class PanelGuidance:
 
         def inspect_cell(event):
             nonlocal selected_cell
-            left, top = 42, 12
-            right, bottom = canvas.winfo_width() - 18, canvas.winfo_height() - 32
+            left, top, right, bottom, cell = plot_geometry()
             hits = canvas.find_overlapping(event.x - 1, event.y - 1, event.x + 1, event.y + 1)
             references = {tag for item in hits if "sensor" in canvas.gettags(item)
                           for tag in canvas.gettags(item)}
@@ -582,8 +586,8 @@ class PanelGuidance:
             else:
                 if not (left <= event.x < right and top <= event.y < bottom):
                     return
-                column = min(columns, int((event.x - left) * columns / (right - left)) + 1)
-                row = min(rows, int((bottom - event.y) * rows / (bottom - top)) + 1)
+                column = min(columns, int((event.x - left) / cell) + 1)
+                row = min(rows, int((bottom - event.y) / cell) + 1)
                 position = next((point for point in selected["positions"]
                                  if point["cell"] == [column, row]), None)
             selected_cell = (column, row)

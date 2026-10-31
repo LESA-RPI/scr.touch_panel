@@ -13,12 +13,14 @@ def widgets(parent):
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
-def test_ceiling_family_selection_uses_reference_positions_without_room_requests(view, theme):
+@pytest.mark.parametrize("height", [800, 750])
+def test_ceiling_family_selection_uses_reference_positions_without_room_requests(view, theme, height):
     def blocked(*args, **kwargs):
         pytest.fail("A reference map must never request a room action")
 
     view.request = view.start_worker = blocked
     view.choose_theme(theme)
+    view.root.geometry("1280x%d" % height)
     view.choose_guide(next(i for i, topic in enumerate(DEMO) if topic.get("map")))
     view.root.update()
     canvas, = [w for w in widgets(view.body) if isinstance(w, panel.tk.Canvas)]
@@ -33,9 +35,22 @@ def test_ceiling_family_selection_uses_reference_positions_without_room_requests
                     sum(canvas.coords(dot)[1::2]) / 2) for dot in dots]
         assert all(0 < x < canvas.winfo_width() and 0 < y < canvas.winfo_height()
                    for x, y in centers)
-        left, top, right, bottom = 42, 12, canvas.winfo_width() - 18, canvas.winfo_height() - 32
+        grid = [canvas.coords(item) for item in canvas.find_all() if canvas.type(item) == "line"]
+        left, right = min(min(line[::2]) for line in grid), max(max(line[::2]) for line in grid)
+        top, bottom = min(min(line[1::2]) for line in grid), max(max(line[1::2]) for line in grid)
         cell_width = (right - left) / CEILING_MAP["grid"]["columns"]
         cell_height = (bottom - top) / CEILING_MAP["grid"]["rows"]
+        assert cell_width == pytest.approx(cell_height)
+        assert (left + right) / 2 == pytest.approx((42 + canvas.winfo_width() - 18) / 2)
+        assert (top + bottom) / 2 == pytest.approx((12 + canvas.winfo_height() - 32) / 2)
+        assert left >= 42 - 1e-6 and right <= canvas.winfo_width() - 18 + 1e-6
+        assert top >= 12 - 1e-6 and bottom <= canvas.winfo_height() - 32 + 1e-6
+        assert canvas.winfo_height() >= 100
+        for item in canvas.find_all():
+            if canvas.type(item) == "text":
+                x0, y0, x1, y1 = canvas.bbox(item)
+                assert 0 <= x0 < x1 <= canvas.winfo_width()
+                assert 0 <= y0 < y1 <= canvas.winfo_height()
         assert all(canvas.itemcget(dot, "fill") == family["colours"][theme] for dot in dots)
         for point, center in zip(family["positions"], centers):
             column, row = point["cell"]

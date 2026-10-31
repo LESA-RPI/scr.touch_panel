@@ -1238,6 +1238,7 @@ function ceilingMap(parent) {
   diagram.setAttribute('focusable', 'false');
   const columns = map.grid.columns, rows = map.grid.rows, cell = 36, left = 24, top = 28;
   diagram.setAttribute('viewBox', `0 0 ${columns * cell + 48} ${rows * cell + 56}`);
+  diagram.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   function shape(tag, attributes, text, parent = diagram) {
     const node = document.createElementNS(diagram.namespaceURI, tag);
     for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
