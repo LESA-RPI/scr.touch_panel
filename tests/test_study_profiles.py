@@ -123,6 +123,7 @@ def test_invalid_profile_and_font_fit_leave_old_setup_intact(owner):
 def test_profile_loaded_journal_event_identifies_complete_session_setup(owner):
     lines = []
     owner.sequence, owner.started = 0, panel.monotonic()
+    owner.control_sequence = 0
     owner.run_id, owner.boot_id = "session", None
     owner.journal = SimpleNamespace(append=lambda line, sequence, durable: lines.append((json.loads(line), durable)))
     owner.emit = panel.Panel.emit.__get__(owner)

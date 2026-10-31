@@ -249,7 +249,7 @@ def remote_owner():
         pending=None, queued_intent=None, release_target=None, closing=None,
         press_active=False, running=False, idle_active=False,
         light_state="ready", mode="room", elapsed=0, run_started=time.monotonic(),
-        run_id="owner", sequence=1, view_generation=1,
+        run_id="owner", sequence=1, control_sequence=1, view_generation=1,
         confirmed_power="on", confirmed_scene="Fid", confirmed_light="Fid scene",
         confirmed_at=None, light_message="Light settings confirmed.",
         cct=variable(3500), intensity=variable(1000),

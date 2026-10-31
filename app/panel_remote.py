@@ -34,7 +34,7 @@ def snapshot(panel):
         "power": getattr(panel, "power_snapshot", lambda: None)(),
         "session": panel.run_id,
         "timezone": panel.args.timezone,
-        "revision": "%s:%s:%s" % (panel.run_id, panel.sequence, panel.view_generation),
+        "revision": "%s:%s:%s" % (panel.run_id, panel.control_sequence, panel.view_generation),
         "mode": panel.mode,
         "busy": busy,
         "can_control": lighting,

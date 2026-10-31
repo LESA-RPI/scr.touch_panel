@@ -110,6 +110,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.support_commands_visible = False
         self.support_step = 0
         self.started, self.run_id, self.sequence = monotonic(), uuid.uuid4().hex, 0
+        self.control_sequence = 0
         self.boot_id, self.last_touch = boot_identity(), self.started
         self.idle_timeout = getattr(args, "idle_timeout", 300)
         self.blinds_display = getattr(args, "blinds_display", "disabled")
@@ -330,6 +331,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
 
     def emit(self, event, **values):
         self.sequence += 1
+        # Timing logs must not invalidate an otherwise current control command.
+        if event != "slow_ui_callback":
+            self.control_sequence += 1
         values.update(
             version=1,
             event=event,

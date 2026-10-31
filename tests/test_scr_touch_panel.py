@@ -981,6 +981,7 @@ def journal_panel(journal, path):
     state = panel.Panel.__new__(panel.Panel)
     state.journal, state.args = journal, SimpleNamespace(journal=path)
     state.sequence, state.stage, state.started = 0, 0, panel.monotonic()
+    state.control_sequence = 0
     state.mode, state.run_id, state.boot_id = "experiment", "trial", None
     state.profile, state.pending_annotation = panel.DEFAULT_PROFILE, None
     state.annotation_text = SimpleNamespace(

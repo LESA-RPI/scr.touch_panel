@@ -1,6 +1,6 @@
 """Human-readable panel version; Git commits identify the exact deployed source."""
 
-VERSION = "0.2.16"
+VERSION = "0.2.17"
 
 
 def build_commit():
