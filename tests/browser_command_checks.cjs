@@ -62,6 +62,29 @@ function diagnosticsWebsite(respond) {
   return site;
 }
 
+function powerWebsite(respond = request => ({status:202, ok:true, json:async () => ({ok:true, code:202, id:request.id})})) {
+  let site;
+  site = website(respond, () => JSON.parse(site.run('JSON.stringify(state)')));
+  site.run(`
+    const powerIds = new Map(), originalGet = document.getElementById;
+    document.getElementById = id => powerIds.get(id) || originalGet(id);
+    document.createElement = tag => ({tagName:tag, children:[], dataset:{}, textContent:'',
+      get id() {return this.elementId;}, set id(value) {this.elementId = value; powerIds.set(value, this);},
+      append(...children) {this.children.push(...children);},
+      setAttribute(name, value) {this[name] = value;},
+      focus() {document.activeElement = this;},
+    });
+    function powerDescendants(node) {return [node, ...node.children.flatMap(powerDescendants)];}
+    state = {available:true, session:'owner-one', revision:'one', csrf:'local', mode:'room', busy:false,
+      can_control:true, lights:{state:'ready'}, power:{available:true, actions:{reboot:true, shutdown:true}, phase:'ready', message:'Panel power available.'}};
+    const powerRoot = document.createElement('main');
+    powerControls(powerRoot);
+    sync = shippedSync;
+    sync();
+  `);
+  return site;
+}
+
 function preferencesWebsite(page, roomContent = {}) {
   let site;
   site = website((request, context) => {
@@ -184,12 +207,12 @@ function preferencesWebsite(page, roomContent = {}) {
     syncRoomDiagnostics();
   `);
   assert.equal(diagnosticRows.run("$('room-diagnostics-services').children.length"), 4, 'Room services stays a compact four-row summary even before every group is observed');
-  assert.equal(diagnosticRows.run("$('room-diagnostics-services').children[0].children[1].textContent"), 'Advertised');
+  assert.equal(diagnosticRows.run("$('room-diagnostics-services').children[0].children[1].textContent"), 'Listed');
   assert.equal(diagnosticRows.run("$('room-diagnostics-services').children.find(row => row.children[0].textContent === 'Environment').children[1].textContent"), 'Missing');
   assert.equal(diagnosticRows.run("$('room-health').hidden"), true, 'Structured rows replace duplicate connection prose');
   assert.equal(diagnosticRows.run("$('room-diagnostics-status').hidden"), true, 'Successful checks need no duplicate status paragraph');
   diagnosticRows.run("state.room_diagnostics.state = 'unavailable'; state.room_diagnostics.detail = 'Room connection timed out.'; state.room_diagnostics.age_s = 180; syncRoomDiagnostics();");
-  assert.equal(diagnosticRows.run("$('room-diagnostics-services').children[0].children[1].textContent"), 'Advertised', 'A failed recheck retains the last successful registration observation');
+  assert.equal(diagnosticRows.run("$('room-diagnostics-services').children[0].children[1].textContent"), 'Listed', 'A failed recheck retains the last successful registration observation');
   assert.match(diagnosticRows.run("$('room-diagnostics-status').textContent"), /latest room check failed.*timed out.*Earlier results/);
   assert.equal(diagnosticRows.run("$('room-diagnostics-status').hidden"), false);
   assert.match(diagnosticRows.run("$('room-diagnostics-observed').textContent"), /3 min ago/);
@@ -204,14 +227,14 @@ function preferencesWebsite(page, roomContent = {}) {
     state = {available:true, can_control:true, lights:{}, health:{ram_available:123.9, ram_total:999.1, disk_available:41.234, temperature:54.678, power:'No current undervoltage'}};
     shippedSync();
   `);
-  assert.equal(panelHealth.run("$('panel-memory').textContent"), 'Memory: 124 / 999 MiB free');
-  assert.equal(panelHealth.run("$('panel-storage').textContent"), 'Storage: 41.2 GiB free');
-  assert.equal(panelHealth.run("$('panel-temperature').textContent"), 'CPU: 54.7 °C');
+  assert.equal(panelHealth.run("$('panel-memory').textContent"), '124 / 999 MiB free');
+  assert.equal(panelHealth.run("$('panel-storage').textContent"), '41.2 GiB free');
+  assert.equal(panelHealth.run("$('panel-temperature').textContent"), '54.7 °C');
   panelHealth.run("state.health = {ram_available:null, ram_total:NaN, disk_available:'41.234', temperature:Infinity, power:42}; shippedSync();");
-  assert.equal(panelHealth.run("$('panel-memory').textContent"), 'Memory: — / — MiB free');
-  assert.equal(panelHealth.run("$('panel-storage').textContent"), 'Storage: — GiB free');
-  assert.equal(panelHealth.run("$('panel-temperature').textContent"), 'CPU: — °C');
-  assert.equal(panelHealth.run("$('panel-power').textContent"), 'Power: —');
+  assert.equal(panelHealth.run("$('panel-memory').textContent"), '— / — MiB free');
+  assert.equal(panelHealth.run("$('panel-storage').textContent"), '— GiB free');
+  assert.equal(panelHealth.run("$('panel-temperature').textContent"), '— °C');
+  assert.equal(panelHealth.run("$('panel-power').textContent"), '—');
   panelHealth.run("state.can_control = false; state.experiment = {running:true, profile:{title:'Instructions', stages:['Sit still'], annotations:[]}, stage:0, elapsed_s:0}; shippedSync();");
   assert.equal(panelHealth.run("$('connection').textContent"), 'Instructions running');
   assert.equal(panelHealth.commands.length, 0);
@@ -309,7 +332,7 @@ function preferencesWebsite(page, roomContent = {}) {
         append(...children) {this.children.push(...children);},
         prepend(...children) {this.children.unshift(...children);},
         replaceChildren(...children) {this.children = children;},
-        classList:{toggle(name, value) {this[name] = value;}},
+        classList:{toggle(name, value) {this[name] = value;}, add(name) {this[name] = true;}},
         setAttribute(name, value) {this[name] = value;},
       };
     }
@@ -684,5 +707,72 @@ function preferencesWebsite(page, roomContent = {}) {
   assert.equal(legacyView.disabled, true, 'Original Legacy is blocked during instructions');
   assert.equal(originalFallback.disabled, true, 'Separate Original fallback is blocked during instructions');
   assert.equal(display.commands.length, 0);
+
+  for (const operation of ['reboot', 'shutdown']) {
+    const power = powerWebsite();
+    assert.equal(power.commands.length, 0, 'Rendering power controls never posts');
+    power.run(`$('power-${operation}').onclick();`);
+    assert.equal(power.commands.length, 0, 'Opening a confirmation never posts');
+    assert.equal(power.run("$('power-confirmation').hidden"), false);
+    assert.equal(power.run("document.activeElement === $('power-ack')"), true);
+    assert.equal(power.run("$('power-ack').checked"), false);
+    assert.equal(power.run("$('power-confirm').disabled"), true);
+    power.run("$('power-confirm').onclick();");
+    assert.equal(power.commands.length, 0, 'The click handler independently requires acknowledgement');
+    power.run("$('power-ack').checked = true; $('power-ack').onchange(); powerDescendants(powerRoot).find(node => node.tagName === 'button' && node.textContent === 'Cancel').onclick();");
+    assert.equal(power.commands.length, 0, 'Cancelling an acknowledged confirmation never posts');
+    assert.equal(power.run("$('power-confirmation').hidden"), true);
+    assert.equal(power.run('powerChoice'), null);
+    assert.equal(power.run(`document.activeElement === $('power-${operation}')`), true);
+    power.run(`$('power-${operation}').onclick();`);
+    assert.equal(power.run("$('power-ack').checked"), false, 'Each newly opened confirmation requires acknowledgement');
+    power.run("$('power-ack').checked = true; $('power-ack').onchange();");
+    assert.equal(power.run("$('power-confirm').disabled"), false);
+    power.run("$('power-confirm').onclick();");
+    // DOM event handlers intentionally do not return command()'s promise.
+    await new Promise(setImmediate);
+    assert.equal(power.commands.length, 1);
+    const request = power.commands[0];
+    assert.deepEqual(Object.keys(request).sort(), ['action', 'arguments', 'id', 'revision']);
+    assert.match(request.id, /^[a-f0-9]{32}$/);
+    assert.equal(request.revision, 'one');
+    assert.equal(request.action, 'power');
+    assert.deepEqual(request.arguments, {operation, confirmed:true});
+    assert.equal(power.run("$('power-confirmation').hidden"), true);
+    assert.equal(power.run("$('power-reboot').disabled && $('power-shutdown').disabled"), true);
+    await power.run('refresh();');
+    power.run("$('power-confirm').onclick();");
+    await new Promise(setImmediate);
+    assert.equal(power.commands.length, 1, 'An accepted power request never repeats while its session remains active');
+  }
+
+  const stalePower = powerWebsite((request, context) => {
+    const stale = request.revision !== vm.runInContext('state.revision', context);
+    return {status:stale ? 409 : 202, ok:!stale, json:async () => ({ok:!stale, code:stale ? 409 : 202, id:request.id, detail:'Room state changed. Review the current settings.'})};
+  });
+  stalePower.run("$('power-reboot').onclick(); state.revision = 'changed-while-reviewing'; $('power-ack').checked = true; $('power-ack').onchange(); $('power-confirm').onclick();");
+  await new Promise(setImmediate);
+  assert.equal(stalePower.commands.length, 1);
+  assert.equal(stalePower.commands[0].revision, 'one', 'Confirmation retains the revision captured when opened');
+  assert.equal(stalePower.run('powerRequest'), null, 'Owner rejection does not become an accepted power request');
+  assert.match(stalePower.run("$('message').textContent"), /Room state changed/);
+
+  for (const response of [
+    () => Promise.reject(new Error('Power acknowledgement lost')),
+    () => ({status:503, ok:false, json:async () => null}),
+  ]) {
+    const lostPower = powerWebsite(response);
+    lostPower.run("$('power-shutdown').onclick(); $('power-ack').checked = true; $('power-ack').onchange(); $('power-confirm').onclick();");
+    await new Promise(setImmediate);
+    assert.equal(lostPower.commands.length, 1);
+    assert.equal(lostPower.run('unknown'), lostPower.commands[0].id);
+    assert.match(lostPower.run("$('message').textContent"), /Power request status is unknown/);
+    for (let attempt = 0; attempt < 3; attempt++) await lostPower.run('refresh();');
+    lostPower.run("$('power-confirm').onclick(); $('power-reboot').onclick();");
+    await new Promise(setImmediate);
+    assert.equal(lostPower.run("$('power-reboot').disabled && $('power-shutdown').disabled"), true);
+    assert.equal(lostPower.commands.length, 1, 'Polling, repeated confirmation and other power buttons cannot replay an unknown receipt');
+    assert.equal(lostPower.run('unknown'), lostPower.commands[0].id);
+  }
   console.log('Browser receipt ambiguity, rejection, recovery and restart checks passed');
 })().catch(error => {console.error(error);process.exitCode=1;});

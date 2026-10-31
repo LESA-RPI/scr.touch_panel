@@ -1256,44 +1256,60 @@ function ceilingMap(parent) {
   select(map.families[0]);
 }
 function system(parent) {
+  const page = el('div', undefined, 'system-page');
+  parent.append(page);
+  parent = page;
   recoveryNotice(parent, true);
   const health = el('div', undefined, 'health-grid'),
     panel = el('section', undefined, 'panel-health'),
-    readings = el('div', undefined, 'panel-health-readings');
+    heading = el('div', undefined, 'system-section-heading'),
+    readings = el('dl', undefined, 'panel-health-readings');
   readings.id = 'panel-health';
-  for (const key of ['panel-memory', 'panel-storage', 'panel-temperature', 'panel-power']) {
-    const line = el('p');
-    line.id = key;
+  for (const [key, label] of [
+    ['panel-memory', 'Memory'],
+    ['panel-storage', 'Storage'],
+    ['panel-temperature', 'CPU temperature'],
+    ['panel-power', 'Power supply'],
+  ]) {
+    const line = el('div'),
+      value = el('dd', '—');
+    value.id = key;
+    line.append(el('dt', label), value);
     readings.append(line);
   }
-  panel.append(el('h3', 'Touch panel health'), readings);
+  heading.append(el('h3', 'Panel readings'));
+  panel.append(heading, readings,
+    el('p', 'Local touch panel only, not the room computer.', 'system-section-note'));
   health.append(panel);
   roomDiagnostics(health);
   parent.append(health);
-  const views = el('section', undefined, 'card');
+  const actions = el('section', undefined, 'system-actions'),
+    views = el('div', undefined, 'system-action-row'),
+    description = el('div', undefined, 'system-action-description');
+  actions.append(el('h3', 'Panel actions'));
   views.id = 'panel-view-controls';
-  const viewActions = el('div', undefined, 'row');
-  viewActions.append(
-    button('Open Legacy', () => command('legacy'), { action: 'legacy' }),
-  );
-  views.append(
-    el('h3', 'Panel views'),
+  description.append(
+    el('h4', 'Legacy'),
     el(
       'p',
-      'Legacy opens the original application with its original controls. Home checks the connection and stops Sun/Circ before automatically returning Beta controls to Ready, keeping current light levels. If the check fails, use Legacy or ask the room host.',
+      'Open the original controls. Website lighting pauses until the touch panel returns Home.',
       'muted',
     ),
-    viewActions,
   );
-  parent.append(views);
-  powerControls(parent);
+  views.append(description, button('Open Legacy', () => command('legacy'), { action: 'legacy' }));
+  actions.append(views);
+  powerControls(actions);
+  parent.append(actions);
+  const help = el('section', undefined, 'system-help');
+  help.append(el('h3', 'Help & reference'));
+  parent.append(help);
   const row = el('label', undefined, 'help-select');
   row.append(el('span', 'Help topic'));
   const select = el('select');
   select.setAttribute('aria-label', 'Help topic');
   select.id = 'help-topic';
   row.append(select);
-  parent.append(row);
+  help.append(row);
   const topics = content.help;
   for (const [i, t] of topics.entries()) {
     const option = el('option', t.title);
@@ -1307,11 +1323,11 @@ function system(parent) {
   };
   const detail = el('div');
   detail.id = 'help-detail';
-  parent.append(detail);
+  help.append(detail);
   renderHelp();
   const a = el('a', 'More diagnostics', 'help-diagnostics');
   a.href = window.SCR_DEMO ? '#tools-system' : '/diagnostics';
-  parent.append(a);
+  help.append(a);
 }
 function roomDiagnostics(parent) {
   const section = el('section', undefined, 'room-diagnostics'),
@@ -1328,10 +1344,11 @@ function roomDiagnostics(parent) {
   check.id = 'room-diagnostics-check';
   legacy.id = 'room-health';
   legacy.hidden = Boolean(state?.room_diagnostics);
+  header.classList.add('system-section-heading');
   header.append(el('h3', 'Room services'), check);
-  section.append(header, legacy, services, observed, status);
-  parent.append(section,
-    el('p', 'Service registrations only. TV/Status receives readings; this panel has no current environment readout.', 'room-services-note'));
+  section.append(header, legacy, services, observed, status,
+    el('p', 'Listed means registered on the room computer, not live readings or equipment health. TV/Status receives readings; this panel has no current environment readout.', 'system-section-note'));
+  parent.append(section);
 }
 function syncRoomDiagnostics() {
   const services = $('room-diagnostics-services');
@@ -1347,7 +1364,7 @@ function syncRoomDiagnostics() {
     services.replaceChildren();
     for (const service of rows) {
       const row = el('div');
-      row.append(el('dt', service.name === 'TOF' ? 'Time of flight' : service.name), el('dd', service.state === 'listed' ? 'Advertised' : service.state === 'missing' ? 'Missing' : 'Not checked'));
+      row.append(el('dt', service.name === 'TOF' ? 'Time of flight' : service.name), el('dd', service.state === 'listed' ? 'Listed' : service.state === 'missing' ? 'Missing' : 'Not checked'));
       services.append(row);
     }
   }
@@ -1375,20 +1392,22 @@ function healthNumber(value, decimals) {
   return Number.isFinite(value) ? value.toFixed(decimals) : '—';
 }
 function powerControls(parent) {
-  const card = el('section', undefined, 'card power-controls');
+  const card = el('section', undefined, 'power-controls'),
+    description = el('div', undefined, 'system-action-description');
   card.id = 'panel-power-controls';
-  card.append(
-    el('h3', 'Panel power'),
+  description.append(
+    el('h4', 'Panel power'),
     el(
       'p',
-      'These actions affect this touch panel and its website. They do not stop the room computer or connected recorders. Stop recordings and experiments first.',
+      'Affects this panel and website, not the room computer or recorders. Stop recordings and experiments first.',
       'muted',
     ),
   );
   const status = el('p', 'Power controls unavailable.', 'power-status');
   status.id = 'power-status';
   status.setAttribute('role', 'status');
-  card.append(status);
+  description.append(status);
+  card.append(description);
   const actions = el('div', undefined, 'row');
   for (const [operation, label] of [
     ['reboot', 'Restart panel'],
@@ -1496,6 +1515,8 @@ function renderHelp() {
   if (!topic) return;
   const card = el('section', undefined, 'card');
   for (const p of topic.text.split('\n\n')) card.append(el('p', p));
+  if (topic.title === 'Lighting')
+    card.append(el('p', 'When leaving Legacy, Home checks the connection and stops Sun/Circ before restoring Beta controls. Current light levels stay unchanged. If the check fails, use Legacy or ask the room host.'));
   $('help-detail').append(card);
   if (topic.commands) {
     $('help-detail').append(
@@ -1830,10 +1851,10 @@ function sync() {
   update('schedule-light_at', minutes(p.light_at ?? 420));
   update('schedule-dark_at', minutes(p.dark_at ?? 1140));
   const h = state?.health || {};
-  update('panel-memory', `Memory: ${healthNumber(h.error ? null : h.ram_available, 0)} / ${healthNumber(h.error ? null : h.ram_total, 0)} MiB free`);
-  update('panel-storage', `Storage: ${healthNumber(h.error ? null : h.disk_available, 1)} GiB free`);
-  update('panel-temperature', `CPU: ${healthNumber(h.error ? null : h.temperature, 1)} °C`);
-  update('panel-power', 'Power: ' + (typeof h.power === 'string' && h.power.trim() ? h.power : '—'));
+  update('panel-memory', `${healthNumber(h.error ? null : h.ram_available, 0)} / ${healthNumber(h.error ? null : h.ram_total, 0)} MiB free`);
+  update('panel-storage', `${healthNumber(h.error ? null : h.disk_available, 1)} GiB free`);
+  update('panel-temperature', `${healthNumber(h.error ? null : h.temperature, 1)} °C`);
+  update('panel-power', typeof h.power === 'string' && h.power.trim() ? h.power : '—');
   $('panel-power')?.classList.toggle('system-warning', typeof h.power === 'string' && h.power.startsWith('Current'));
   update('room-health', state?.room_status || 'No current room observation.');
   syncRoomDiagnostics();
