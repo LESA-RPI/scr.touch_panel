@@ -238,9 +238,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.weather_condition = tk.StringVar(value="Weather unavailable")
         self.annotation_text = tk.StringVar(
             value=(
-                "Annotations belong to the panel journal, separate from recordings."
+                "Tap a label to save an event in the panel journal."
                 if args.journal
-                else "Annotations go to panel output only. No recording starts."
+                else "Tap a label to mark an event in panel output."
             )
         )
         self.power_text = tk.StringVar(value=self.power.message)
@@ -964,7 +964,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                     if self.running else ""
                 ),
                 "visitor": "Visitor view does not change lighting. Recording status is unavailable here.",
-                "experiment": "Experiment mode: instructions and annotations. Recorder not connected.",
+                "experiment": "",
                 "settings": "Appearance settings belong to this device; they do not change room lighting.",
                 "about": "Panel credits and source repository. No room settings change.",
             }
@@ -1520,7 +1520,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             raise RuntimeError("Pause instructions and finish the current panel action before loading a setup.")
         self.profile = value
         self.stage, self.elapsed, self.run_started = 0, 0.0, None
-        self.annotation_text.set("Instructions reset. Recorder not connected.")
+        self.annotation_text.set("Tap a label to mark an event.")
         self.status_text.set("Study setup loaded for this panel session. Instructions are paused.")
         self.emit("profile_loaded", profile=value)
         if self.mode == "experiment":

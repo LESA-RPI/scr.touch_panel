@@ -80,7 +80,7 @@ def test_load_resets_session_and_records_full_profile_without_navigation(owner, 
     assert owner.profile == validate_profile(value)
     assert (owner.stage, owner.elapsed, owner.run_started, owner.running) == (0, 0, None, False)
     assert owner.events == [("profile_loaded", {"profile": owner.profile}, 0)]
-    assert owner.annotations == ["Instructions reset. Recorder not connected."]
+    assert owner.annotations == ["Tap a label to mark an event."]
     assert owner.mode == mode and owner.renders == ([mode] if mode == "experiment" else [])
     assert "session" in owner.messages[-1]
     value["stages"].append("Walk")
