@@ -154,16 +154,19 @@ class Lights(object):
             "observation_only": self.observe_only,
         }
 
-    def read(self):
+    def coordinates(self):
         flat = list(self.call("get_lights").lights)
         coords = [tuple(flat[i : i + 2]) for i in range(0, len(flat), 2)]
         if len(flat) != 20 or len(set(coords)) != 10 or set(coords) != COORDINATES:
             raise ValueError(
                 "Installed fixture identities differ from the qualified ten"
             )
+        return sorted(coords)
+
+    def read(self):
         return dict(
             (xy, words(list(self.call("get_sources", *xy).sources)))
-            for xy in sorted(coords)
+            for xy in self.coordinates()
         )
 
     def acquire(self):
@@ -196,7 +199,27 @@ class Lights(object):
         return result
 
     def check(self):
-        """Observe all ten fixtures twice; stable readback never proves ownership."""
+        """Check identities during requested programmes; otherwise read drives twice."""
+        if (not self.observe_only and self.programme in ("Sun", "Circ")
+                and self.current is None):
+            try:
+                coords = self.coordinates()
+            except Exception:
+                self.failed = True
+                raise
+            blocked = self.failed or self.blinds_failed
+            result = {
+                "state": "failed" if blocked else "checked",
+                "stable": False,
+                "fixtures": len(coords),
+                "ownership_verified": False,
+                "outcome_unknown": blocked,
+                "detail": ("Earlier result remains unconfirmed; controls stay blocked."
+                           if blocked else
+                           "Ten fixtures listed; programme requested. Stop for a stable drive check. Running status is unverified."),
+            }
+            result.update(self.capabilities())
+            return result
         try:
             first = self.read()
             self.sleep(0.25)
@@ -206,19 +229,17 @@ class Lights(object):
                 self.failed = True
             raise
         stable = first == state
-        programme_requested = (not self.observe_only and self.programme in ("Sun", "Circ")
-                               and self.current is None)
         # An established owner must retain its expected state. A check is not
         # permission to overwrite somebody else's settings or clear uncertainty.
         external_change = (not self.observe_only and self.current is not None
                            and state != self.current)
-        if not self.observe_only and ((not stable and not programme_requested) or external_change):
+        if not self.observe_only and (not stable or external_change):
             self.failed = True
         try:
             name = restore_preset(state)
         except ValueError:
             name = None
-        blocked = self.failed or self.blinds_failed or (not stable and not programme_requested)
+        blocked = not stable or self.failed or self.blinds_failed
         result = {
             "state": "failed" if blocked else "checked",
             "stable": stable,
@@ -228,9 +249,7 @@ class Lights(object):
             "power": "on" if any(any(values) for values in state.values()) else "off",
             "ownership_verified": False,
             "outcome_unknown": self.failed or self.blinds_failed,
-            "detail": ("Programme requested; readings may change. Stop for a stable check. Running status is unverified."
-                       if programme_requested and not blocked else
-                       "Light settings are changing; connection is not confirmed."
+            "detail": ("Light settings are changing; connection is not confirmed."
                        if not stable else
                        "Another controller changed the lights; control remains blocked."
                        if external_change else

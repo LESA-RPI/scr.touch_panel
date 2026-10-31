@@ -106,7 +106,7 @@ def test_unstable_check_is_unconfirmed_and_never_stops_programmes_or_restores():
 
 
 @pytest.mark.parametrize("programme", ["Sun", "Circ"])
-def test_check_of_requested_programme_accepts_changing_readings_and_keeps_stop_usable(programme):
+def test_check_of_requested_programme_reads_only_identities_and_keeps_stop_usable(programme):
     room, programmes = Room(), LegacyProgrammes()
     programmes.start = programmes.requests.append
     lights = adapter.Lights(room.call, keep_settings=True, programmes=programmes,
@@ -114,28 +114,53 @@ def test_check_of_requested_programme_accepts_changing_readings_and_keeps_stop_u
     lights.acquire()
     lights.run_programme(programme)
     before_check = list(programmes.requests)
-    scans = []
+    calls = []
 
-    def changing(name, *args):
-        if name == "get_lights":
-            scans.append(True)
-            room.state[min(room.state)] = (len(scans) * 1000,) * 8
+    def identity_only(name, *args):
+        calls.append(name)
+        assert name == "get_lights", "Changing programme drives must not be read"
         return room.call(name, *args)
 
-    lights.call = changing
+    lights.call = identity_only
     result = lights.check()
     assert result["state"] == "checked" and result["stable"] is False
     assert result["programme"] == programme and result["programme_confirmed"] is False
     assert result["manual_blocked"] and result["ownership_verified"] is False
     assert result["outcome_unknown"] is False and not lights.failed
-    assert "Stop for a stable check" in result["detail"] and "unverified" in result["detail"]
-    assert lights.current is None and len(scans) == 2
+    assert "Stop for a stable drive check" in result["detail"] and "unverified" in result["detail"]
+    assert not {"power", "baseline", "fixture_words"} & result.keys()
+    assert lights.current is None and calls == ["get_lights"]
     assert programmes.requests == before_check and not room.writes
-    lights.call = room.call
+    calls.clear()
+
+    def stable_read(name, *args):
+        calls.append(name)
+        return room.call(name, *args)
+
+    lights.call = stable_read
     stopped = lights.run_programme("Stop")
     assert stopped["state"] == "completed" and stopped["programme"] is None
     assert not stopped["manual_blocked"] and programmes.requests == before_check + ["stop"]
+    assert calls.count("get_lights") == 2 and calls.count("get_sources") == 20
     assert not room.writes
+
+
+@pytest.mark.parametrize("identities", [list(adapter.COORDINATES)[:-1],
+                                       [(0, 0)] * 10,
+                                       list(adapter.COORDINATES)[:-1] + [(9, 9)]])
+def test_requested_programme_identity_check_rejects_missing_duplicate_or_foreign_fixtures(identities):
+    calls = []
+
+    def call(name, *args):
+        calls.append(name)
+        assert name == "get_lights"
+        return SimpleNamespace(lights=[v for xy in identities for v in xy])
+
+    lights = adapter.Lights(call, keep_settings=True)
+    lights.programme = "Circ"
+    with pytest.raises(ValueError, match="identities"):
+        lights.check()
+    assert lights.failed and calls == ["get_lights"]
 
 
 @pytest.mark.parametrize("previous_failure", ["failed", "blinds_failed"])
