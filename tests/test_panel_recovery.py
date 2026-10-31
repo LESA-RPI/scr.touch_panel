@@ -39,6 +39,7 @@ def recoverable(tmp_path, monkeypatch):
     view.release_target = view.pending = view.queued_intent = view.intent_timer = None
     view.press_active = view.running = view.idle_active = False
     view.run_id, view.request_seq, view.sequence, view.view_generation = "test-owner", 0, 0, 0
+    view.control_sequence = 0
     view.elapsed, view.stage, view.profile = 0, 0, {}
     view.advanced_page = None
     view.confirmed_at = view.confirmed_power = view.confirmed_scene = None
