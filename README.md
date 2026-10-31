@@ -11,7 +11,7 @@ Earlier navigation, reliability and Legacy-parity changes are reviewed in
 [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1). An installed cabinet may
 run a different commit; check its release identity before maintenance.
 
-The current source version is **0.2.9**, owned by
+The current source version is **0.2.10**, owned by
 [app/panel_version.py](app/panel_version.py).
 It is for About and internal development/GitHub tracking; everyday headers say
 Beta. Legacy is the preserved older baseline for backtracking, identified by Git
@@ -67,6 +67,8 @@ can reopen. An unconfirmed programme stop or lighting result needs the room host
 Room tools opens each tool directly beside the sidebar and
 remembers the last tool. Experiment mode runs instructions and panel annotations;
 its recorder is not connected.
+Start becomes Resume after a pause; the timer continues from its saved value.
+Annotation buttons save panel markers, separately from recording controls.
 On the website, Experiment mode → Instruction profile can download the current
 data-only JSON setup or preview and load another while instructions are paused.
 Loading resets instructions and their timer for the current panel session; it

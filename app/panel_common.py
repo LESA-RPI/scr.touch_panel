@@ -39,6 +39,7 @@ PAGE_REFERENCES = (
     "classic_buttons",
     "classic_sliders",
     "programme_buttons",
+    "session_buttons",
     "light_buttons",
     "home_power_buttons",
     "scene_buttons",

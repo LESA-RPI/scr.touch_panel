@@ -218,6 +218,23 @@ def test_home_explains_why_running_instructions_disable_lighting(view):
     assert all(button.cget("state") == "disabled" for button in view.light_buttons)
 
 
+def test_instruction_controls_restore_current_state_after_leaving_and_returning(view):
+    view.elapsed, view.run_started, view.stage = 8, panel.monotonic(), 1
+    view.open_advanced("experiment")
+    view.root.update()
+    original = tuple(view.session_buttons)
+    assert original[0].cget("text") == "Resume instructions"
+    view.open_advanced("lighting")
+    view.root.update()
+    view.open_advanced("experiment")
+    view.root.update()
+    assert tuple(view.session_buttons) != original
+    assert view.session_buttons[0].cget("text") == "Resume instructions"
+    assert view.session_buttons[1].cget("state") == "disabled"
+    assert view.session_buttons[2].cget("state") == "normal"
+    assert view.session_buttons[3].cget("text") == "Next instruction"
+
+
 def test_unchanged_controls_and_recovery_do_not_schedule_geometry_work(view, monkeypatch):
     view.open_advanced("system")
     view.root.update()

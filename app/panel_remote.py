@@ -96,6 +96,7 @@ def snapshot(panel):
             "profile": panel.profile,
             "can_load_profile": getattr(panel, "can_load_profile", lambda: False)(),
             "running": panel.running,
+            "started": getattr(panel, "run_started", None) is not None or panel.elapsed > 0,
             "stage": panel.stage,
             "elapsed_s": int(elapsed),
             "annotation": panel.annotation_text.get(),

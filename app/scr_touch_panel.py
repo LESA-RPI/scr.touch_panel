@@ -403,15 +403,14 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 self.feedback_message,
                 recovery["title"] if recovery["status"] not in ("normal", "writing") else self.light_message.replace(" input / level ", " · level "),
             )
-            set_changed(
-                self.feedback_detail,
-                "Last confirmed: "
-                + ({"on": "Lights on · ", "off": "Lights off · "}.get(
-                    getattr(self, "confirmed_power", None), ""
-                ))
-                + self.confirmed_light.replace(" input / level ", " · level ")
-                + suffix,
-            )
+            recent = self.confirmed_light.replace(" input / level ", " · level ")
+            if age:
+                recent = "Last confirmed: " + {
+                    "on": "Lights on · ", "off": "Lights off · "
+                }.get(getattr(self, "confirmed_power", None), "") + recent + suffix
+            elif recent == "Not checked":
+                recent = "Lighting not checked yet."
+            set_changed(self.feedback_detail, recent)
             card = getattr(self, "light_feedback_card", None)
             if card is not None and card.winfo_exists():
                 routine = (
@@ -1137,6 +1136,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             self.blind_buttons,
             self.programme_buttons,
         ) = ([], [], [], [], [])
+        self.session_buttons = []
 
     def remember_detail(self):
         key = self.advanced_detail_key
@@ -1397,10 +1397,17 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         )
 
     def cancel_intent(self):
+        cancelled = self.queued_intent is not None
         if self.intent_timer is not None:
             self.root.after_cancel(self.intent_timer)
         self.intent_timer, self.queued_intent, self.slider_drag = None, None, None
         self.view_generation += 1
+        if (
+            cancelled and not self.pending and self.light_state == "ready"
+            and not self.ownership_blocked()
+            and getattr(self, "light_message", "").endswith(" / waiting to send")
+        ):
+            self.lighting_feedback("Unsent selection cancelled.")
 
     def dispatch_intent(self):
         self.intent_timer = None
@@ -1568,16 +1575,26 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         if self.mode != "experiment":
             return
         elapsed = self.elapsed + (monotonic() - self.run_started if self.running else 0)
-        self.stage_label.config(text=self.profile["stages"][self.stage])
-        self.timer_label.config(text="Elapsed  %02d:%02d" % divmod(int(elapsed), 60))
-        self.run_label.config(
-            text="Instruction %d of %d   /   %s"
-            % (
-                self.stage + 1,
-                len(self.profile["stages"]),
-                "Running" if self.running else "Paused",
-            )
+        for label, text in (
+            (self.stage_label, self.profile["stages"][self.stage]),
+            (self.timer_label, "Elapsed  %02d:%02d" % divmod(int(elapsed), 60)),
+            (self.run_label, "Instruction %d of %d   /   %s" % (
+                self.stage + 1, len(self.profile["stages"]), "Running" if self.running else "Paused")),
+        ):
+            if label.cget("text") != text:
+                label.config(text=text)
+        blocked = bool(self.pending or self.release_target or self.closing or self.power_busy())
+        actions = (
+            ("Resume instructions" if not self.running and (self.run_started is not None or self.elapsed > 0) else "Start instructions", not self.running),
+            ("Pause", self.running),
+            ("Previous instruction", self.stage > 0),
+            ("Finish instructions" if self.stage == len(self.profile["stages"]) - 1 else "Next instruction", True),
         )
+        for button, (text, enabled) in zip(getattr(self, "session_buttons", ()), actions):
+            values = {"text": text, "state": "normal" if enabled and not blocked else "disabled"}
+            changed = {key: value for key, value in values.items() if button.cget(key) != value}
+            if changed:
+                button.config(**changed)
 
     def power_busy(self):
         return bool(getattr(self, "power", None) and self.power.busy)

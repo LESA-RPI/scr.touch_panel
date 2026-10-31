@@ -571,13 +571,18 @@ function tools(root, page) {
       button('Start instructions', () => command('start'), { action: 'start', primary: true }),
       button('Pause', () => command('pause'), { action: 'pause' }),
     );
+    row.children[0].id = 'instruction-start';
+    row.children[1].id = 'instruction-pause';
     detail.append(row);
     const steps = el('div', undefined, 'row');
     steps.append(
       button('Previous instruction', () => command('previous'), { action: 'previous' }),
       button('Next instruction', () => command('next'), { action: 'next' }),
     );
+    steps.children[0].id = 'instruction-previous';
+    steps.children[1].id = 'instruction-next';
     detail.append(steps);
+    detail.append(el('p', 'Panel annotations', 'muted'));
     const marks = el('div', undefined, 'row');
     marks.id = 'marks';
     detail.append(marks);
@@ -1696,7 +1701,7 @@ function sync() {
       b.disabled = posting || !canCheckConnection();
       continue;
     }
-    b.disabled =
+    const disabled =
       posting ||
       Boolean(unknown) ||
       !available ||
@@ -1715,8 +1720,12 @@ function sync() {
             : lighting
               ? !state.can_control
               : session
-                ? !state.can_session
+                ? !state.can_session ||
+                  (a === 'start' && state.experiment?.running) ||
+                  (a === 'pause' && !state.experiment?.running) ||
+                  (a === 'previous' && state.experiment?.stage === 0)
                 : false);
+    if (b.disabled !== disabled) b.disabled = disabled;
     if (lighting || a === 'programme') {
       if (b.disabled && recovery.status !== 'normal')
         b.setAttribute?.('aria-describedby', 'recovery-title recovery-detail');
@@ -1760,13 +1769,12 @@ function sync() {
   );
   update(
     'light-recent',
-    'Last confirmed: ' +
+    s.confirmed_age_s === null || s.confirmed_age_s === undefined
+      ? s.recent && s.recent !== 'Not checked' ? s.recent : 'Lighting not checked yet.'
+      : 'Last confirmed: ' +
       ({on: 'Lights on · ', off: 'Lights off · '}[s.confirmed_power ?? s.power] || '') +
-      (s.recent || 'Not checked') +
-      (s.confirmed_age_s === null || s.confirmed_age_s === undefined
-        ? ''
-        : ' · ' +
-          (s.confirmed_age_s < 60 ? 'just now' : Math.floor(s.confirmed_age_s / 60) + ' min ago')),
+      (s.recent || 'Not checked') + ' · ' +
+      (s.confirmed_age_s < 60 ? 'just now' : Math.floor(s.confirmed_age_s / 60) + ' min ago'),
   );
   if ($('light-message')) $('light-message').className =
     available && recovery.status === 'normal' && state.can_control &&
@@ -1798,6 +1806,14 @@ function sync() {
         (e.running ? 'Running' : 'Paused'),
     );
     update('annotation', e.annotation);
+    for (const [id, text] of [
+      ['instruction-start', !e.running && (e.started ?? e.elapsed_s > 0) ? 'Resume instructions' : 'Start instructions'],
+      ['instruction-pause', 'Pause'],
+      ['instruction-previous', 'Previous instruction'],
+      ['instruction-next', e.stage === e.profile.stages.length - 1 ? 'Finish instructions' : 'Next instruction'],
+    ]) {
+      update(id, text);
+    }
     const marks = $('marks'),
       labels = JSON.stringify(e.profile.annotations);
     if (marks && marks.dataset.labels !== labels) {

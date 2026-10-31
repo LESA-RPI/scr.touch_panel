@@ -264,6 +264,14 @@ def test_remote_lighting_uses_current_owner_without_changing_beta_page(remote_ow
     assert remote_owner.mode == mode
 
 
+def test_remote_instruction_started_preserves_fast_pause_and_resets_with_profile(remote_owner):
+    remote_owner.elapsed, remote_owner.run_started = 0.2, 100.0
+    state = snapshot(remote_owner)["experiment"]
+    assert state["elapsed_s"] == 0 and state["started"] is True
+    remote_owner.elapsed, remote_owner.run_started = 0, None
+    assert snapshot(remote_owner)["experiment"]["started"] is False
+
+
 @pytest.mark.parametrize("field,value", [
     ("mode", "original"), ("mode", "black"), ("running", True),
     ("pending", {"request_id":"pending"}), ("queued_intent", {"action":"on"}),

@@ -524,7 +524,7 @@ class PanelViews:
             area, "Profile describes: " + self.profile["sensors"], 16, True
         )
         self.wrap_label(metadata).pack(fill="x", padx=22, pady=(0, 4))
-        self.row_buttons(
+        self.session_buttons = self.row_buttons(
             self.body,
             [
                 ("Start instructions", self.start_preview, True),
@@ -532,7 +532,7 @@ class PanelViews:
             ],
             height=60,
         )
-        self.row_buttons(
+        self.session_buttons += self.row_buttons(
             self.body,
             [
                 ("Previous instruction", self.previous_stage, False),
@@ -540,6 +540,7 @@ class PanelViews:
             ],
             height=60,
         )
+        self.label(self.body, "Panel annotations", 15, True).pack(anchor="w", pady=(2, 0))
         self.row_buttons(
             self.body,
             [
@@ -548,7 +549,7 @@ class PanelViews:
             ],
         )
         annotation = self.label(self.body, size=16, muted=True)
-        annotation.config(textvariable=self.annotation_text, height=2)
+        annotation.config(textvariable=self.annotation_text)
         self.wrap_label(annotation).pack(fill="x")
         self.update_session()
 

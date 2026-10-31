@@ -423,6 +423,7 @@ class PanelGuidance:
             )
             for button in actions:
                 button.config(font=(self.font_family, 17), pady=8)
+            self.style_guide_link(actions[2])
             actions[1]._gradient = True
             self.light_buttons.extend(actions[:2])
             self.feedback_card(content, padding=8)
@@ -430,7 +431,7 @@ class PanelGuidance:
                 self.light_feedback_card.pack_configure(side="bottom", before=visual)
             self.update_light_buttons()
         elif topic["links"]:
-            self.row_buttons(
+            links = self.row_buttons(
                 content,
                 [
                     (
@@ -444,6 +445,8 @@ class PanelGuidance:
                 ],
                 height=56,
             )
+            for button in links:
+                self.style_guide_link(button)
         buttons = self.row_buttons(
             self.body,
             [
@@ -476,6 +479,14 @@ class PanelGuidance:
                     24,
                 )
             )
+
+    def style_guide_link(self, button):
+        background = button.master.cget("bg")
+        button.config(
+            bg=background, highlightbackground=background, highlightcolor=background,
+            image=self.icon("chevron-right", self.ink, 20), compound="right",
+            font=(self.font_family, 17), pady=8,
+        )
 
     def change_guide(self, delta):
         indices = [i for i, topic in enumerate(DEMO) if topic["section"] == self.guide_section]
@@ -583,7 +594,7 @@ class PanelGuidance:
 
     def guide_visual(self, parent, kind):
         canvas = tk.Canvas(
-            parent, height=60 if kind == "channels" else 110, bg=parent.cget("bg"),
+            parent, height=60 if kind == "channels" else 190, bg=parent.cget("bg"),
             highlightthickness=0, borderwidth=0,
         )
         canvas.pack(fill="x", pady=(0, 6 if kind == "channels" else 10))
@@ -604,22 +615,28 @@ class PanelGuidance:
                     )
             elif kind == "distance":
                 for center, name, columns, rows in (
-                    (width / 4, "COMBO · 8 × 8", 8, 8),
-                    (width * 3 / 4, "IRMA · 25 × 20", 25, 20),
+                    (width / 4, "COMBO", 8, 8),
+                    (width * 3 / 4, "IRMA", 25, 20),
                 ):
                     canvas.create_text(
-                        center, 12, text=name,
-                        font=(self.font_family, 13), fill=self.ink,
+                        center, 18,
+                        text="%s · %d × %d · %d cells" % (name, columns, rows, columns * rows),
+                        font=(self.font_family, 16), fill=self.ink,
                     )
-                    left, top = center - columns * 3 / 2, 56 - rows * 3 / 2
+                    cell = 120 / rows
+                    left, top = center - columns * cell / 2, 38
                     for column in range(columns + 1):
-                        x = left + column * 3
-                        canvas.create_line(x, top, x, top + rows * 3, fill=self.muted)
+                        x = left + column * cell
+                        canvas.create_line(
+                            x, top, x, top + rows * cell, fill=self.muted, tags=name.lower()
+                        )
                     for row in range(rows + 1):
-                        y = top + row * 3
-                        canvas.create_line(left, y, left + columns * 3, y, fill=self.muted)
+                        y = top + row * cell
+                        canvas.create_line(
+                            left, y, left + columns * cell, y, fill=self.muted, tags=name.lower()
+                        )
                 canvas.create_text(
-                    width / 2, 98, text="Distance cells · schematic, not live readings or heat",
+                    width / 2, 176, text="Distance samples · schematic examples, no live readings",
                     font=(self.font_family, 12), fill=self.muted,
                 )
 

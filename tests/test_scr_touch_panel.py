@@ -727,6 +727,60 @@ def capture_lighting_feedback(state):
     return values
 
 
+@pytest.mark.parametrize("recent,expected", [
+    ("Not checked", "Lighting not checked yet."),
+    ("Programme request accepted; live state unavailable", "Programme request accepted; live state unavailable"),
+    ("Session ended", "Session ended"),
+])
+def test_untimed_feedback_does_not_claim_confirmed_lighting(recent, expected):
+    state = panel.Panel.__new__(panel.Panel)
+    state.confirmed_light, state.confirmed_power = recent, "on"
+    feedback = capture_lighting_feedback(state)
+    state.confirmed_at = None
+    state.light_message = "Sending a lighting request. Waiting for confirmation."
+    state.refresh_confirmation_age()
+    assert feedback["feedback_detail"] == expected
+    assert feedback["feedback_message"] == state.light_message
+    # Keep the existing Classic detail contract separate from the modern strip.
+    assert "Last confirmed drive: " + recent in feedback["light_text"]
+
+
+@pytest.mark.parametrize("queued,pending,light_state,blocked,message,expected", [
+    (True, None, "ready", False, "Selected: 4500 K input / level 1000 / waiting to send", "Unsent selection cancelled."),
+    (True, {"request_id": "inflight"}, "applying", False, "Selected: 4500 K input / level 1000 / waiting to send", None),
+    (True, None, "failed", False, "Result unconfirmed. Controls disabled.", None),
+    (True, None, "ready", True, "Selected: 4500 K input / level 1000 / waiting to send", None),
+    (False, None, "ready", False, "Selected: 4500 K input / level 1000 / waiting to send", None),
+    (True, None, "ready", False, "Waiting for controller confirmation.", None),
+])
+def test_navigation_cancels_only_unsent_selection_wording(
+    monkeypatch, queued, pending, light_state, blocked, message, expected
+):
+    state = panel.Panel.__new__(panel.Panel)
+    monkeypatch.setattr(panel, "monotonic", lambda: 60)
+    state.confirmed_light, state.confirmed_power = "Fid scene", "on"
+    feedback = capture_lighting_feedback(state)
+    state.light_message = message
+    state.pending, state.light_state = pending, light_state
+    state.ownership_blocked = lambda: blocked
+    state.view_generation, state.lighting_tab = 0, "white"
+    state.queued_intent = ("cct", {"cct": 4500, "intensity": 1000}, 0) if queued else None
+    state.intent_timer, state.slider_drag = (7 if queued else None), object()
+    cancelled, rebuilt = [], []
+    state.root = SimpleNamespace(after_cancel=cancelled.append)
+    state.rebuild_advanced_detail = lambda: rebuilt.append(state.lighting_tab)
+    state.request = lambda *args: pytest.fail("Cancelled navigation must not send or replay a room action")
+    state.refresh_confirmation_age()
+    state.choose_lighting_tab("scenes")
+    state.dispatch_intent()
+    assert state.queued_intent is state.intent_timer is state.slider_drag is None
+    assert state.view_generation == 1 and rebuilt == ["scenes"]
+    assert cancelled == ([7] if queued else [])
+    assert state.light_message == (expected or message)
+    assert feedback["feedback_message"] == (expected or message).replace(" input / level ", " · level ")
+    assert feedback["feedback_detail"] == "Last confirmed: Lights on · Fid scene / 1 min ago"
+
+
 def test_compact_feedback_keeps_progress_and_warning_beside_dated_readback(monkeypatch):
     state = panel.Panel.__new__(panel.Panel)
     monkeypatch.setattr(panel, "monotonic", lambda: 60)

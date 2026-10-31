@@ -81,6 +81,7 @@ function preferencesWebsite(page, roomContent = {}) {
         get id() {return this.elementId;}, set id(value) {this.elementId = value; preferenceIds.set(value, this);},
         append(...children) {this.children.push(...children); this.attach();},
         prepend(...children) {this.children.unshift(...children); this.attach();},
+        replaceChildren(...children) {this.children = children; this.attach();},
         attach() {this.children.forEach((child, index) => {child.parentElement = this; child.previousElementSibling = this.children[index - 1];});},
         setAttribute(name, value) {this[name] = value;},
         querySelector(tag) {return preferenceDescendants(this).find(child => child.tagName === tag) || null;},
@@ -447,6 +448,17 @@ function preferencesWebsite(page, roomContent = {}) {
   homeState.run('state.lights.power = state.lights.confirmed_power = null; shippedSync();');
   assert.equal(homeState.run("$('light-recent').textContent"), 'Last confirmed: Off · 3 min ago', 'Unknown confirmed power does not invent an On or Off state');
   assert.equal(homeState.run('powerButtons.some(button => button["aria-pressed"] !== undefined || button.classList.selected) || sceneButton["aria-pressed"] !== undefined || Boolean(sceneButton.classList.selected)'), false);
+  for (const [recent, expected] of [
+    ['Not checked', 'Lighting not checked yet.'],
+    ['Programme request accepted; live state unavailable', 'Programme request accepted; live state unavailable'],
+    ['Session ended', 'Session ended'],
+    [undefined, 'Lighting not checked yet.'],
+  ]) {
+    homeState.context.untimedRecent = recent;
+    homeState.run("state.lights.confirmed_age_s = null; state.lights.confirmed_power = 'on'; state.lights.recent = untimedRecent; state.lights.message = 'Waiting for controller confirmation.'; shippedSync();");
+    assert.equal(homeState.run("$('light-recent').textContent"), expected, 'Untimed status cannot claim a confirmed power or lighting readback');
+    assert.equal(homeState.run("$('light-message').textContent"), 'Waiting for controller confirmation.');
+  }
   assert.equal(homeState.commands.length, 0);
 
   const whitePreset = preferencesWebsite('lighting-white', guideContent.context.generatedContent);
@@ -511,6 +523,27 @@ function preferencesWebsite(page, roomContent = {}) {
   assert.equal(blindPermission.run("$('blind-lock').disabled"), true);
   await blindPermission.run("$('blind-lock').onclick()");
   assert.equal(blindPermission.commands.length, 2, 'A disconnected adapter cannot be unlocked');
+  const instructions = preferencesWebsite('experiment');
+  instructions.run("state.can_session = true; state.experiment = {profile:{title:'Instructions', stages:['First', 'Last'], annotations:[]}, stage:0, elapsed_s:0, started:false, running:false}; sync();");
+  assert.equal(instructions.run("$('instruction-start').textContent"), 'Start instructions');
+  assert.equal(instructions.run("$('instruction-start').disabled"), false);
+  assert.equal(instructions.run("$('instruction-pause').disabled"), true);
+  assert.equal(instructions.run("$('instruction-previous').disabled"), true);
+  instructions.run('state.experiment.running = true; state.experiment.started = true; sync();');
+  assert.equal(instructions.run("$('instruction-start').disabled"), true);
+  assert.equal(instructions.run("$('instruction-pause').disabled"), false);
+  instructions.run('state.experiment.running = false; sync();');
+  assert.equal(instructions.run("$('instruction-start').textContent"), 'Resume instructions', 'A pause before one whole second still resumes');
+  instructions.run('state.experiment.stage = 1; sync();');
+  assert.equal(instructions.run("$('instruction-next').textContent"), 'Finish instructions');
+  assert.equal(instructions.run("$('instruction-previous').disabled"), false);
+  instructions.run("state.experiment.started = false; state.experiment.stage = 0; sync();");
+  assert.equal(instructions.run("$('instruction-start').textContent"), 'Start instructions', 'A reset profile restores the initial label');
+  instructions.run("delete state.experiment.started; state.experiment.elapsed_s = 4; sync();");
+  assert.equal(instructions.run("$('instruction-start').textContent"), 'Resume instructions', 'Older owners retain elapsed-time compatibility');
+  instructions.run("unknown = 'unconfirmed-command'; sync();");
+  assert.equal(instructions.run("['instruction-start', 'instruction-pause', 'instruction-previous', 'instruction-next'].every(id => $(id).disabled)"), true);
+  assert.equal(instructions.commands.length, 0);
 
   const profile = profileWebsite();
   await profile.run("chooseProfile({title:'Visitor demo', stages:['Sit still', 'Walk'], annotations:['Beginning', 'Finished']})");

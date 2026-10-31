@@ -38,6 +38,10 @@ and `recording: false`. Like other ordinary events, it is not a durable recordin
 manifest. General HTTP/socket command envelopes are limited to 32 KiB; the
 private lighting handoff remains limited to 4 KiB.
 
+`experiment.started` is a derived display flag for Start/Resume wording, including
+a pause shorter than one elapsed second. Loading a profile resets it. It does not
+describe recording state or add a new instruction lifecycle.
+
 ## Panel journal
 
 `--journal` creates a new mode-0600 JSONL file, never appends to a recording.

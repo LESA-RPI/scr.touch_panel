@@ -79,7 +79,42 @@ def test_guide_light_actions_keep_shared_requests_and_one_feedback_card(view):
         assert button.cget("state") == "normal"
         button.invoke()
     assert requests == [("channels", {"values": list(PRESETS["Fid"])}), ("gradient", {})]
+    lighting, = [w for w in widgets(view.body)
+                 if w.winfo_class() == "Button" and w.cget("text") == "Open Lighting"]
+    assert lighting not in view.light_buttons and lighting.winfo_height() >= 44
+    lighting.invoke()
+    view.root.update()
+    assert view.advanced_page == "lighting"
+    assert len(requests) == 2  # The adjacent page link never sends a lighting command.
     view.worker = None
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_distance_illustrations_are_readable_reference_grids_without_live_requests(view, theme):
+    def blocked(*args, **kwargs):
+        pytest.fail("A sampling-grid illustration must not request room equipment")
+
+    view.request = view.start_worker = blocked
+    view.choose_theme(theme)
+    view.choose_guide(next(i for i, topic in enumerate(DEMO) if topic.get("visual") == "distance"))
+    view.root.update()
+    canvas, = [w for w in widgets(view.body) if w.winfo_class() == "Canvas"]
+    labels = [canvas.itemcget(item, "text") for item in canvas.find_all() if canvas.type(item) == "text"]
+    assert "COMBO · 8 × 8 · 64 cells" in labels
+    assert "IRMA · 25 × 20 · 500 cells" in labels
+    assert any("schematic" in label and "no live readings" in label for label in labels)
+    for item in canvas.find_all():
+        if canvas.type(item) == "text":
+            left, top, right, bottom = canvas.bbox(item)
+            assert 0 <= left < right <= canvas.winfo_width()
+            assert 0 <= top < bottom <= canvas.winfo_height()
+    for family in ("combo", "irma"):
+        left, top, right, bottom = canvas.bbox(family)
+        assert right - left >= 120 and bottom - top >= 120
+        assert 0 <= top < bottom <= canvas.winfo_height()
+    for label in widgets(view.body):
+        if label.winfo_class() == "Label" and label.winfo_ismapped():
+            assert label.winfo_height() >= label.winfo_reqheight()
 
 
 @pytest.mark.parametrize("guard", ["failed", "running", "ownership", "unsupported-gradient"])

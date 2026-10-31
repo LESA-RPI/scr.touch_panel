@@ -12,6 +12,96 @@ import scr_touch_panel as panel
 from test_scr_touch_panel import journal_panel
 
 
+def instruction_state():
+    def control(text=""):
+        values, changes = {"text": text, "state": "normal"}, []
+        def configure(**updated):
+            values.update(updated)
+            changes.append(updated)
+        return SimpleNamespace(cget=values.__getitem__, config=configure, changes=changes)
+    state = panel.Panel.__new__(panel.Panel)
+    state.mode, state.running, state.elapsed, state.run_started = "experiment", False, 0.0, None
+    state.profile, state.stage = {"stages": ["First", "Middle", "Last"]}, 0
+    state.pending = state.release_target = state.closing = state.power = None
+    state.stage_label, state.timer_label, state.run_label = control(), control(), control()
+    state.session_buttons = [control(text) for text in (
+        "Start instructions", "Pause", "Previous instruction", "Next instruction"
+    )]
+    state.annotation_text = SimpleNamespace(set=lambda value: None)
+    state.emit = lambda *args, **kwargs: None
+    return state
+
+
+@pytest.mark.parametrize("running,elapsed,stage,start,pause,previous,next_text", [
+    (False, 0, 0, "Start instructions", "disabled", "disabled", "Next instruction"),
+    (True, 0, 1, "Start instructions", "normal", "normal", "Next instruction"),
+    (False, 12, 1, "Resume instructions", "disabled", "normal", "Next instruction"),
+    (False, 12, 2, "Resume instructions", "disabled", "normal", "Finish instructions"),
+])
+def test_instruction_controls_describe_the_current_actions(monkeypatch, running, elapsed, stage, start, pause, previous, next_text):
+    state = instruction_state()
+    state.running, state.elapsed, state.stage = running, elapsed, stage
+    state.run_started = 90 if running or elapsed > 0 else None
+    monkeypatch.setattr(panel, "monotonic", lambda: 100)
+    state.update_session()
+    assert state.session_buttons[0].cget("text") == start
+    assert state.session_buttons[0].cget("state") == ("disabled" if running else "normal")
+    assert state.session_buttons[1].cget("state") == pause
+    assert state.session_buttons[2].cget("state") == previous
+    assert state.session_buttons[3].cget("text") == next_text
+
+
+def test_unchanged_instruction_refresh_preserves_a_held_action():
+    state = instruction_state()
+    state.update_session()
+    controls = [state.stage_label, state.timer_label, state.run_label, *state.session_buttons]
+    for control in controls:
+        control.changes.clear()
+    state.press_active = True
+    state.can_load_profile = lambda: pytest.fail("A held instruction button is not profile admission")
+    state.update_session()
+    assert all(not control.changes for control in controls)
+    assert state.session_buttons[0].cget("state") == "normal"
+
+
+@pytest.mark.parametrize("busy", ["pending", "release_target", "closing", "power"])
+def test_instruction_controls_respect_existing_pending_and_power_work(busy):
+    state = instruction_state()
+    setattr(state, busy, SimpleNamespace(busy=True) if busy == "power" else True)
+    state.update_session()
+    assert all(button.cget("state") == "disabled" for button in state.session_buttons)
+
+
+def test_finishing_the_final_instruction_pauses_without_a_new_completion_state(monkeypatch):
+    state = instruction_state()
+    state.running, state.stage, state.run_started = True, 2, 90
+    monkeypatch.setattr(panel, "monotonic", lambda: 100)
+    state.next_stage()
+    assert not state.running and state.stage == 2 and state.elapsed == 10
+    assert state.session_buttons[0].cget("text") == "Resume instructions"
+    assert state.session_buttons[3].cget("text") == "Finish instructions"
+
+
+def test_fast_pause_resumes_and_loading_a_profile_resets_instruction_labels(monkeypatch):
+    state = instruction_state()
+    clock = [100.0]
+    monkeypatch.setattr(panel, "monotonic", lambda: clock[0])
+    state.cancel_intent = lambda: None
+    state.start_preview()
+    clock[0] += 0.2
+    state.stop_preview()
+    assert 0 < state.elapsed < 1
+    assert state.session_buttons[0].cget("text") == "Resume instructions"
+    state.check_profile_fit = lambda value: None
+    state.can_load_profile = lambda: True
+    state.status_text = SimpleNamespace(set=lambda value: None)
+    state.render = lambda: None
+    state.load_profile({"title": "New instructions"})
+    state.update_session()
+    assert state.run_started is None and state.elapsed == 0 and state.stage == 0
+    assert state.session_buttons[0].cget("text") == "Start instructions"
+
+
 @pytest.mark.parametrize("resources", [{}, {"error": "Resource query unavailable"}])
 def test_room_service_status_refreshes_independently_of_panel_resource_errors(resources):
     state = panel.Panel.__new__(panel.Panel)

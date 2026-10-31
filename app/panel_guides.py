@@ -85,9 +85,9 @@ DEMO = (
         "visual": "distance",
         "icon": "experiment",
         "caption": "COMBO, IRMA and Color",
-        "text": "COMBO boards combine an 8 × 8 time-of-flight distance map with a colour measurement. Time of flight estimates distance from the return of emitted light.\n\n"
-        "IRMA Matrix sensors provide larger 25 × 20 distance and return-amplitude arrays. These are distance measurements, rather than heat images.\n\n"
-        "The separate Color network measures the room's light colour without forming a photograph. Raw sensor values need calibration before being treated as absolute measurements.",
+        "text": "COMBO times reflected light to measure distance on an 8 × 8 grid, and also measures light colour.\n\n"
+        "IRMA Matrix provides 25 × 20 distance samples and reflected-signal strength. These are distance measurements, not heat images.\n\n"
+        "Color sensors measure light colour without forming a photograph. Raw values need calibration for absolute measurements.",
         "links": [],
     },
     {
