@@ -2387,7 +2387,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             unsent = getattr(self, "unsent_request", None)
             if unsent is not None:
                 if recovery.error or monotonic() - self.unsent_request_at > 10:
-                    self.fail_worker("Lighting recovery save did not finish. No command was sent; ask staff.")
+                    self.fail_worker("Lighting save did not finish. No command was sent.")
                 elif not recovery.pending:
                     self.unsent_request = None
                     self.send_request(unsent)
@@ -2427,13 +2427,13 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                     if len(self.worker_buffer) > 8192:
                         raise ValueError("Adapter reply too large")
             except (IOError, OSError, ValueError, UnicodeError):
-                self.fail_worker("Invalid or unreadable adapter reply; controls disabled. Ask staff.")
+                self.fail_worker("Unreadable lighting reply.")
             while "\n" in self.worker_buffer:
                 line, self.worker_buffer = self.worker_buffer.split("\n", 1)
                 try:
                     response = json.loads(line)
                 except (ValueError, RecursionError):
-                    self.fail_worker("Invalid adapter reply; controls disabled. Ask staff.")
+                    self.fail_worker("Invalid lighting reply.")
                     break
                 if not isinstance(response, dict) or (
                     "detail" in response and not isinstance(response["detail"], str)
@@ -2450,7 +2450,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 ) or (
                     "blinds_connected" in response and type(response["blinds_connected"]) is not bool
                 ):
-                    self.fail_worker("Invalid adapter reply; controls disabled. Ask staff.")
+                    self.fail_worker("Invalid lighting reply.")
                     break
                 if (
                     response.get("version") == 1
@@ -2487,7 +2487,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                     "blind": ("completed", "failed"),
                 }.get(self.pending["action"], ())
                 if response.get("version") != 1 or response.get("state") not in expected:
-                    self.fail_worker("Invalid adapter reply; controls disabled. Ask staff.")
+                    self.fail_worker("Invalid lighting reply.")
                     continue
                 completed_request, self.pending = self.pending, None
                 action = completed_request["action"]
@@ -2604,7 +2604,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             if saved != getattr(self, "recovery_displayed", None):
                 self.recovery_displayed = saved
                 if recovery.error:
-                    self.fail_worker("Lighting recovery could not be saved. Controls disabled; ask staff.")
+                    self.fail_worker("Lighting state could not be saved. Ask the room host.")
                 else:
                     self.update_light_buttons()
 

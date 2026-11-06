@@ -18,7 +18,7 @@ DEMO = (
         ],
         "text": "Use Lights on and Lights off on Home for everyday lighting.\n\n"
         "Room tools → Lighting brings White light, Scenes, Programmes and Channels together. Opening a tab does not change the lights.\n\n"
-        "Last confirmed shows the most recent controller readback and its age. If a result is unconfirmed, do not repeat it. Check connection reads current lighting without changing it; ask the room host if controls stay unavailable.",
+        "Last confirmed shows the most recent controller readback and its age. If a change cannot be confirmed, the panel reads the lights again and controls return. Check connection reads current lighting without changing it; ask the room host if controls stay unavailable.",
     },
     {
         "section": "controls",
@@ -108,7 +108,7 @@ SUPPORT = (
     (
         "Lighting",
         "room",
-        "Check connection reads current settings without changing the lights. If a result is unconfirmed, do not repeat the command; ask the room host. Experiment controls return after cleanup.",
+        "Check connection reads current settings without changing the lights. If a change cannot be confirmed, the panel reads the lights again; press the control again if needed. Experiment controls return after cleanup.",
         "",
     ),
     (

@@ -99,9 +99,8 @@ the feedback area; the footer is reserved for explanations, progress and problem
 Room tools keeps its sidebar in place while changing tools. Unchanged clock/status
 values do not trigger another redraw. Resource checks run in the background so
 slow reads do not hold up touches.
-Lighting recovery saves also run in the background; commands and controller
-handoffs still wait for durable confirmation before proceeding. Slow storage
-does not permit retries or bypass uncertain-result checks.
+Lighting presses never wait for storage. Only experiment and Legacy handoffs
+are saved before they proceed.
 Home, the screen saver and Lighting tabs reuse their existing widgets when you
 return. Readback, availability and slider bindings refresh before controls are
 shown; this does not cache lighting commands or bypass controller checks.
@@ -150,8 +149,8 @@ idle choices, not light settings or recording state.
 
 **Lighting reserved for an experiment** means its owner must return everyday
 control when finished. **Check connection** reads current settings without changing
-them or repeating a command. If a result is unconfirmed, do not retry; ask the room
-host. **Room tools → System & help** provides guidance. **Website offline** means
+them or repeating a command. If a change cannot be confirmed, the panel reads the
+lights again and controls return; press the control again if needed. **Room tools → System & help** provides guidance. **Website offline** means
 the page cannot reach the panel; it reconnects automatically.
 Opening guide pages operates no devices; its labelled scene buttons are explicit
 room actions. A two-second stationary

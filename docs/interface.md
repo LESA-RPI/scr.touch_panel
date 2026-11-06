@@ -105,8 +105,8 @@ start, stop or restore a programme.
 whole-room service sequence. Lift requests lift 100; Open requests tilt 50;
 Close requests tilt 100 followed after two seconds by lift 0. Returned values
 acknowledge service acceptance, not measured physical position. This is available
-only through the persistent shared owner; an uncertain result disables further
-commands until checked.
+only through the persistent shared owner; a failed result ends the helper and
+the panel reconnects with a fresh read.
 
 Replies echo `version` and `request_id`. States are `ready`, `checked`, `completed`,
 `released` or `failed`. Success includes fixture count and relevant baseline,
@@ -123,11 +123,9 @@ Only one request is in flight. Requests are capped at 4096 bytes; buffers at
 8192 bytes. Requests older than the ten-second lease are refused. Both processes
 use the same host monotonic clock. Initialization is the only unsolicited message.
 Recovery receipts include baseline and request/result records.
-Runtime ownership checkpoints are saved by one background writer in FIFO order.
-Public readiness, actuator dispatch and Legacy takeover wait for those saves;
-in-memory state alone cannot authorize a command or an experiment reservation.
-A pre-dispatch save timeout cancels the unsent request; late completion does not
-send it. Helper input uses bounded nonblocking writes on Linux, failing closed
+Handoff checkpoints (experiment reservation, Legacy entry and return) are saved by
+one background writer in FIFO order and wait for those saves. Everyday commands are
+tracked in memory only. Helper input uses bounded nonblocking writes on Linux, failing closed
 when its pipe is full. Power execution waits for recovery storage as well.
 
 The same helper has a separate `--status-only` command. It reads the ROS master's
@@ -137,12 +135,12 @@ and labels the result as advertised service availability. It does not query TOF,
 blinds, HVAC or acquisition data, and does not assess IRMA recorder health.
 
 `check` has empty arguments and returns `checked` after stable read-only scans of
-all ten lights. It cannot resolve an uncertain write or prove remote handlers idle.
+all ten lights. In room control a stable check adopts the current settings.
 
 ## Lighting ownership and recovery
 
-Ownership persists before writes and handoffs. Interrupted work and storage errors
-block writes across restart. Heartbeats older than 60 seconds warn without reclaiming
+Handoffs persist before they proceed. An interrupted handoff and storage errors
+block writes across restart; an interrupted everyday command does not. Heartbeats older than 60 seconds warn without reclaiming
 ownership. Tokens are stored hashed and excluded from public snapshots.
 
 The same-user mode-0600 socket accepts exactly `op: "lighting_handoff"`, `id`,

@@ -49,9 +49,9 @@ confirmation to distinguish a selection from a result.
 Scenes includes the original ten-fixture Gradient when the coordinate service is
 available. Programmes exposes the original Sun/Circ requests through the existing
 Status service when configured below. Start/Stop acceptance is not programme
-running or completion confirmation. Before an explicit manual lighting action,
-the helper requests both programmes stop and qualifies stable drive readback;
-uncertain results block further changes. Opening Beta pages does not stop
+running or completion confirmation. A manual lighting action first stops
+Sun/Circ only when a programme may be running, then applies the setting and reads
+it back. Opening Beta pages does not stop
 programmes or send lighting setters. Blind commands use the same
 helper, with service acknowledgements rather than measured physical positions.
 
@@ -72,20 +72,22 @@ defines these checks.
 The helper has a ten-second parent lease and 30-second operation budget, with
 individual service calls bounded to at most twelve seconds. Persistent control
 releases without setters; bounded trials restore only while the last confirmed
-drive state still matches. A lost response or external change disables further
-writes and automatic trial restoration. Never retry
-an uncertain write. Inspect the private `.lights-*.jsonl` receipt and coordinate
-with staff before controlling again.
+drive state still matches. In everyday room control, lights changed
+outside the panel are accepted as they are. A failed or lost result ends the helper;
+the panel starts a new one that reads the lights before the next change and never
+repeats the old command. Bounded trials still refuse writes and restoration after
+an external change. Experiment and Legacy handoffs stay blocked until staff check them.
+Receipts are in the private `.lights-*.jsonl` files.
 
 Deadlines do not bound filesystem stalls.
 
-Recovery checkpoints use one ordered background writer. The UI remains responsive
-while saving; a command is not dispatched until its checkpoint is durable, and
-Legacy input remains covered until its handoff is saved. A save taking more than
-ten seconds before dispatch or Legacy handoff blocks that action without a later
-retry. Confirmations and experiment ownership remain unavailable until saved.
-Power actions also wait for recovery saves. Never remove durability checks to
-improve speed. The private journal records widget-update time as `render_ms` and
+Ownership checkpoints (experiment and Legacy handoffs) use one ordered
+background writer; the UI stays responsive while saving and the handoff waits for
+it. Everyday commands are kept in memory and are not saved per press.
+
+Legacy runs hidden while Beta is on screen, so taps cannot reach its buttons. Beta
+signals it about once a second; Legacy shows itself when the user opens it, or
+after 5 s without a signal (Beta closed or stuck). The private journal records widget-update time as `render_ms` and
 rate-limited callback delays over 200 ms; these are not physical touch latency.
 
 An initializing helper is cancelled after 30 seconds without sending a lighting
