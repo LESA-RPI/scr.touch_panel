@@ -271,27 +271,25 @@ def test_public_legacy_action_opens_original_fallback(recoverable, monkeypatch):
     assert destinations == ["original"]
 
 
-def test_storage_failure_after_command_confirmation_keeps_ui_loop_and_safety_block(recoverable, monkeypatch):
-    live_helper(recoverable)
+def test_everyday_command_never_waits_for_or_depends_on_storage(recoverable, monkeypatch):
+    worker = live_helper(recoverable)
     monkeypatch.setattr(panel.select, "select", lambda *unused: ([], [], []))
-    assert recoverable.request("channels", {"values": [0] * 8})
-    recoverable.worker_buffer = json.dumps({"version": 1, "request_id": recoverable.pending["request_id"],
-        "state": "completed", "fixtures": 10, "words": [0] * 8}) + "\n"
-    scheduled = []
-    monkeypatch.setattr(recoverable.root, "after", lambda *args: scheduled.append(args))
 
     def fail_replace(*unused):
         raise OSError("storage unavailable")
 
     monkeypatch.setattr(lighting_recovery.os, "replace", fail_replace)
+    assert recoverable.request("channels", {"values": [0] * 8})
+    assert [json.loads(line)["action"] for line in worker.stdin.getvalue().splitlines()] == ["channels"]
+    recoverable.worker_buffer = json.dumps({"version": 1, "request_id": recoverable.pending["request_id"],
+        "state": "completed", "fixtures": 10, "words": [0] * 8}) + "\n"
     REAL_POLL_WORKER(recoverable)
-    assert recoverable.recovery_snapshot()["needs_staff"]
-    assert recoverable.ownership_blocked()
-    assert any(args[0] == 100 for args in scheduled)
+    assert not recoverable.recovery.error and not recoverable.ownership_blocked()
+    assert not recoverable.recovery_snapshot()["needs_staff"]
 
 
 @pytest.mark.parametrize("failure_at", ("write", "flush"))
-def test_lost_helper_pipe_blocks_immediately_and_remains_blocked_after_restart(recoverable, failure_at):
+def test_lost_helper_pipe_reconnects_without_staff(recoverable, failure_at):
     worker = live_helper(recoverable)
 
     class LostPipe(BytesIO):
@@ -307,25 +305,45 @@ def test_lost_helper_pipe_blocks_immediately_and_remains_blocked_after_restart(r
 
     worker.stdin = LostPipe()
     assert not recoverable.request("channels", {"values": [0] * 8})
-    assert recoverable.recovery.state["status"] == "uncertain"
-    assert recoverable.recovery_snapshot()["needs_staff"]
+    assert recoverable.recovery.state["status"] == "normal"
+    assert not recoverable.recovery_snapshot()["needs_staff"]
+    assert recoverable.reconnect_after_exit
     assert recoverable.worker is worker  # Do not launch a replacement while it might still run.
-    assert LightingRecovery(recoverable.recovery.path).public()["write_blocked"]
 
 
-def test_helper_death_with_pending_write_blocks_without_restarting_panel(recoverable, monkeypatch):
+@pytest.mark.parametrize("state", ("helper_died", "failed_result"))
+def test_unconfirmed_command_restarts_helper_for_a_fresh_read(recoverable, monkeypatch, state):
     worker = live_helper(recoverable)
+    starts = []
+    monkeypatch.setattr(recoverable, "start_worker", lambda **kwargs: starts.append(kwargs))
     assert recoverable.request("channels", {"values": [0] * 8})
+    monkeypatch.setattr(panel.select, "select", lambda *unused: ([], [], []))
+    if state == "failed_result":
+        recoverable.worker_buffer = json.dumps({"version": 1, "request_id": recoverable.pending["request_id"],
+            "state": "failed", "detail": "Lighting service deadline expired; outcome may be unknown",
+            "outcome_unknown": True, "stable": False}) + "\n"
+        REAL_POLL_WORKER(recoverable)
+        assert starts == [] and recoverable.reconnect_after_exit
+    worker.returncode = 1
+    worker.poll = lambda: 1
+    REAL_POLL_WORKER(recoverable)
+    assert recoverable.worker is None and recoverable.pending is None
+    assert recoverable.recovery.state["status"] == "normal"
+    assert not recoverable.recovery_snapshot()["needs_staff"]
+    assert starts == [{}] and not recoverable.reconnect_after_exit
+    assert [json.loads(line)["action"] for line in worker.stdin.getvalue().splitlines()] == ["channels"]
+    assert any(args[0] == 100 for args in recoverable.scheduled)
+
+
+def test_helper_exit_without_a_lost_command_does_not_restart_in_a_loop(recoverable, monkeypatch):
+    worker = live_helper(recoverable)
+    starts = []
+    monkeypatch.setattr(recoverable, "start_worker", lambda **kwargs: starts.append(kwargs))
     monkeypatch.setattr(panel.select, "select", lambda *unused: ([], [], []))
     worker.returncode = 1
     worker.poll = lambda: 1
     REAL_POLL_WORKER(recoverable)
-    assert recoverable.worker is None
-    assert recoverable.pending is None
-    assert recoverable.recovery.state["status"] == "uncertain"
-    assert recoverable.recovery_snapshot()["needs_staff"]
-    assert LightingRecovery(recoverable.recovery.path).public()["write_blocked"]
-    assert any(args[0] == 100 for args in recoverable.scheduled)
+    assert starts == [] and recoverable.worker is None
 
 
 def test_original_idle_without_log_proof_stays_blocked_and_same_legacy_can_reopen(recoverable, monkeypatch):
@@ -419,7 +437,8 @@ def test_clean_original_return_automatically_reacquires_through_durable_return_r
     worker = live_helper(recoverable)
     assert recoverable.request("return_legacy")
     assert recoverable.recovery.state["status"] == "writing"
-    assert json.loads(Path(recoverable.recovery.path).read_text())["status"] == "writing"
+    # Saved state stays "recovering" until the return is confirmed.
+    assert json.loads(Path(recoverable.recovery.path).read_text())["status"] == "recovering"
     request = recoverable.pending
     recoverable.recovery_result(request, {"state": "ready", "fixtures": 10, "manual_blocked": False})
     assert recoverable.recovery.state["status"] == "normal"
@@ -470,65 +489,11 @@ def test_return_mode_survives_actual_helper_initialization_until_matching_respon
     assert [json.loads(line)["action"] for line in worker.stdin.getvalue().splitlines()] == ["return_legacy"]
 
 
-def test_slow_recovery_save_keeps_polling_and_never_dispatches_early(recoverable, monkeypatch, tmp_path):
-    guard = recoverable.recovery = LightingRecovery(tmp_path / "background.json", background=True)
-    entered, release = threading.Event(), threading.Event()
-    persist = guard._persist
-
-    def stalled(value):
-        entered.set()
-        assert release.wait(3)
-        persist(value)
-
-    monkeypatch.setattr(guard, "_persist", stalled)
+def test_storage_error_still_blocks_new_commands(recoverable):
     worker = live_helper(recoverable)
-    monkeypatch.setattr(panel.select, "select", lambda *unused: ([], [], []))
-    try:
-        assert recoverable.request("channels", {"values": [0] * 8})
-        assert entered.wait(1)
-        assert guard.pending and recoverable.ownership_blocked()
-        assert worker.stdin.getvalue() == b""
-        # The owner can continue servicing its event loop while storage is stalled.
-        REAL_POLL_WORKER(recoverable)
-        assert any(args[0] == 100 for args in recoverable.scheduled)
-        assert worker.stdin.getvalue() == b""
-        assert panel_remote.snapshot(recoverable)["busy"]
-    finally:
-        release.set()
-    assert guard.settled.wait(2)
-    REAL_POLL_WORKER(recoverable)
-    requests = [json.loads(line) for line in worker.stdin.getvalue().splitlines()]
-    assert [r["action"] for r in requests] == ["channels"]
-    assert json.loads(Path(guard.path).read_text())["status"] == "writing"
-
-
-@pytest.mark.parametrize("failure", ("failed", "stalled"))
-def test_failed_or_timed_out_background_save_never_sends_later(recoverable, monkeypatch, tmp_path, failure):
-    guard = recoverable.recovery = LightingRecovery(tmp_path / "background.json", background=True)
-    entered, release = threading.Event(), threading.Event()
-
-    def persist(value):
-        entered.set()
-        assert release.wait(3)
-        if failure == "failed":
-            raise OSError("storage unavailable")
-
-    monkeypatch.setattr(guard, "_persist", persist)
-    worker = live_helper(recoverable)
-    monkeypatch.setattr(panel.select, "select", lambda *unused: ([], [], []))
-    try:
-        assert recoverable.request("channels", {"values": [0] * 8})
-        assert entered.wait(1)
-        if failure == "stalled":
-            recoverable.unsent_request_at -= 11
-            REAL_POLL_WORKER(recoverable)
-    finally:
-        release.set()
-    assert guard.settled.wait(2)
-    REAL_POLL_WORKER(recoverable)
-    assert worker.stdin.closed
-    assert recoverable.unsent_request is None and recoverable.pending is None
-    assert recoverable.ownership_blocked()
+    recoverable.recovery.error = "Lighting recovery state could not be read"
+    assert not recoverable.request("channels", {"values": [0] * 8})
+    assert worker.stdin.getvalue() == b"" and recoverable.ownership_blocked()
 
 
 @pytest.mark.parametrize("timed_out", (False, True))
@@ -566,34 +531,6 @@ def test_legacy_input_waits_for_background_handoff_save(recoverable, monkeypatch
         assert not rendered and recoverable.mode == "room"
     else:
         assert rendered == ["original"] and recoverable.mode == "original"
-
-
-def test_background_confirmation_refreshes_controls_only_after_save(recoverable, monkeypatch, tmp_path):
-    guard = recoverable.recovery = LightingRecovery(tmp_path / "background.json", background=True)
-    guard.begin_write("confirmed-command")
-    assert guard.settled.wait(2)
-    recoverable.light_state = "ready"
-    entered, release = threading.Event(), threading.Event()
-    persist = guard._persist
-    enabled = []
-    monkeypatch.setattr(recoverable, "update_light_buttons", lambda: enabled.append(not recoverable.ownership_blocked()))
-
-    def stalled(value):
-        entered.set()
-        assert release.wait(3)
-        persist(value)
-
-    monkeypatch.setattr(guard, "_persist", stalled)
-    try:
-        guard.confirm_write("confirmed-command")
-        assert entered.wait(1)
-        REAL_POLL_WORKER(recoverable)
-        assert enabled[-1] is False
-    finally:
-        release.set()
-    assert guard.settled.wait(2)
-    REAL_POLL_WORKER(recoverable)
-    assert enabled[-1] is True
 
 
 @pytest.mark.skipif(os.name != "posix", reason="Linux helper pipe")

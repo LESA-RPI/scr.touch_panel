@@ -37,18 +37,36 @@ def test_background_checkpoints_remain_ordered_and_block_until_durable(tmp_path,
 
     monkeypatch.setattr(guard, "_persist", stalled)
     try:
-        guard.begin_write("one-command")
+        guard.begin_reservation(TOKEN, LABEL)
         assert entered.wait(1)
-        guard.confirm_write("one-command")
-        assert guard.state["status"] == "normal"
+        guard.mark_uncertain("Experiment handoff did not confirm a preserved release.")
+        assert guard.state["status"] == "uncertain"
         assert guard.pending and guard.public()["write_blocked"]
         assert not guard.public()["can_check"]
     finally:
         release.set()
     assert guard.settled.wait(2)
-    assert written == ["writing", "normal"]
-    assert not guard.public()["write_blocked"]
-    assert LightingRecovery(guard.path).state["status"] == "normal"
+    assert written == ["releasing", "uncertain"]
+    assert LightingRecovery(guard.path).state["status"] == "uncertain"
+
+
+def test_everyday_commands_stay_in_memory_and_never_wait_for_storage(tmp_path):
+    path = tmp_path / "lighting.json"
+    guard = LightingRecovery(path, background=True)
+    guard.begin_write("one-command")
+    assert not guard.pending and guard.state["status"] == "writing"
+    guard.finish_write("one-command")
+    assert guard.state["status"] == "normal" and not guard.public()["write_blocked"]
+    assert not path.exists()
+
+
+def test_older_record_left_mid_command_reopens_ready_for_a_fresh_read(tmp_path):
+    path = tmp_path / "lighting.json"
+    state = dict(LightingRecovery().state, status="writing", request_id="before-crash")
+    path.write_text(json.dumps(state))
+    restarted = LightingRecovery(path)
+    assert restarted.public()["status"] == "normal" and not restarted.error
+    restarted.ready(stable=True)
 
 
 def test_full_handoff_requires_preserved_release_exit_owner_closure_and_acquire(tmp_path):
@@ -117,14 +135,10 @@ def test_no_heartbeat_or_clock_jump_ever_reclaims_experiment(tmp_path):
             restarted.begin_write("next-command")
 
 
-@pytest.mark.parametrize("operation", ("write", "release"))
-def test_crash_during_write_or_handoff_is_durable_and_stays_blocked(tmp_path, operation):
+def test_crash_during_handoff_is_durable_and_stays_blocked(tmp_path):
     path = tmp_path / "lighting.json"
     guard = LightingRecovery(path)
-    if operation == "write":
-        guard.begin_write("request-before-crash")
-    else:
-        guard.begin_reservation(TOKEN, LABEL)
+    guard.begin_reservation(TOKEN, LABEL)
     restarted = LightingRecovery(path)
     assert restarted.public()["status"] == "uncertain"
     assert restarted.public()["can_check"]
@@ -144,19 +158,19 @@ def test_crash_during_write_or_handoff_is_durable_and_stays_blocked(tmp_path, op
     recovered.ready(stable=True)
     assert recovered.public()["status"] == "normal"
     assert recovered.state["reason"]
-    assert recovered.state["request_id"] == ("request-before-crash" if operation == "write" else "")
+    assert recovered.state["request_id"] == ""
 
 
 def test_mismatched_response_never_resolves_pending_write(tmp_path):
     guard = LightingRecovery(tmp_path / "lighting.json")
     guard.begin_write("command-one")
     with pytest.raises(ValueError):
-        guard.confirm_write("command-two")
+        guard.finish_write("command-two")
     assert guard.public()["write_blocked"]
-    guard.confirm_write("command-one")
+    guard.finish_write("command-one")
     assert not guard.public()["write_blocked"]
     with pytest.raises(ValueError):
-        guard.confirm_write("command-one")
+        guard.finish_write("command-one")
 
 
 def test_release_failure_after_panel_stops_preserves_reservation_proof(tmp_path):
@@ -206,8 +220,10 @@ def test_failed_durable_write_never_authorizes_hardware_operation(tmp_path, monk
 
     monkeypatch.setattr(lighting_recovery.os, "replace", fail_replace)
     with pytest.raises(RuntimeError):
-        guard.begin_write("not-authorized-to-send")
+        guard.begin_reservation(TOKEN, LABEL)
     assert guard.error and guard.public()["write_blocked"]
+    with pytest.raises(RuntimeError):
+        guard.begin_write("not-authorized-to-send")
     assert not path.exists()
     assert not list(tmp_path.glob(".lighting-*"))
 
@@ -307,8 +323,10 @@ def test_legacy_clean_appended_log_and_return_marker_restore_normal_without_fixt
     with pytest.raises(RuntimeError):
         guard.begin_write("ordinary-command-is-blocked")
     guard.begin_write("return-from-original", returning=True)
-    assert json.loads(path.read_text())["status"] == "writing"
-    guard.confirm_write("return-from-original")
+    assert json.loads(path.read_text())["status"] == "recovering"
+    assert LightingRecovery(path).public()["status"] == "uncertain"  # Interrupted return needs a check.
+    guard.finish_write("return-from-original")
+    assert json.loads(path.read_text())["status"] == "normal"
     assert guard.public()["status"] == "normal"
     assert not guard.public()["write_blocked"]
 

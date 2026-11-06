@@ -79,6 +79,8 @@ from panel_guidance import PanelGuidance
 from panel_classic import PanelClassic
 from panel_recovery import PanelRecovery
 
+RECONNECTING = "That change could not be confirmed. Reading the lights again…"
+
 
 class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelRecovery):
     def __init__(self, args):
@@ -1043,6 +1045,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         if getattr(self, "blank_hint", None) is not None:
             self.blank_hint.place_forget()
         self.dock.withdraw()
+        self.cover_legacy(force=True)
         if self.mode == "original":
             self.root.withdraw()
             self.dock.geometry("1280x144+0+0")
@@ -2273,9 +2276,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             self.write_helper(item)
         except (IOError, OSError) as error:
             self.light_state = "failed"
-            recovery = getattr(self, "recovery", None)
-            if recovery is not None and not recovery.error and recovery.state["status"] in ("writing", "releasing"):
-                recovery.mark_uncertain("The controller response was lost. Check the previous operation.")
+            if hasattr(self, "recovery"):
+                self.command_lost("The controller response was lost. Check the previous operation.")
             self.cancel_intent()
             self.status_text.set("Light adapter disconnected: " + str(error))
             self.pending = None
@@ -2310,9 +2312,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             self.status_text.set("Panel journal unavailable: " + error)
 
     def fail_worker(self, message):
-        recovery = getattr(self, "recovery", None)
-        if recovery is not None and not recovery.error and recovery.state["status"] in ("writing", "releasing", "recovering"):
-            recovery.mark_uncertain("Lighting confirmation was lost. Check the previous controller.")
+        if hasattr(self, "recovery"):
+            self.command_lost("Lighting confirmation was lost. Check the previous controller.")
         self.cancel_intent()
         self.pending = None
         self.unsent_request = None
@@ -2320,7 +2321,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.worker_ready = False
         self.worker_buffer = ""
         self.status_text.set(message)
-        self.lighting_feedback("Result unconfirmed. Controls disabled; ask staff.")
+        self.lighting_feedback(RECONNECTING if getattr(self, "reconnect_after_exit", False) else "Lighting unavailable. Press Check connection to try again.")
         if self.worker and not self.worker.stdin.closed:
             try:
                 self.worker.stdin.close()
@@ -2338,13 +2339,12 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             self.light_state = "failed"
             self.pending = None
             self.unsent_request = None
-            recovery = getattr(self, "recovery", None)
-            if recovery is not None and not recovery.error:
+            if hasattr(self, "recovery"):
                 try:
-                    recovery.mark_uncertain("Lighting recovery could not be confirmed. Ask the room host.")
+                    self.command_lost("Lighting recovery could not be confirmed. Ask the room host.")
                 except (RuntimeError, ValueError):
                     pass
-            self.status_text.set("Lighting needs staff attention. No command will be repeated.")
+            self.status_text.set("Lighting stopped responding. No command will be repeated.")
             worker = self.worker
             if worker and not worker.stdin.closed:
                 try:
@@ -2362,6 +2362,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         if self.closed:
             return
         self.poll_legacy_return()
+        self.cover_legacy()
         if (
             getattr(self, "mode", None) == "health"
             and getattr(self, "health_pending", None) is not None
@@ -2502,7 +2503,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 if state == "failed":
                     # Full exception text remains in the emitted result/receipt.
                     # Keep the touch feedback bounded, even for verbose ROS errors.
-                    detail = "Result unconfirmed. Controls disabled; ask staff."
+                    detail = "That change could not be confirmed." if action in ("cct", "channels", "gradient", "programme", "blind") else "Lighting could not be read."
                 if state == "completed" and action not in ("programme", "blind"):
                     self.confirmed_light = light_selection(
                         action, completed_request["arguments"]
@@ -2556,24 +2557,20 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 elif state == "failed":
                     self.release_target = None
                     self.cancel_intent()
-                    self.status_text.set(detail + " / Ask staff; check System & help.")
+                    self.status_text.set(detail + (" " + RECONNECTING if getattr(self, "reconnect_after_exit", False) else " Press Check connection to try again."))
                 elif self.queued_intent and self.intent_timer is None:
                     self.dispatch_intent()
                 self.update_light_buttons()
             if worker.poll() is not None:
-                recovery = getattr(self, "recovery", None)
-                if recovery is not None and not recovery.error and recovery.state["status"] in ("writing", "releasing", "recovering") and not (self.release_target == "experiment" and self.release_confirmed):
-                    recovery.mark_uncertain("The lighting helper stopped before ownership or a command was confirmed.")
+                if hasattr(self, "recovery") and not (self.release_target == "experiment" and self.release_confirmed):
+                    self.command_lost("The lighting helper stopped before ownership or a command was confirmed.")
                 if self.pending or self.light_state != "disconnected":
                     self.cancel_intent()
                     self.pending = None
                     self.light_state = "failed"
-                    self.status_text.set(
-                        "Light adapter stopped. Result unconfirmed; further commands disabled."
-                    )
-                    self.lighting_feedback(
-                        "Disconnected. Last result below is historical; ask staff."
-                    )
+                    reconnect = getattr(self, "reconnect_after_exit", False)
+                    self.status_text.set(RECONNECTING if reconnect else "Lighting helper stopped. Press Check connection to try again.")
+                    self.lighting_feedback(RECONNECTING if reconnect else "Lighting unavailable. Press Check connection to try again.")
                 self.worker = None
                 self.unsent_request = None
                 target, self.release_target = self.release_target, None
@@ -2582,6 +2579,10 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 if self.closing:
                     self.finish_close()
                     return
+                if getattr(self, "reconnect_after_exit", False):
+                    self.reconnect_after_exit = False
+                    if target is None and not self.ownership_blocked():
+                        self.start_worker()  # Read-only acquire; the failed command is never repeated.
                 if target == "original":
                     safe = (
                         getattr(self, "release_confirmed", False)

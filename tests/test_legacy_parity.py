@@ -102,7 +102,7 @@ def test_stop_is_available_without_baseline_and_qualifies_static_controls():
     assert result["programme"] is None and not result["manual_blocked"]
     assert not result["programme_confirmed"] and lights.baseline == room.state
     lights.apply("channels", {"values": list(adapter.PRESETS["Sat"])})
-    assert programmes.requests == ["stop both", "stop both"]
+    assert programmes.requests == ["stop both"]  # Already stopped; no second Status request.
     assert len(room.writes) == 1
 
 
@@ -200,7 +200,7 @@ def test_status_requests_are_bounded_allowlisted_and_validate_acceptance(monkeyp
     client.stop()
     client.start("Sun")
     assert [request[1] for request in requests] == ["sun", "circ", "sun"]
-    assert all(request[2] == 3 for request in requests) and len(closed) == 3
+    assert all(request[2] == 5 for request in requests) and len(closed) == 3
     with pytest.raises(ValueError, match="Only original"):
         client.request("Run", "sun;anything")
     assert len(requests) == 3

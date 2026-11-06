@@ -588,8 +588,8 @@ def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch
     )
     assert state.confirmed_at == confirmed_at and "1 min ago" in shown[-1]
     assert raw[-1]["detail"] == failure["detail"]
-    assert len(shown[-1]) < 150 and "Controls disabled" in shown[-1]
-    assert "ask staff" in status[-1]
+    assert len(shown[-1]) < 150 and "could not be confirmed" in shown[-1]
+    assert "could not be confirmed" in status[-1]
 
 
 def test_weather_details_are_optional_convert_units_and_reject_invalid_forecasts():

@@ -3,6 +3,7 @@
 from pathlib import Path
 import json
 import os
+import signal
 import subprocess
 import time
 import tkinter as tk
@@ -23,8 +24,25 @@ class PanelRecovery:
         self.legacy_probe = None
         self.legacy_target = None
         self.legacy_returning = False
+        self.reconnect_after_exit = False
         if self.recovery.state["status"] == "legacy":
             self.mode = "original"
+
+    def command_lost(self, reason):
+        """The helper ended before confirming its request.
+
+        An everyday command leaves the panel as owner, so a fresh helper reads
+        the lights again. Only an unfinished experiment or Legacy handoff needs staff.
+        """
+        recovery = getattr(self, "recovery", None)
+        if recovery is None or recovery.error:
+            return
+        status = recovery.state["status"]
+        if status == "writing":
+            recovery.finish_write(recovery.state["request_id"])
+            self.reconnect_after_exit = True
+        elif status in ("releasing", "recovering"):
+            recovery.mark_uncertain(reason)
 
     def ownership_blocked(self):
         recovery = getattr(self, "recovery", None)
@@ -157,8 +175,32 @@ class PanelRecovery:
             self.legacy_probe = subprocess.Popen([self.args.adapter_python, "-B", script, "--pid", str(pid)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
             self.legacy_probe_started = time.monotonic()
             self.legacy_target = (mode, advanced_page)
+            self.cover_legacy(force=True)  # Hide Legacy while its idle check runs.
         except (OSError, ValueError):
             self.legacy_return_failed()
+
+    def legacy_pid(self):
+        """Legacy that hides itself on request advertises its PID; older ones are never signalled."""
+        try:
+            pid = int((Path.home() / ".cache/scr-panel/original.pid").read_text().strip())
+            arguments = Path("/proc", str(pid), "cmdline").read_bytes().split(b"\0")
+        except (OSError, ValueError):
+            return None
+        return pid if any(a.endswith(b"/run_original.py") for a in arguments) else None
+
+    def cover_legacy(self, force=False):
+        """Keep the hidden Legacy window from taking taps while Beta is on screen."""
+        now = time.monotonic()
+        if not getattr(self, "keep_switcher", False) or (not force and now - getattr(self, "legacy_covered_at", 0) < 1):
+            return
+        self.legacy_covered_at = now
+        pid = self.legacy_pid()
+        if pid:
+            try:
+                show = self.mode == "original" and getattr(self, "legacy_probe", None) is None
+                os.kill(pid, signal.SIGUSR1 if show else signal.SIGUSR2)
+            except OSError:
+                pass
 
     def original_log_position(self):
         try:
@@ -252,30 +294,33 @@ class PanelRecovery:
         if action == "return_legacy":
             self.legacy_returning = False
             if state == "ready" and response.get("fixtures") == 10 and not response.get("manual_blocked"):
-                self.recovery.confirm_write(request["request_id"])
+                self.recovery.finish_write(request["request_id"])
             else:
                 self.recovery.mark_uncertain("Legacy lighting control could not be returned. Ask the room host.")
         elif action in ("cct", "channels", "gradient", "programme", "blind"):
-            if state == "completed":
-                self.recovery.confirm_write(request["request_id"])
-            else:
-                self.recovery.mark_uncertain("A lighting or blind command result was not confirmed.")
+            # Confirmed or not, the panel still owns the lights. A failed result
+            # ends the helper; a fresh one reads the lights before the next change.
+            self.recovery.finish_write(request["request_id"])
+            if state != "completed":
+                self.reconnect_after_exit = True
         elif action == "acquire" and state == "ready":
-            if response.get("manual_blocked") is True or response.get("fixtures") != 10:
-                self.recovery.mark_uncertain("Current lighting is changing or incomplete. Check the room controller.")
-                self.fail_worker("Lighting is changing. Ask the room host before taking control.")
+            if response.get("fixtures") != 10:
+                self.recovery.mark_uncertain("Installed lights differ from the expected ten.")
+                self.fail_worker("Installed lights differ from the expected ten. Ask the room host.")
             else:
                 self.recovery.ready(stable=True)
+                if response.get("manual_blocked") is True:
+                    self.lighting_feedback("Lights are changing, probably a programme. Press Stop before choosing a setting.")
         elif action == "check" and state == "checked":
             self.recovery_check_at = time.monotonic()
             detail = response["detail"] if response.get("programme") in ("Sun", "Circ") else "Current light settings checked."
-            self.lighting_feedback(detail + " " + ("Staff must confirm ownership before controls return." if self.ownership_blocked() else "No lighting command was sent."))
+            self.lighting_feedback(detail + " " + ("Staff must confirm the handoff before controls return." if self.ownership_blocked() else "No lighting command was sent."))
             if self.observing:
                 self.request("release")
         elif state == "failed" and action in ("acquire", "check"):
-            if not self.observing and (self.recovery.state["status"] == "recovering" or response.get("outcome_unknown") is True):
-                self.recovery.mark_uncertain("Lighting readback or ownership could not be confirmed.")
-            self.lighting_feedback("Lighting could not be checked. Ask the room host; no command was repeated.")
+            if not self.observing and self.recovery.state["status"] == "recovering":
+                self.recovery.mark_uncertain("Lighting could not be read after a handoff.")
+            self.lighting_feedback("Lighting could not be read. Press Check connection to try again.")
 
     def recovery_exit(self, target, returncode=0):
         if target == "experiment":

@@ -73,10 +73,10 @@ class StatusProgrammes(object):
             remaining = self.deadline() - clock()
             if remaining <= 0:
                 raise RuntimeError("Whole programme operation exceeded 30 seconds")
-            signal.alarm(max(1, int(math.ceil(min(3, remaining)))))
+            signal.alarm(max(1, int(math.ceil(min(5, remaining)))))
         response = None
         try:
-            response = urlopen(request, timeout=3)
+            response = urlopen(request, timeout=5)
             body = response.read(4097)
             if response.getcode() != 202 or len(body) > 4096:
                 raise ValueError("Status did not accept the programme request")
@@ -229,12 +229,16 @@ class Lights(object):
                 self.failed = True
             raise
         stable = first == state
-        # An established owner must retain its expected state. A check is not
-        # permission to overwrite somebody else's settings or clear uncertainty.
-        external_change = (not self.observe_only and self.current is not None
-                           and state != self.current)
+        # Bounded trials must keep their own state so they can restore it.
+        # Room control simply adopts what the lights show now.
+        external_change = (not self.observe_only and not self.keep_settings
+                           and self.current is not None and state != self.current)
         if not self.observe_only and (not stable or external_change):
             self.failed = True
+        if self.keep_settings and stable and not self.failed and self.programme is None:
+            self.current = state
+            if self.baseline is None:
+                self.baseline = state
         try:
             name = restore_preset(state)
         except ValueError:
@@ -255,7 +259,7 @@ class Lights(object):
                        if external_change else
                        "Current settings read; the earlier uncertain result remains blocked."
                        if blocked else
-                       "Current settings read twice on 10 lights; ownership is not verified."),
+                       "Current settings read twice on 10 lights."),
         }
         result.update(self.capabilities())
         return result
@@ -360,12 +364,13 @@ class Lights(object):
     def prepare_manual(self):
         if self.observe_only:
             raise ValueError("Connection checks are read-only")
-        if self.programmes and self.keep_settings:
-            active = self.programme is not None or self.baseline is None
-            # Check ownership before our programme cleanup can change the drive.
-            if not active and self.read() != self.current:
-                raise ValueError("Another controller changed the lights; trial ownership lost")
-            self.stop_programmes()
+        if self.keep_settings:
+            # Room control: the user's new choice replaces whatever the lights
+            # show now (wall switch, overnight change). Stop a programme only
+            # when one may be running, so a slow Status service cannot block
+            # an ordinary change.
+            if self.programmes and (self.programme is not None or self.baseline is None):
+                self.stop_programmes()
         elif self.read() != self.current:
             raise ValueError("Another controller changed the lights; trial ownership lost")
 

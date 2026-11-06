@@ -1,4 +1,8 @@
-"""Durable lighting handoff guard. Observation never resolves an unknown write."""
+"""Durable lighting handoff guard for experiments and Legacy.
+
+Everyday commands are tracked in memory only: the panel stays the owner, so an
+unconfirmed command is followed by a fresh read rather than a staff lock.
+"""
 
 import hashlib
 import hmac
@@ -39,7 +43,9 @@ class LightingRecovery:
             if len(raw) > 8192 or not self._valid(value):
                 raise ValueError("Invalid lighting recovery state")
             self.state = value
-            if value["status"] in ("writing", "releasing", "recovering"):
+            if value["status"] == "writing":
+                value["status"] = "normal"  # Older records; the next acquire re-reads the lights.
+            if value["status"] in ("releasing", "recovering"):
                 self.mark_uncertain("Panel stopped before the previous operation was confirmed.")
         except FileNotFoundError:
             pass
@@ -101,12 +107,12 @@ class LightingRecovery:
         return all(value[key] is None or (type(value[key]) in (float, int) and 0 <= value[key] < 1e15)
                    for key in ("heartbeat_at", "acknowledged_at", "recovered_at", "updated_at"))
 
-    def _save(self, **changes):
+    def _save(self, persist=True, **changes):
         if self.error:
             raise RuntimeError("Lighting recovery storage needs staff attention")
         value = dict(self.state, **changes)
         value.update(revision=self.state["revision"] + 1, updated_at=self.clock())
-        if self.path is None:
+        if self.path is None or not persist:
             self.state = value
             return
         if self.saves is not None:
@@ -168,12 +174,17 @@ class LightingRecovery:
     def begin_write(self, request_id, returning=False):
         if self.state["status"] != "normal" and not (returning is True and self.state["status"] == "recovering"):
             raise RuntimeError("Lighting ownership or an earlier command is unresolved")
-        self._save(status="writing", request_id=self._text(request_id, 160, "request ID"))
+        # Kept in memory: a restart then still shows the saved "normal" (re-read on
+        # acquire) or, for a Legacy return, "recovering" (staff check).
+        self.returning = returning is True and self.state["status"] == "recovering"
+        self._save(persist=False, status="writing",
+                   request_id=self._text(request_id, 160, "request ID"))
 
-    def confirm_write(self, request_id):
+    def finish_write(self, request_id):
+        """The command finished, confirmed or not; the panel still owns the lights."""
         if self.state["status"] != "writing" or request_id != self.state["request_id"]:
-            raise ValueError("Lighting command confirmation does not match")
-        self._save(status="normal")
+            raise ValueError("Lighting command result does not match")
+        self._save(persist=getattr(self, "returning", False), status="normal")
 
     def mark_uncertain(self, reason):
         self._save(status="uncertain", reason=self._text(reason, 240, "recovery reason"))
@@ -264,7 +275,7 @@ class LightingRecovery:
                   "reserved": "Lighting reserved for an experiment", "recovering": "Checking lighting connection",
                   "legacy": "Legacy controls are open"}
         details = {"normal": "Current lighting is preserved.", "writing": "Waiting for the lighting command to finish.",
-                   "uncertain": "The previous result is unconfirmed. Staff must check the previous owner before controls return.",
+                   "uncertain": "An experiment or Legacy handoff did not finish cleanly. Staff must check it before controls return.",
                    "releasing": "Waiting for the panel lighting helper to release control and stop.",
                    "reserved": "The experiment must finish and return verified everyday control.",
                    "recovering": "Reading current settings before everyday controls return.",

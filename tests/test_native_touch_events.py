@@ -128,9 +128,9 @@ def test_real_check_then_sun_request_keeps_navigation_responsive(view):
     view.worker = None
 
 
-def test_pending_check_never_clears_uncertain_ownership(view):
+def test_pending_check_never_clears_uncertain_handoff(view):
     shared_worker(view)
-    view.recovery.mark_uncertain("A prior result was not confirmed")
+    view.recovery.mark_uncertain("Experiment handoff did not confirm a preserved release.")
     view.light_state = "failed"
     view.open_advanced("system")
     view.root.update()
@@ -151,7 +151,7 @@ def test_pending_check_never_clears_uncertain_ownership(view):
     view.update_light_buttons()
     view.root.update()
     assert view.connection_text.get() == "Uncertain"
-    assert "Staff must confirm ownership" in view.light_message
+    assert "Staff must confirm the handoff" in view.light_message
     assert view.recovery.state["status"] == "uncertain" and view.ownership_blocked()
     assert requests == ["check"]
     view.worker = None

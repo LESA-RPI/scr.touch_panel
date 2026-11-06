@@ -104,16 +104,14 @@ def test_unknown_write_cannot_be_released_or_retried_even_if_readback_later_matc
     assert len(room.writes) == 1
 
 
-def test_external_change_before_explicit_selection_blocks_write_and_release():
+def test_explicit_selection_replaces_an_external_change():
     room = Room()
     lights = adapter.Lights(room.call, keep_settings=True)
     lights.acquire()
     room.state = gradient_room().state
-    with pytest.raises(ValueError, match="ownership lost"):
-        lights.apply("channels", {"values": list(adapter.PRESETS["Sat"])})
-    with pytest.raises(ValueError, match="unknown"):
-        lights.release()
-    assert room.writes == []
+    assert lights.apply("channels", {"values": list(adapter.PRESETS["Sat"])})["state"] == "completed"
+    assert lights.release()["preserved"]
+    assert room.writes == [adapter.PRESETS["Sat"]]
 
 
 def test_bounded_trials_still_reject_gradient_and_restore_qualified_presets():
