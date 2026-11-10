@@ -59,6 +59,7 @@ def recoverable(tmp_path, monkeypatch):
     view.emit = lambda event, **values: view.events.append((event, values))
     view.cancel_intent = lambda: setattr(view, "queued_intent", None)
     view.update_light_buttons = view.update_recovery_view = view.activity = lambda *unused: None
+    view.seed_controls = lambda *args: None  # View-only readback seeding is checked with Tk.
     view.poll_journal = view.poll_power = view.poll_status = view.poll_weather = lambda: None
     view.power_busy = lambda: False
     view.power_snapshot = lambda: None

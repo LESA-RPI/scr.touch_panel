@@ -10,7 +10,6 @@ import pytest
 
 from test_panel_navigation import view
 from test_panel_control import remote_owner
-import panel_views
 import room_controls
 from panel_remote import snapshot
 
@@ -32,7 +31,6 @@ def test_private_key_is_omitted_from_generated_and_checked_in_browser_content():
 
 def test_private_key_is_omitted_from_public_controller_state(remote_owner, monkeypatch):
     monkeypatch.setattr(room_controls, "ROOM_NETWORK_PASSWORD", TEST_KEY)
-    monkeypatch.setattr(panel_views, "ROOM_NETWORK_PASSWORD", TEST_KEY)
     value = snapshot(remote_owner)
     assert TEST_KEY not in json.dumps(value)
     assert "network_password" not in value
@@ -40,9 +38,9 @@ def test_private_key_is_omitted_from_public_controller_state(remote_owner, monke
 
 @pytest.mark.parametrize("key", ["", TEST_KEY])
 def test_native_network_card_shows_configured_key_or_host_help(view, monkeypatch, key):
-    monkeypatch.setattr(panel_views, "ROOM_NETWORK_NAME", "SCR_AP")
-    monkeypatch.setattr(panel_views, "ROOM_NETWORK_PASSWORD", key)
-    view.website_qr(view.body)
+    monkeypatch.setattr(room_controls, "ROOM_NETWORK_NAME", "SCR_AP")
+    monkeypatch.setattr(room_controls, "ROOM_NETWORK_PASSWORD", key)
+    view.open_guide()
     view.root.update()
 
     def labels(widget):

@@ -194,6 +194,7 @@ class Lights(object):
             "baseline": name,
             "power": "on" if any(any(values) for values in state.values()) else "off",
             "fixtures": 10,
+            "fixture_words": [[list(xy), list(values)] for xy, values in sorted(state.items())],
         }
         result.update(self.capabilities())
         return result

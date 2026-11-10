@@ -64,7 +64,11 @@ the panel reconnects with a fresh read.
 Replies echo `version` and `request_id`. States are `ready`, `checked`, `completed`,
 `released` or `failed`. Success includes fixture count and relevant baseline,
 words or release flags. Persistent `--keep-settings` acquisition admits any stable
-snapshot and reports its confirmed `power`; `baseline` is null for a custom mix.
+snapshot and reports its confirmed `power` and `fixture_words`; `baseline` is null
+for a custom mix. The view seeds channel controls only from a uniform mix whose
+integer percentages reproduce the acquired drive words. Without representable
+white inputs or channel values, it shows neutral controls and explains that a
+change applies a new mix.
 Its release returns `preserved: true, restored: false` without a fixture setter.
 Ordinary Beta navigation retains the same helper. Preserving release applies to
 Legacy, shutdown and parent loss. Bounded trials
@@ -153,7 +157,7 @@ uncertainty still block writes; an identity check never clears them.
 
 `legacy` (alias `original_fallback`) takes no arguments and opens `mode: "original"`
 after preserving release and successful helper exit. The unchanged original app
-sits behind a 144-pixel navigation strip; Beta/website actuators pause. Beta saves a
+sits behind a 112-pixel navigation strip; Beta/website actuators pause. Beta saves a
 durable `legacy` checkpoint before starting exactly one child: `<classic python>
 -u -B app/run_original.py --classic-dir <dir>`, with that working directory, a
 separate process group and stdout/stderr appended to `original.log`.
@@ -192,8 +196,10 @@ Lighting navigation contains White light, Scenes, Programmes and Channels.
 `lights.confirmed_power` retains the last readback alongside `recent` and its age,
 including while a command is pending or uncertain. It is historical display data,
 never a readiness signal; guarded `power`, `scene` and `can_control` retain their
-existing semantics. Lighting action buttons use explicit confirmation text instead
-of pressed-state styling.
+existing semantics. Lighting actions retain their filled sending state until confirmation while other
+controls wait. Selection is reported as Current text; status colour never marks a
+selected light action. The panel reads slider generations on press so reconnect
+cancellation cannot leave retained sliders inert.
 `app/room_controls.py` owns their shared labels and descriptions. The gateway
 accepts `gradient` with empty arguments and `programme` with exactly the fixed
 `name` enum above. `lights.capabilities.gradient` and `.programmes` advertise

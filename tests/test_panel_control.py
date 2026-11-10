@@ -266,7 +266,7 @@ def remote_owner():
     return owner
 
 
-@pytest.mark.parametrize("mode", ["room", "classic", "guide", "settings", "health", "about", "advanced", "visitor"])
+@pytest.mark.parametrize("mode", ["room", "guide", "settings", "health", "about", "advanced", "visitor"])
 def test_remote_lighting_uses_current_owner_without_changing_beta_page(remote_owner, mode):
     remote_owner.mode = mode
     assert snapshot(remote_owner)["can_control"] is True
@@ -299,13 +299,13 @@ def test_remote_lighting_keeps_safety_locks_on_every_beta_page(remote_owner, fie
     ("closing", "exit"), ("press_active", True), ("light_state", "failed"),
     ("light_state", "connecting"), ("power_busy", lambda: True),
 ])
-def test_remote_classic_keeps_every_owner_safety_lock(remote_owner, field, value):
-    remote_owner.mode = "classic"
+def test_remote_lights_page_keeps_every_owner_safety_lock(remote_owner, field, value):
+    remote_owner.mode = "room"
     setattr(remote_owner, field, value)
     assert snapshot(remote_owner)["can_control"] is False
     with pytest.raises(RuntimeError):
         execute(remote_owner, envelope("on"))
-    assert not remote_owner.calls and remote_owner.mode == "classic"
+    assert not remote_owner.calls and remote_owner.mode == "room"
 
 
 def test_extended_lighting_commands_keep_bounded_public_shapes():

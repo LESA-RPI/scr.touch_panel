@@ -40,13 +40,13 @@ def test_resource_failure_removes_current_power_claim_until_a_new_reading():
                "temperature": 45, "power": "Current power warning"}
     state.health_cache = healthy
     state.update_health()
-    assert power["text"] == "Power: Current power warning"
+    assert power["text"] == "Power supply: Current power warning"
     state.health_cache = {"error": "Reading failed"}
     state.update_health()
     assert power == {"text": "Power reading unavailable.", "fg": "muted"}
     state.health_cache = dict(healthy, power="No current power warning")
     state.update_health()
-    assert power == {"text": "Power: No current power warning", "fg": "muted"}
+    assert power == {"text": "Power supply: No current power warning", "fg": "muted"}
 
 
 @pytest.mark.parametrize("same_page", [False, True])

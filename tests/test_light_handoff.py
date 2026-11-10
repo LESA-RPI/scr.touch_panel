@@ -150,6 +150,7 @@ def controller(monkeypatch):
     state.emit = lambda *args, **kwargs: state.events.append((args, kwargs))
     state.cancel_intent = lambda: setattr(state, "queued_intent", None)
     state.update_light_buttons = lambda: None
+    state.seed_controls = lambda *args: None  # Tested with native variables in test_panel_layout.
     state.poll_journal = state.poll_power = state.poll_status = state.poll_weather = (
         lambda: None
     )

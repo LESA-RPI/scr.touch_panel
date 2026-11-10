@@ -247,11 +247,10 @@ function preferencesWebsite(page, roomContent = {}) {
   assert.equal(panelHealth.commands.length, 0);
 
   const display = website(() => {throw Error('Presentation must not send commands');});
-  for (const mode of ['guide', 'settings', 'health', 'about', 'classic']) {
+  for (const mode of ['guide', 'settings', 'health', 'about']) {
     display.run(`state = {available:true, mode:${JSON.stringify(mode)}, can_control:true, lights:{message:'Light settings confirmed.'}}; shippedSync();`);
     assert.equal(display.run("$('legacy-banner').hidden"), true);
     assert.equal(display.run("$('light-message').textContent"), 'Light settings confirmed.');
-    if (mode === 'classic') assert.equal(display.run("$('connection').textContent"), 'Classic view');
   }
   for (const mode of ['original', 'black']) {
     display.run(`state = {available:true, mode:${JSON.stringify(mode)}, can_control:false, lights:{}}; shippedSync();`);

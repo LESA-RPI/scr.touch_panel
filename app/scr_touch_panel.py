@@ -29,12 +29,7 @@ import weather as weather_data
 import panel_icons
 from design_tokens import THEMES
 from touch_slider import TouchSlider
-from panel_guides import DEMO, SUPPORT, connection
-from command_reference import command_tokens
-from help_reference import reference
 from room_controls import (
-    LIGHTING_TABS,
-    SCENES,
     PREVIOUS_ON,
     BLIND_ACTIONS,
     blind_readiness,
@@ -50,12 +45,7 @@ except ImportError:
     from tkinter.font import Font
 
 from panel_common import (
-    ACCENT,
-    ADVANCED_PAGES,
-    CHANNELS,
-    CHANNEL_COLOURS,
     FONT,
-    PAGE_REFERENCES,
     TIPS,
     boot_identity,
     clock_minutes,
@@ -70,16 +60,19 @@ from panel_common import (
 )
 
 
-from panel_views import PanelViews
-from panel_screensaver import PanelScreensaver
-from panel_guidance import PanelGuidance
-from panel_classic import PanelClassic
+import ui_widgets
+from ui_frame import PanelFrame
+from page_home import HomePage
+from page_lights import LightsPage
+from page_guide import GuidePage
+from page_settings import SettingsPage
+from page_saver import SaverPage
 from panel_recovery import PanelRecovery
 
 RECONNECTING = "That change could not be confirmed. Reading the lights again…"
 
 
-class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelRecovery):
+class Panel(PanelFrame, HomePage, LightsPage, GuidePage, SettingsPage, SaverPage, PanelRecovery):
     def __init__(self, args):
         self.args = args
         saved, preference_error = load_preferences(
@@ -211,10 +204,11 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.root.bind_class(
             "PanelWake", "<KeyPress>", lambda event: self.wake_idle(False)
         )
-        self.cct, self.intensity = tk.IntVar(value=3500), tk.IntVar(value=1000)
-        self.channel_values = [tk.IntVar(value=value) for value in PRESETS["Fid"]]
+        self.cct, self.intensity = tk.IntVar(value=5800), tk.IntVar(value=0)
+        self.controls_known = {"white": False, "channels": False}
+        self.channel_values = [tk.IntVar(value=0) for _ in range(8)]
         self.status_text = tk.StringVar(
-            value="Use Lights on or Lights off. Fine adjustments are in Room tools."
+            value="Use Lights on or Lights off. Fine adjustments are in Lights."
         )
         self.light_text = tk.StringVar(
             value="Lighting not connected - controls are unavailable"
@@ -342,15 +336,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         return self.sequence
 
     def label(self, parent, text="", size=20, muted=False):
-        return tk.Label(
-            parent,
-            text=text,
-            font=(FONT, size),
-            fg=self.muted if muted else self.ink,
-            bg=parent.cget("bg"),
-            anchor="w",
-            justify="left",
-        )
+        return ui_widgets.label(self, parent, text, size, muted)
 
     def wrap_label(self, label):
         """Wrap to allocated width, including narrower settings/weather cards."""
@@ -415,83 +401,33 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                     message.config(fg=colour)
         self.update_power_highlights()
 
-    def feedback_card(self, parent, padding=8):
-        """Keep dated readback inline; show another line for work or a problem."""
-        if not hasattr(self, "feedback_message"):
-            self.feedback_message = tk.StringVar()
-            self.feedback_detail = tk.StringVar()
-        card = tk.Frame(
-            parent,
-            bg=parent.cget("bg"),
-            highlightbackground=self.border,
-            highlightthickness=0,
-        )
-        card.pack(fill="x", pady=(padding, 0))
-        self.light_feedback_card = card
-        message = self.label(card, size=14)
-        message.config(textvariable=self.feedback_message, font=(FONT, 14, "bold"))
-        self.wrap_label(message).pack(fill="x")
-        detail = self.label(card, size=14, muted=True)
-        detail.config(textvariable=self.feedback_detail)
-        self.wrap_label(detail).pack(fill="x", pady=(2, 0))
-        card._message, card._detail = message, detail
-        self.recovery_contents(card)
-        self.refresh_confirmation_age()
 
     def update_power_highlights(self):
-        """Highlight only trusted current power; keep dated readback for history."""
-        current = getattr(self, "confirmed_power", None)
-        worker, recovery = getattr(self, "worker", None), getattr(self, "recovery", None)
-        available = (
-            current in ("on", "off")
-            and getattr(self, "confirmed_at", None) is not None
-            and getattr(getattr(self, "args", None), "live_lights", False)
-            and self.light_state == "ready"
-            and getattr(self, "worker_ready", False)
-            and worker is not None and worker.poll() is None and not worker.stdin.closed
-            and (recovery is None or recovery.state["status"] == "normal")
-            and not self.ownership_blocked() and not self.power_busy()
-            and getattr(self, "mode", None) not in ("original", "black")
-            and not any(getattr(self, name, None) for name in (
-                "pending", "queued_intent", "release_target", "closing", "closed",
-                "legacy_stopping_at", "press_active",
-            ))
-        )
-        for button, power, label in getattr(self, "home_power_buttons", []):
+        if not (getattr(self, "home_power_buttons", []) or getattr(self, "scene_buttons", [])):
+            self.update_readback_labels()
+            return
+        intent = getattr(self, "pending", None)
+        queued = getattr(self, "queued_intent", None)
+        action = intent.get("action") if intent else queued[0] if queued else None
+        args = intent.get("arguments", {}) if intent else queued[1] if queued else {}
+        values = args.get("values") if action == "channels" else None
+        sending = ("off" if not any(values) else "on") if values is not None else None
+        for button, power, title in getattr(self, "home_power_buttons", []):
             if button.winfo_exists():
-                selected = available and current == power
-                background = self.good if selected else self.control
-                foreground = self.bg if selected else self.ink
-                icon_colour = foreground if selected else self.icon_colour
-                style = (background, foreground, icon_colour, selected)
-                if getattr(button, "_power_style", None) == style:
-                    continue
-                button._power_style = style
-                button.config(
-                    bg=background,
-                    highlightbackground=background,
-                    highlightcolor=self.ink if getattr(self, "keyboard_navigation", False) else background,
-                    fg=foreground,
-                    activeforeground=foreground,
-                    activebackground=background if selected else self.pressed_colour(),
-                    font=(getattr(self, "font_family", FONT), 22, "bold" if selected else "normal"),
-                    text=label,
-                    image=self.icon(power, icon_colour),
-                )
+                active = self.light_state == "applying" and power == sending
+                button.config(text=title + ("\nSending…" if active else ""))
+                button.style(sending=active)
+                if self.light_state == "applying" and not active:
+                    button.config(bg=self.surface, fg=self.muted, image=self.icon(power, self.muted, 38), highlightbackground=self.border)
+                    for edge in button._edges:
+                        edge.config(bg=self.border)
+                else:
+                    button.config(image=self.icon(power, self.bg, 38))
         for button, name in getattr(self, "scene_buttons", []):
             if button.winfo_exists():
-                style = (self.control, self.ink)
-                if getattr(button, "_scene_style", None) == style:
-                    continue
-                button._scene_style = style
-                button.config(
-                    bg=self.control,
-                    highlightbackground=self.control,
-                    fg=self.ink,
-                    activebackground=self.pressed_colour(),
-                    activeforeground=self.ink,
-                    text=getattr(button, "_scene_label", name),
-                )
+                current = self.light_state == "ready" and self.confirmed_scene == name and not self.ownership_blocked()
+                button._current.config(text="Current" if current else "")
+        self.update_readback_labels()
 
     def activity(self, pressed=None):
         self.last_touch = monotonic()
@@ -569,30 +505,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             widget.config(highlightcolor=self.ink if keyboard else widget.cget("bg"))
 
     def button(self, parent, text, action, accent=False):
-        button = tk.Button(
-            parent,
-            text=text,
-            command=action,
-            font=(FONT, 19, "bold" if accent else "normal"),
-            fg=self.ink,
-            bg=self.control,
-            activebackground=self.pressed_colour(),
-            activeforeground=self.ink,
-            disabledforeground=self.muted,
-            bd=0,
-            relief="flat",
-            highlightthickness=1,
-            highlightbackground=self.control,
-            highlightcolor=self.control,
-            padx=14,
-            pady=13,
-            takefocus=True,
-        )
-        button.bind("<ButtonPress-1>", lambda event: self.show_tip(text), add="+")
-        button.bind("<FocusIn>", lambda event: button.config(
-            highlightcolor=self.ink if getattr(self, "keyboard_navigation", False) else button.cget("bg")
-        ), add="+")
-        return button
+        return ui_widgets.Button(self, parent, text, action, "primary" if accent else "secondary")
 
     def show_tip(self, text):
         if (
@@ -643,239 +556,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             buttons.append(button)
         return buttons
 
-    def set_theme(self):
-        if (
-            self.theme is not None
-            and self.theme_choice == "auto"
-            and monotonic() - self.last_touch < 60
-        ):
-            return
-        local = time.localtime()
-        chosen = scheduled_theme(
-            local.tm_hour * 60 + local.tm_min, self.args.light_at, self.args.dark_at
-        )
-        chosen = chosen if self.theme_choice == "auto" else self.theme_choice
-        if chosen == self.theme:
-            return
-        self.cancel_intent()
-        section = self.section
-        advanced_page = getattr(self, "advanced_page", None)
-        self.theme = chosen
-        for name, value in THEMES[chosen].items():
-            setattr(self, name, value)
-        self.connection_badges = []
-        self.navigation_buttons = []
-        self.body_cache.clear()
-        self.detail_cache.clear()
-        self.body_key = self.advanced_detail_key = None
-        for child in self.root.winfo_children():
-            if child != self.dock:
-                child.destroy()
-        self.blank_hint = None
-        self.root.configure(bg=self.bg)
-        self.banner = tk.Frame(self.root, bg=self.bg, height=76)
-        self.banner.pack(fill="x", padx=24, pady=(8, 6))
-        self.banner.pack_propagate(False)
-        if self.artwork:
-            tk.Label(self.banner, image=self.artwork, bg="white", bd=0, padx=8).pack(
-                side="left", anchor="n", padx=(0, 18)
-            )
-        else:
-            brand = self.label(self.banner, "LESA", 30)
-            brand.config(fg=self.accent)
-            brand.pack(side="left", padx=(0, 18))
-        identity = tk.Frame(self.banner, bg=self.bg)
-        identity.pack(side="left", anchor="s")
-        self.label(identity, "Smart Conference Room", 32).pack(side="left", anchor="s")
-        badge = self.label(identity, "Beta", 16)
-        badge.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
-        badge.pack(side="left", anchor="s", padx=(12, 0), pady=(0, 10))
-        self.clock = self.label(self.banner, size=17, muted=True)
-        navigation = tk.Frame(self.banner, bg=self.bg, width=444, height=64)
-        navigation.pack(side="right")
-        navigation.pack_propagate(False)
-        for column, text, action in [
-            (0, "Home", self.open_home),
-            (2, "Legacy", lambda: self.show("original")),
-        ]:
-            slot = tk.Frame(navigation, bg=self.bg, width=140, height=64)
-            slot.grid(row=0, column=column, padx=(0, 12) if column == 0 else 0)
-            slot.pack_propagate(False)
-            button = self.button(slot, text, action)
-            button.config(
-                image=self.icon("home" if column == 0 else "original", self.ink, 24),
-                compound="left",
-                font=(FONT, 17),
-                padx=6,
-            )
-            button.pack(fill="both", expand=True)
-            self.navigation_buttons.append(button)
-            if column == 0:
-                self.home_button = button
-            else:
-                self.legacy_button = button
-        self.add_connection_badge(navigation, column=1)
-        self.footer = tk.Frame(self.root, bg=self.bg, height=80)
-        self.footer.pack_propagate(False)
-        self.tools_footer_button = self.guide_footer_button = None
-        for text, mode, gap in (
-            ("Demo & guide", "guide", 0),
-            ("Room tools", "advanced", 12),
-        ):
-            button = self.button(
-                self.footer,
-                text,
-                lambda mode=mode: (
-                    self.open_guide() if mode == "guide" else self.show(mode)
-                ),
-            )
-            button.config(
-                width=224,
-                image=self.icon(mode, self.ink, 24),
-                compound="left",
-                font=(FONT, 18),
-            )
-            if mode == "advanced":
-                self.tools_footer_button = button
-            else:
-                self.guide_footer_button = button
-            button.pack(side="right", padx=(0, gap), pady=8)
-            self.navigation_buttons.append(button)
-        status = self.label(self.footer, size=17, muted=True)
-        self.footer_status = status
-        status.config(textvariable=self.status_text)
-        self.wrap_label(status)
-        status.pack(side="left", fill="both", expand=True)
-        self.body = tk.Frame(self.root, bg=self.bg)
-        self.build_dock()
-        self.render()
-        if advanced_page:
-            return
-        if section == "channels" and self.mode == "room":
-            self.channel_view()
-        elif section == "lighting" and self.mode == "room":
-            self.open_lighting()
 
-    def build_dock(self):
-        # The 144px footprint covers only the preserved application's banner.
-        for child in self.dock.winfo_children():
-            child.destroy()
-        self.dock.configure(bg=self.bg)
-        top = tk.Frame(self.dock, bg=self.bg, height=76)
-        top.pack(fill="x", padx=24, pady=(8, 6))
-        top.pack_propagate(False)
-        if self.artwork:
-            tk.Label(top, image=self.artwork, bg="white", bd=0, padx=8).pack(
-                side="left", anchor="n", padx=(0, 18)
-            )
-        else:
-            self.label(top, "LESA", 30).pack(side="left", padx=(0, 18))
-        identity = tk.Frame(top, bg=self.bg)
-        identity.pack(side="left", anchor="s")
-        self.label(identity, "Smart Conference Room", 32).pack(side="left", anchor="s")
-        badge = self.label(identity, "Beta", 16)
-        badge.config(fg=self.icon_colour, bg=self.control, padx=10, pady=4)
-        badge.pack(side="left", anchor="s", padx=(12, 0), pady=(0, 10))
-        navigation = tk.Frame(top, bg=self.bg, width=444, height=64)
-        navigation.pack(side="right")
-        navigation.pack_propagate(False)
-        home_slot = tk.Frame(navigation, bg=self.bg, width=140, height=64)
-        home_slot.pack(side="left", padx=(0, 12))
-        home_slot.pack_propagate(False)
-        home = self.button(home_slot, "Home", self.open_home)
-        home.config(
-            font=(FONT, 17),
-            padx=6,
-            image=self.icon("home", self.ink, 24),
-            compound="left",
-        )
-        home.pack(fill="both", expand=True)
-        self.navigation_buttons.append(home)
-        mode = tk.Label(
-            navigation,
-            text="Legacy",
-            font=(FONT, 20),
-            bg=self.control,
-            fg=self.ink,
-            image=self.icon("original", self.ink, 24),
-            compound="left",
-            padx=16,
-        )
-        mode.pack(side="left", fill="both", expand=True)
-        row = tk.Frame(self.dock, bg=self.bg, height=48)
-        row.pack(fill="x", padx=24, pady=(0, 6))
-        row.pack_propagate(False)
-        for title, kind, action, gap in [
-            ("Demo & guide", "guide", self.open_guide, 0),
-            ("Room tools", "advanced", lambda: self.show("advanced"), 12),
-        ]:
-            slot = tk.Frame(row, bg=self.bg, width=224, height=48)
-            slot.pack(side="right", padx=(0, gap))
-            slot.pack_propagate(False)
-            button = self.button(slot, title, action)
-            button.config(
-                font=(FONT, 17),
-                pady=6,
-                image=self.icon(kind, self.ink, 24),
-                compound="left",
-            )
-            button.pack(fill="both", expand=True)
-            self.navigation_buttons.append(button)
-        self.label(
-            row, "Original application below · Home checks the connection and returns to Beta", 16, True
-        ).pack(side="left", fill="y")
 
-    def add_connection_badge(self, parent, legacy=False, column=None):
-        frame = tk.Frame(parent, bg=self.bg, width=140, height=64)
-        if column is None:
-            frame.pack(side="right", padx=(8, 0))
-        else:
-            frame.grid(row=0, column=column, padx=(0, 12))
-        frame.pack_propagate(False)
-        button = self.button(frame, "", self.open_lighting_help)
-        button.config(
-            font=(FONT, 15), padx=6, compound="left",
-            bg=self.bg, activebackground=self.bg,
-            highlightbackground=self.bg, highlightcolor=self.bg,
-        )
-        button.pack(fill="both", expand=True)
-        self.navigation_buttons.append(button)
-        self.connection_badges.append((button, legacy))
-        self.update_connection_badges()
 
-    def update_connection_badges(self):
-        text, kind, colour = connection(self.light_state, self.args.live_lights)
-        if self.args.live_lights:
-            status = self.recovery_snapshot()["status"]
-            text, kind, colour = {
-                "checking": ("Checking", "clock", "waiting"),
-                "returning": ("Checking", "clock", "waiting"),
-                "needs_staff": ("Uncertain", "link-off", "warning"),
-                "uncertain": ("Uncertain", "link-off", "warning"),
-                "legacy": ("Legacy", "original", "neutral"),
-            }.get(status, (text, kind, colour))
-        if hasattr(self, "connection_text"):
-            set_changed(self.connection_text, text)
-        colours = {
-            "good": THEMES[self.theme]["good"],
-            "waiting": self.icon_colour,
-            "warning": THEMES[self.theme]["warning"],
-            "neutral": self.muted,
-        }
-        for button, legacy in getattr(self, "connection_badges", []):
-            if button.winfo_exists():
-                label, icon, ink = (
-                    ("Legacy", "original", self.muted)
-                    if legacy
-                    else (text, kind, colours[colour])
-                )
-                if button.cget("text") != label:
-                    button.config(
-                        text=label,
-                        fg=ink,
-                        activeforeground=ink,
-                        image=self.icon(icon, ink),
-                    )
 
     def show(self, mode, advanced_page=None):
         if self.release_target is not None or self.closing or self.power_busy():
@@ -894,9 +577,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             return
         self.idle_active = mode == "visitor"
         self.cancel_intent()
-        if mode == "classic" and self.keep_switcher:
-            self.trial_deadline = None
         if mode == "original":
+            self.close_sheet()
             self.trial_deadline = None
             if self.light_state == "failed" and getattr(self, "light_changes_requested", False) and (recovery is None or recovery.state["status"] == "normal"):
                 self.status_text.set(
@@ -945,7 +627,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 "health": "Live panel readings. No system settings change.",
                 "room": "",
                 "advanced": "Fine adjustments and room tools. Opening a page does not operate devices.",
-                "classic": "",
                 "visitor": "Visitor view does not change lighting. Recording status is unavailable here.",
                 "settings": "Appearance settings belong to this device; they do not change room lighting.",
                 "about": "Panel credits and source repository. No room settings change.",
@@ -961,195 +642,12 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.update_navigation_buttons()
         self.emit("mode_changed", target=mode, render_ms=round(1000 * (monotonic() - render_started), 1))
 
-    def update_navigation_buttons(self):
-        """Make a pending handoff visible instead of accepting ignored touches."""
-        busy = bool(self.release_target or self.closing or self.power_busy() or getattr(self, "legacy_stopping_at", None))
-        state = "disabled" if busy else "normal"
-        buttons = getattr(self, "navigation_buttons", []) + [getattr(self, "original_fallback_button", None)]
-        for button in buttons:
-            if button is not None and button.winfo_exists() and button.cget("state") != state:
-                button.config(state=state)
-        button = getattr(self, "legacy_button", None)
-        if button is not None and button.winfo_exists():
-            text = "Opening" if self.release_target in ("original", "legacy_save") else "Legacy"
-            if button.cget("text") != text:
-                button.config(text=text)
-        for button, current, size in (
-            (getattr(self, "home_button", None),
-             self.mode == "room" and not getattr(self, "advanced_page", None), 17),
-            (getattr(self, "tools_footer_button", None),
-             bool(getattr(self, "advanced_page", None)), 18),
-            (getattr(self, "guide_footer_button", None), self.mode == "guide", 18),
-        ):
-            if button is not None and button.winfo_exists() and getattr(button, "_nav_current", None) != current:
-                button._nav_current = current
-                button.config(font=(FONT, size, "bold" if current else "normal"))
 
-    def render(self):
-        navigation = getattr(self, "guide_footer_navigation", None)
-        if navigation is not None and navigation.winfo_exists():
-            navigation.destroy()
-        self.guide_footer_navigation = None
-        status = getattr(self, "footer_status", None)
-        if status is not None and status.winfo_exists():
-            status.pack(side="left", fill="both", expand=True)
-        self.cancel_intent()
-        if getattr(self, "blank_hint", None) is not None:
-            self.blank_hint.place_forget()
-        self.dock.withdraw()
-        if self.mode == "original":
-            self.root.withdraw()
-            self.dock.geometry("1280x144+0+0")
-            self.dock.deiconify()
-            self.dock.lift()
-            return
-        if self.root.state() == "withdrawn":
-            self.root.deiconify()
-            self.root.lift()
-        for binding in ("<ButtonPress-1>", "<ButtonRelease-1>", "<B1-Motion>"):
-            self.root.unbind(binding)
-        if self.mode == "black":
-            for widget in (self.banner, self.footer, self.body):
-                widget.pack_forget()
-            self.root.configure(bg="black")
-            if getattr(self, "blank_hint", None) is None:
-                self.blank_hint = tk.Label(
-                    self.root,
-                    text="Hold anywhere for 2 seconds to return",
-                    font=(FONT, 13),
-                    fg="#808080",
-                    bg="black",
-                    bd=0,
-                    padx=0,
-                    pady=0,
-                )
-            self.blank_hint.place(relx=0.5, rely=1, y=-18, anchor="s")
-            self.root.bind("<ButtonPress-1>", self.begin_hold)
-            self.root.bind("<ButtonRelease-1>", lambda event: self.cancel_hold())
-            self.root.bind("<B1-Motion>", self.move_hold)
-            return
-        self.root.configure(bg=self.bg)
-        if self.idle_active:
-            self.banner.pack_forget()
-            self.footer.pack_forget()
-            self.rebuild_body(self.screensaver_view)
-            self.install_wake_bindings()
-            return
-        if not self.banner.winfo_manager():
-            self.banner.pack(fill="x", padx=24, pady=(8, 6))
-        self.clock.pack_forget()
-        if not self.footer.winfo_manager():
-            self.footer.pack(side="bottom", fill="x", padx=24, pady=(8, 10))
-        if (
-            getattr(self, "advanced_page", None)
-            and getattr(self, "advanced_shell", None) is self.body
-        ):
-            self.rebuild_advanced_detail()
-        else:
-            self.rebuild_body(
-                self.advanced_view
-                if getattr(self, "advanced_page", None)
-                else getattr(self, self.mode + "_view")
-            )
-        # Blank display unmaps the shell too. Retained tool pages still need it shown.
-        self.body.pack(fill="both", expand=True, padx=24)
-        self.update_navigation_buttons()
-        if self.idle_active:
-            self.install_wake_bindings()
 
-    def rebuild_body(self, build):
-        """Retain the everyday pages so returning does not rebuild their layout."""
-        previous = self.body
-        old_key = self.body_key
-        key = None
-        if self.advanced_page:
-            key = ("tools",)
-        elif self.mode == "classic":
-            key = ("classic",)
-        elif self.mode == "room" or self.idle_active:
-            key = (
-                "idle" if self.idle_active else "room",
-                self.temperature_unit,
-                self.blinds_display,
-            )
-        if key is not None and key == old_key:
-            self.refresh_page()
-            return
-        if old_key is not None:
-            if old_key[0] == "tools":
-                self.remember_detail()
-            self.body_cache[old_key] = (previous, self.page_references())
-        cached = (
-            self.body_cache.pop(key, None)
-            if key is not None and key != old_key
-            else None
-        )
-        if cached:
-            self.body, references = cached
-            self.__dict__.update(references)
-            if key[0] == "tools":
-                self.rebuild_advanced_detail()
-            else:
-                self.refresh_page()
-        else:
-            self.clear_page_references()
-            self.body = tk.Frame(self.root, bg=self.bg)
-            try:
-                build()
-            except Exception:
-                self.body.destroy()
-                self.body = previous
-                raise
-        self.body_key = key
-        previous.pack_forget()
-        self.root.focus_set()
-        self.body.pack(fill="both", expand=True, padx=24)
-        if old_key is None or old_key == key:
-            self.body_cache.pop(old_key, None)
-            previous.destroy()
 
-    def page_references(self):
-        names = PAGE_REFERENCES + (
-            "advanced_shell",
-            "advanced_sidebar_buttons",
-            "advanced_detail",
-            "advanced_detail_key",
-        )
-        return {name: getattr(self, name) for name in names if hasattr(self, name)}
 
-    def clear_page_references(self):
-        (
-            self.light_buttons,
-            self.home_power_buttons,
-            self.scene_buttons,
-            self.blind_buttons,
-            self.programme_buttons,
-        ) = ([], [], [], [], [])
 
-    def remember_detail(self):
-        key = self.advanced_detail_key
-        if key is not None and self.advanced_detail is not None:
-            self.detail_cache[key] = (
-                self.advanced_detail,
-                {
-                    name: getattr(self, name)
-                    for name in PAGE_REFERENCES
-                    if hasattr(self, name)
-                },
-            )
 
-    def refresh_page(self):
-        """Refresh mutable state and bind sliders to this navigation's generation."""
-        for control in self.light_buttons:
-            if isinstance(control, TouchSlider):
-                control.pressed = False
-                self.bind_slider(control, getattr(control, "_action", "channels" if control.vertical else "cct"))
-                control.draw()
-        self.update_light_buttons()
-        self.update_blind_buttons()
-        self.refresh_confirmation_age()
-        if self.mode in ("room", "visitor") and not self.advanced_page:
-            self.update_weather(force=True)
 
     def blind_state(self):
         controller = getattr(self, "blind_controller", None)
@@ -1214,6 +712,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         return True
 
     def update_blind_buttons(self):
+        self.refresh_home_blinds()
         readiness = self.blind_state()
         for button in getattr(self, "blind_buttons", []):
             if button.winfo_exists():
@@ -1229,11 +728,13 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
 
     def adapter_metadata(self, response):
         previous = getattr(self, "blinds_connected", False)
+        previous_caps = dict(getattr(self, "light_capabilities", {}))
         self.light_capabilities = response.get("capabilities", getattr(self, "light_capabilities", {}))
         self.blinds_connected = response.get("blinds_connected", previous) is True
         self.programme = response.get("programme", getattr(self, "programme", None))
-        if previous != self.blinds_connected and getattr(self, "advanced_page", None) == "screen":
-            self.rebuild_advanced_detail()
+        if previous_caps != self.light_capabilities and getattr(self, "advanced_page", None) == "lighting":
+            self.render()
+        self.refresh_home_blinds()
 
     def start_weather(self):
         now = monotonic()
@@ -1294,19 +795,12 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.cct_apply()
 
     def bind_slider(self, scale, action):
-        generation = self.view_generation
-        if isinstance(scale, TouchSlider):
-            scale.on_start = lambda: self.slider_pressed(scale, action, generation)
-            scale.on_end = lambda: self.slider_released(None)
-        else:
-            scale.bind(
-                "<ButtonPress-1>",
-                lambda event: self.slider_pressed(scale, action, generation),
-                add="+",
-            )
-        scale.config(
-            command=lambda value: self.slider_changed(scale, action, generation)
-        )
+        # Read the live generation on press. Recovery can cancel without rebuilding.
+        scale._action = action
+        scale.on_start = lambda: self.slider_pressed(scale, action, self.view_generation)
+        scale.on_end = lambda: self.slider_released(None)
+        # TouchSlider updates the variable itself; room writes start on release.
+        scale.config(command=lambda value: None)
 
     def slider_pressed(self, scale, action, generation):
         if generation == self.view_generation and scale.cget("state") != "disabled":
@@ -1436,7 +930,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             if button.winfo_exists():
                 style = (
                     "normal"
-                    if self.light_state in ("ready", "applying")
+                    if self.light_state == "ready"
+                    and not self.pending
                     and (not getattr(button, "_gradient", False)
                          or getattr(self, "light_capabilities", {}).get("gradient"))
                     and not self.ownership_blocked()
@@ -1538,7 +1033,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             content,
             text="I have stopped any recording or experiment",
             variable=acknowledged,
-            font=(FONT, 18),
+            font=ui_widgets.font("text"),
             bg=self.bg,
             fg=self.ink,
             disabledforeground=self.muted,
@@ -1582,7 +1077,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                     True,
                 ),
             ],
-            height=60,
+            height=ui_widgets.S["tap"],
         )
         self.power_dialog_close = buttons[0]
 
@@ -1590,9 +1085,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             checked = acknowledged.get()
             buttons[1].config(
                 state="normal" if checked else "disabled",
-                bg=self.control,
-                fg=self.ink,
-                highlightbackground=self.control,
             )
 
         update_confirmation()
@@ -1700,8 +1192,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             )
             self.health_worker.daemon = True
             self.health_worker.start()
-        if not self.status_worker and now - self.room_status_at >= 60:
-            self.start_status()
+        # Room service discovery runs only from Check now, never from navigation.
 
     def update_health(self):
         if self.mode != "health":
@@ -1710,42 +1201,13 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         if getattr(self, "system_diagnostics_visible", False):
             self.update_room_diagnostics()
             return
-        h = self.health_cache
-        key = (tuple(sorted(h.items())), self.room_status, self.theme)
-        if key == self.health_rendered:
+        key = (tuple(sorted(self.health_cache.items())), self.room_status, self.theme)
+        if key == getattr(self, "health_rendered", None):
             return
         self.health_rendered = key
         self.services_label.config(text=self.room_status)
-        if not h or "error" in h:
-            self.power_label.config(
-                text="Power reading unavailable." if h else "Checking panel power…",
-                fg=self.muted,
-            )
-        if not h:
-            self.health_details.config(text="Checking panel resources…")
-            return
-        if "error" in h:
-            self.health_details.config(
-                text="Resource reading unavailable: " + h["error"]
-            )
-            return
-        self.health_details.config(
-            text="Memory: %d / %d MiB free\nStorage: %.1f GiB free · CPU: %.1f C"
-            % (
-                h["ram_available"],
-                h["ram_total"],
-                h["disk_available"],
-                h["temperature"],
-            )
-        )
-        self.power_label.config(
-            text="Power: " + h["power"],
-            fg=(
-                THEMES[self.theme]["warning"]
-                if h["power"].startswith("Current")
-                else self.muted
-            ),
-        )
+        self.refresh_system_facts()
+        self.update_room_diagnostics()
 
     def room_diagnostics(self):
         configured = bool(
@@ -2337,6 +1799,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                     self.confirmed_at = None
                     self.confirmed_power = None
                     self.confirmed_scene = None
+                if state in ("ready", "checked") or (state == "completed" and action not in ("programme", "blind") and not self.queued_intent):
+                    self.seed_controls(response, completed_request)
                 self.lighting_feedback(detail)
                 if hasattr(self, "recovery"):
                     self.recovery_result(completed_request, response)
@@ -2453,13 +1917,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         if self.closed:
             return False
         self.set_theme()
-        clock = (
-            time.strftime("%a %d %b")
-            + "  "
-            + time.strftime("%H:%M" if self.clock_24 else "%I:%M %p")
-        )
-        if self.clock.cget("text") != clock:
-            self.clock.config(text=clock)
         set_changed(
             self.visitor_time,
             (
@@ -2468,7 +1925,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 else time.strftime("%I:%M %p").lstrip("0")
             ),
         )
-        set_changed(self.visitor_date, time.strftime("%A, %d %B %Y"))
+        set_changed(self.visitor_date, time.strftime("%A, %d %B").replace(" 0", " "))
         set_changed(self.preference_text, self.preference_summary())
         self.update_connection_badges()
         self.update_blind_buttons()
@@ -2606,7 +2063,7 @@ def main(argv=None):
     )
     parser.add_argument(
         "--start-mode",
-        choices=["room", "classic", "original"],
+        choices=["room", "original"],
         default="room",
         help="Initial view with --keep-switcher",
     )
@@ -2735,6 +2192,7 @@ def main(argv=None):
         parser.error("Weather needs both valid latitude and longitude")
     global FONT
     FONT = args.font
+    ui_widgets.FONT = args.font
     if (
         math.isnan(args.duration)
         or math.isinf(args.duration)

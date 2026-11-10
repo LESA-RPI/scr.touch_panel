@@ -1,7 +1,7 @@
 # SCR room touch panel
 
 Touch controls and room guidance for the LESA Smart Conference Room. **Beta**
-provides everyday lighting, room tools and a shared website. **Legacy** opens the
+provides everyday lighting, room guidance and a shared website. **Legacy** opens the
 unchanged original application, with a navigation strip above it. Its original
 controls and behaviour remain the stable fallback while Beta is under development.
 
@@ -24,129 +24,67 @@ separate release process are required.
 | Screen | Purpose |
 |---|---|
 | Home | Lights on/off, optional blind controls and clock/weather |
-| Room tools | Lighting, system/help and device preferences in one sidebar |
-| Demo & guide | Explore the room through a visual tour, or open concise control help |
+| Lights | White light, Scenes, Programmes and Channels |
+| Guide | Room tour and Using the controls, with a topic list beside the content |
+| Settings | Screen, Appearance, Date & weather, System and About |
 
 Home is the default screen. **Lights on applies Fid** on both Beta and the website.
-The former On setting (3500 K, level 1000) is available as **Warm white** under
-Room tools → Lighting → White light. Fid remains in Scenes, marked as the same
-setting as Lights on.
-Demo & guide shows **Room tour** and **Control help** together, with direct topic
-links and a clear return to each list.
-The tour explains the ten lights and eight channels, COMBO distance/colour sensing,
-IRMA distance arrays and the separate Color network. Its ceiling schematic lets
-visitors select a sensor family; positions are a dated reference, not live status.
-Markers use the reference layout's colours and approximate within-cell positions.
-Tap a marker or cell for its reference ID and R/C grid name. Back to topics returns
-to the topic list. Two-choice preferences show both options directly.
-The [LESA room guide](https://app.notion.com/p/f8f36eb121b04faeac3259d5ce380308)
+**Warm white** (3500 K, level 1000, the former On setting) is under Lights → White
+light. Sliders apply when you let go. Fid, Sat and Dul retain their original
+mixtures; Gradient spreads colour across the ten lights. Scenes show their
+eight-channel mixtures and identify the confirmed current scene with text.
+Sun and Circ Start controls and Stop programmes appear when the programme service
+is configured. A programme acknowledgement confirms acceptance, not live operation.
+A manual lighting action stops programmes before applying. Browsing another page
+keeps the existing controller and does not change lights or start equipment.
+
+The line below the controls reports the last confirmed lights and their age.
+The status chip opens **Room connection**, with current connection details,
+**Check connection** and **Open Legacy controls**. Check connection reads current
+settings; after an uncertain handoff it stops programmes and confirms stable
+settings while keeping light levels. Uncertain results block further changes
+until checked. Legacy is also available under Settings → System. It opens the
+original app on demand while website lighting pauses. Its **Back to Home** button
+closes Legacy and checks the lights before returning to Ready.
+
+Blinds are locked by default. Settings → Screen saves movement permission and
+whether the blind controls appear on Home. Unlocking is available only with a
+connected controller, and does not itself move equipment. When unlocked and
+connected, Home offers Lift blinds, Open slats and Close & lower. Acceptance does
+not measure physical blind position.
+
+Guide explains lighting, COMBO distance/colour sensing, IRMA distance arrays and
+the Color network. Its ceiling map shows one family at a time. Tap a marker for
+its reference and R/C cell; mapped positions do not prove connection or recording.
+The panel's phone card shows the room Wi-Fi and website QR code. The privately
+configured Wi-Fi key appears only on the physical panel; ask the room host if it
+is unavailable. The [LESA room guide](https://app.notion.com/p/f8f36eb121b04faeac3259d5ce380308)
 provides broader room and research context.
-Browsing starts no equipment. Explicit scene buttons in the lighting story can
-change room lights through the same guarded controller as Lighting. Direct page
-links and remembered topics make it easy to explore, try controls and return.
-The guide also shows how to join **SCR_AP** and open the room website by QR code.
-The access key is supplied by private deployment settings and shown only on the
-physical panel; ask the room host if access details are unavailable.
-Room tools → Lighting groups **White light, Scenes,
-Programmes and Channels**. Fid, Sat and Dul retain their original mixtures.
-Scenes also offers the original ten-light Gradient when its service is available.
-Programmes provides the original Sun and Circ Start controls and Stop programmes
-when the existing programme service is configured. Sun staggers its curve across
-the room; Circ applies its curve to the room together. A programme acknowledgement
-confirms only that the request was accepted, not that the programme is running.
-An explicit manual lighting action stops programmes and checks stable drive settings
-before applying. Opening another Beta page does not stop a programme.
-Empty Dynamic CCT, Dynamic Intensity and Auto placeholders and the old Enable
-Sliders gate are omitted.
 
-Home includes Lift blinds, Open slats and Close & lower through the shared room
-controller when its blind services are available. Service acceptance does not
-measure physical blind position. Screen & controls can show or hide the Home
-controls. The saved movement permission defaults to Locked; no unlock
-control is offered while the adapter is disconnected. Changing visibility never
-moves equipment or grants permission. Room tools keeps detailed controls together.
-The Legacy shortcut starts the original app on demand while website lighting pauses.
-Back to Home closes Legacy, stops Sun/Circ and checks stable settings before
-returning to Ready, keeping current light levels. If the return fails, press
-Check connection to try again; Legacy can also be reopened.
-Room tools opens each tool directly beside the sidebar and
-remembers the last tool.
+Each saved preference is a row showing its current value; tap it to open a picker.
+Preferences belong to this panel and never move equipment. Settings → System
+shows dated room-service registrations, **Check now**, panel facts and plain power
+warnings. Registration does not prove fresh sensor data. Service checks run only
+when requested. Maintenance commands are shown step by step and never executed
+by the panel. Restart and Shut down retain their explicit confirmation and
+controller-cleanup checks. Indoor measurements remain on TV/Status.
 
-Home and the idle view show outdoor temperature, conditions, feels-like temperature,
-today's high/low and rain chance when available, plus daylight. Source/model
-details remain under Room tools → Date & weather. Earlier data is clearly dated.
-Forecast labels and values use an aligned grid; missing values show a dash.
-The screensaver gives the clock larger digits with a smaller AM/PM indicator,
-beside weather and the daylight bar. Touch anywhere opens Home.
+Home shows local time, outdoor conditions, feels-like temperature, today's
+high/low, rain chance and sunrise/sunset when available. Date & weather has source
+details. Earlier forecasts are marked. The screen saver centres the clock, date
+and one weather line, with last confirmed lights and the phone QR along the bottom.
+It starts after five idle minutes by default; Screen settings can change this or
+preview it. The first wake touch opens Home without activating a control. Active
+touches, pending commands, Legacy, blank display and uncertain results keep their
+existing idle and control guards.
 
-Light buttons queue immediately on release; sliders send after your touch settles.
-Large values show your selection; the feedback
-area shows the last confirmed controller settings and their age. **Ready** means
-the lighting adapter is available. It does not confirm every room sensor is healthy
-or measure physical brightness. Home and Lighting state the last confirmed power
-and settings in words, with the age of that readback. Pending or uncertain results
-remain explicit. A custom mix is described as custom rather than a saved scene.
-Routine Ready confirmations stay in
-the feedback area; the footer is reserved for explanations, progress and problems.
-Room tools keeps its sidebar in place while changing tools. Unchanged clock/status
-values do not trigger another redraw. Resource checks run in the background so
-slow reads do not hold up touches.
-Lighting presses never wait for storage. Only Legacy handoffs
-are saved before they proceed.
-Home, the screen saver and Lighting tabs reuse their existing widgets when you
-return. Readback, availability and slider bindings refresh before controls are
-shown; this does not cache lighting commands or bypass controller checks.
-Browsing Guide, Settings or About does not disable lighting
-on the other interface. Pending work, Legacy, a blank panel
-and uncertain results retain their control guards.
-
-White light shows the minimum and maximum beside each slider, and lighting
-sliders explain that their values apply automatically. The lighting status badge
-opens connection guidance directly, even after browsing other help.
-System & help separates read-only checks, aligned panel readings and room services,
-panel actions, and guidance. Reference commands are
-available through View command steps and are never executed by the panel.
-Room diagnostics shows dated service registrations and keeps earlier results
-after a failed check. Check now reuses the existing metadata worker. The website
-gateway reuses the panel's cached result, avoiding a second ROS service check.
-These registrations do not prove live sensor data or recording. Indoor readings
-remain on TV/Status until a supported read-only feed is connected; the displayed
-Pi temperature is its processor temperature, separate from outdoor weather.
-Command references use a verified monospace font with restrained shell highlighting;
-the browser can copy each command or the complete topic without formatting.
-Command steps explain which computer to use, why the command helps and what
-result to expect. The panel shows one step at a time with Previous/Next;
-the website shows all steps with individual Copy buttons and reference links.
-
-The full-screen screensaver appears after five idle minutes by default. It has a
-large clock, weather and a prominent “Touch anywhere for room controls” prompt,
-without the normal control-page navigation. Its first wake touch always opens
-Home without activating controls. Screen & controls offers **Preview screen saver**
-for the same screen; there is no separate clock/weather page.
-Control icons use a consistent Lucide outline
-family; weather uses thin, coordinated variants. Dark backgrounds and ordinary
-surfaces stay neutral gray. Navigation uses words, position and type weight;
-controls use quiet neutral fills. Colour is reserved for data, weather and status.
-Saved preferences use a single current-value menu instead of rows of switches.
-The original LESA logo stays
-consistent in both themes. Room tools and Guide keep their footer shortcuts in
-the same positions while browsing.
-Flat sliders share a 48-pixel touch area, a visible grip and pressed/focus feedback.
-Related buttons share widths and spacing; lighting results appear
-in a compact feedback area with the historical readback kept separate.
-**Room tools → Screen**
-offers Off, 1, 5 or 15 minutes. Idle does not interrupt Legacy, held
-touches, pending commands or uncertain lighting. Preferences save appearance and
-idle choices, not light settings or recording state.
-
-**Check connection** reads current settings without changing
-them or repeating a command. If a change cannot be confirmed, the panel reads the
-lights again and controls return; press the control again if needed. **Room tools → System & help** provides guidance. **Website offline** means
-the page cannot reach the panel; it reconnects automatically.
-Opening guide pages operates no devices; its labelled scene buttons are explicit
-room actions. A two-second stationary
-press leaves the black screen; black pixels do not turn off the backlight.
-A small gray hint at the bottom explains the two-second hold.
+The panel and website share sharp neutral controls, type and colour tokens.
+Current navigation items are inverted; main actions are filled. Colour identifies
+channel/scene data, sensor markers, weather and status. Pages retain their widgets
+when you return, and slider presses read the live controller generation.
+Uniform representable acquired drives seed channel controls. White controls use
+confirmed white inputs when available; otherwise neutral values are labelled as
+a new mix rather than a representation of the room.
 
 ## Try the panel without room hardware
 
@@ -215,7 +153,7 @@ acceptance checks. Service presence is not physical device health.
 
 General panel code belongs here. Project-X owns its optional recorder integration.
 The browser and touch interface share one command owner.
-On phones and portrait tablets, the website keeps Home, Room tools and Demo & guide in a bottom
+On phones and portrait tablets, the website keeps Home, Lights, Guide and Settings in a bottom
 navigation bar. Compact tool selection, scrollable lighting tabs and scene rows
 leave more room for controls. Changing pages returns to the top; pending messages
 remain visible above navigation without changing the panel's page.

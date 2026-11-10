@@ -526,6 +526,7 @@ def test_slow_adapter_initialization_sends_fresh_request_once_and_honors_exit(
 
 def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch):
     state = panel.Panel.__new__(panel.Panel)
+    state.seed_controls = lambda *args: None
     state.closed, state.closing, state.worker_ready = False, None, True
     state.worker = SimpleNamespace(stdin=BytesIO(), stdout=object(), poll=lambda: None)
     state.last_heartbeat = panel.monotonic()
@@ -766,15 +767,14 @@ def test_navigation_cancels_only_unsent_selection_wording(
     state.view_generation, state.lighting_tab = 0, "white"
     state.queued_intent = ("cct", {"cct": 4500, "intensity": 1000}, 0) if queued else None
     state.intent_timer, state.slider_drag = (7 if queued else None), object()
-    cancelled, rebuilt = [], []
+    cancelled = []
     state.root = SimpleNamespace(after_cancel=cancelled.append)
-    state.rebuild_advanced_detail = lambda: rebuilt.append(state.lighting_tab)
     state.request = lambda *args: pytest.fail("Cancelled navigation must not send or replay a room action")
     state.refresh_confirmation_age()
-    state.choose_lighting_tab("scenes")
+    state.cancel_intent()
     state.dispatch_intent()
     assert state.queued_intent is state.intent_timer is state.slider_drag is None
-    assert state.view_generation == 1 and rebuilt == ["scenes"]
+    assert state.view_generation == 1
     assert cancelled == ([7] if queued else [])
     assert state.light_message == (expected or message)
     assert feedback["feedback_message"] == (expected or message).replace(" input / level ", " · level ")
@@ -832,126 +832,8 @@ def test_home_power_highlight_uses_confirmed_readback_and_clears_during_changes(
         {"state": "completed", "intensity": 0},
     ):
         assert panel.confirmed_power(reply) is None
-    state = panel.Panel.__new__(panel.Panel)
-    monkeypatch.setattr(panel, "monotonic", lambda: 60)
-    state.light_state, state.confirmed_power = "ready", "off"
-    state.confirmed_light = "Off scene"
-    state.pending = state.queued_intent = state.release_target = state.closing = None
-    state.control, state.ink, state.icon_colour, state.border = (
-        "neutral",
-        "ink",
-        "icon",
-        "border",
-    )
-    state.icon = lambda *args: None
-    state.good, state.bg = "confirmed", "page"
-    state.mode, state.worker_ready = "room", True
-    state.worker = SimpleNamespace(poll=lambda: None, stdin=BytesIO())
-    state.recovery = SimpleNamespace(state={"status": "normal"}, error=None, pending=False)
-    state.recovery_snapshot = lambda **kwargs: {
-        "status": state.recovery.state["status"], "title": "Lighting unavailable",
-    }
-    state.power_busy = lambda: False
-    buttons = [
-        SimpleNamespace(winfo_exists=lambda: True, config=lambda **kw: None)
-        for _ in range(2)
-    ]
-    for button in buttons:
-        button.config = lambda button=button, **kw: setattr(button, "options", kw)
-    state.home_power_buttons = [
-        (buttons[0], "on", "Lights on"),
-        (buttons[1], "off", "Lights off"),
-    ]
-    feedback = capture_lighting_feedback(state)
-    state.args.live_lights = True
-    state.refresh_confirmation_age()
-    assert feedback["feedback_detail"] == "Last confirmed: Lights off · Off scene / 1 min ago"
-    assert [button.options["text"] for button in buttons] == ["Lights on", "Lights off"]
-    assert [button.options["bg"] for button in buttons] == ["neutral", "confirmed"]
-    assert buttons[1].options["fg"] == "page" and buttons[1].options["font"][-1] == "bold"
-    for field in ("pending", "queued_intent", "release_target", "closing",
-                  "legacy_stopping_at", "press_active"):
-        setattr(state, field, True)
-        state.light_message = "Waiting for lighting confirmation."
-        state.refresh_confirmation_age()
-        assert feedback["feedback_message"] == "Waiting for lighting confirmation."
-        assert feedback["feedback_detail"].startswith("Last confirmed: Lights off · Off scene")
-        assert all(button.options["bg"] == "neutral" for button in buttons)
-        setattr(state, field, None)
-        state.update_power_highlights()
-        assert buttons[1].options["bg"] == "confirmed"
-    for status in ("uncertain", "legacy", "recovering", "writing"):
-        state.recovery.state["status"] = status
-        state.update_power_highlights()
-        assert all(button.options["bg"] == "neutral" for button in buttons)
-    state.recovery.state["status"] = "normal"
-    state.confirmed_at = None
-    state.update_power_highlights()
-    assert all(button.options["bg"] == "neutral" for button in buttons)
-    state.confirmed_at, state.worker_ready = 0, False
-    state.update_power_highlights()
-    assert all(button.options["bg"] == "neutral" for button in buttons)
-    state.worker_ready, state.confirmed_power = True, "on"
-    state.update_power_highlights()
-    assert [button.options["bg"] for button in buttons] == ["confirmed", "neutral"]
-    state.confirmed_power = "off"
-    state.light_state = "failed"
-    state.light_message = "Result unconfirmed. Controls disabled."
-    state.refresh_confirmation_age()
-    assert feedback["feedback_message"] == "Result unconfirmed. Controls disabled."
-    assert feedback["feedback_detail"] == "Last confirmed: Lights off · Off scene / 1 min ago"
-    assert all(button.options["bg"] == "neutral" for button in buttons)
 
 
-def test_scene_confirmation_uses_exact_words_and_keeps_action_labels_neutral(monkeypatch):
-    state = panel.Panel.__new__(panel.Panel)
-    monkeypatch.setattr(panel, "monotonic", lambda: 60)
-    state.light_state = "ready"
-    state.pending = state.queued_intent = state.release_target = state.closing = None
-    state.control, state.ink, state.border = "neutral", "ink", "border"
-    buttons = []
-    for name in ("Fid", "Sat", "Dul"):
-        button = SimpleNamespace(winfo_exists=lambda: True)
-        button.config = lambda button=button, **kw: setattr(button, "options", kw)
-        buttons.append((button, name))
-    state.scene_buttons = buttons
-    feedback = capture_lighting_feedback(state)
-    for name, preset in adapter.PRESETS.items():
-        assert panel.confirmed_scene({"state": "ready", "baseline": name}) == name
-        reply = {"state": "completed", "words": list(adapter.setter_words(preset))}
-        state.confirmed_scene = panel.confirmed_scene(reply)
-        assert state.confirmed_scene == name
-        state.confirmed_light = name + " scene"
-        state.refresh_confirmation_age()
-        assert feedback["feedback_detail"] == "Last confirmed: %s scene / 1 min ago" % name
-        assert [button.options["text"] for button, label in buttons] == ["Fid", "Sat", "Dul"]
-        assert all(button.options["bg"] == "neutral" for button, label in buttons)
-    custom = list(adapter.setter_words(adapter.PRESETS["Fid"]))
-    custom[0] += 1  # Even a one-word difference is not the known scene.
-    for reply in (
-        {"state": "completed", "words": custom},
-        {"state": "completed", "values": list(adapter.PRESETS["Fid"])},
-        {
-            "state": "failed",
-            "words": list(adapter.setter_words(adapter.PRESETS["Fid"])),
-        },
-    ):
-        state.confirmed_scene = panel.confirmed_scene(reply)
-        assert state.confirmed_scene is None
-        state.confirmed_light = "Custom eight-channel mix"
-        state.refresh_confirmation_age()
-        assert "Custom eight-channel mix" in feedback["feedback_detail"]
-        assert all(button.options["bg"] == "neutral" for button, name in buttons)
-    state.confirmed_scene = "Sat"
-    for field in ("pending", "queued_intent", "release_target", "closing"):
-        setattr(state, field, True)
-        state.refresh_confirmation_age()
-        assert feedback["feedback_detail"].startswith("Last confirmed:")
-        assert all(button.options["bg"] == "neutral" for button, name in buttons)
-        setattr(state, field, None)
-    state.light_state = "failed"
-    state.refresh_confirmation_age()
-    assert all(button.options["bg"] == "neutral" for button, name in buttons)
 
 
 def test_advanced_navigation_and_blank_return_preserve_tool_but_idle_opens_home():
@@ -961,7 +843,7 @@ def test_advanced_navigation_and_blank_return_preserve_tool_but_idle_opens_home(
     state.show = lambda mode, **kw: shown.append((mode, kw))
     state.open_advanced()
     assert shown[-1] == ("room", {"advanced_page": "lighting"})
-    assert state.lighting_tab == "channels"
+    assert state.lighting_tab == "scenes"
     state.open_advanced("clock")
     assert shown[-1] == ("settings", {"advanced_page": "clock"})
     state.blank_advanced_return, state.blank_return = "screen", "settings"

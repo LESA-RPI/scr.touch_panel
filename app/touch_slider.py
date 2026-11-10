@@ -1,6 +1,10 @@
 """Flat touch slider with the same geometry and feedback in both themes."""
 
 import tkinter as tk
+from design_tokens import SCALE
+
+S = SCALE["panel"]
+TOUCH = 2 * S["space"]
 
 
 def selected_value(fraction, start, end, step):
@@ -28,8 +32,8 @@ class TouchSlider(tk.Canvas):
         vertical = orient == "vertical"
         super().__init__(
             parent,
-            width=48 if vertical else length,
-            height=length if vertical else 48,
+            width=TOUCH if vertical else length,
+            height=length if vertical else TOUCH,
             bg=background,
             highlightthickness=0,
             bd=0,
@@ -88,8 +92,8 @@ class TouchSlider(tk.Canvas):
         self.drawn = state
         if self.items is None:
             self.items = (
-                self.create_line(0, 0, 0, 0, width=6, capstyle="round"),
-                self.create_line(0, 0, 0, 0, width=6, capstyle="round"),
+                self.create_line(0, 0, 0, 0, width=S["radius"], capstyle="round"),
+                self.create_line(0, 0, 0, 0, width=S["radius"], capstyle="round"),
                 self.create_rectangle(0, 0, 0, 0),
                 self.create_line(0, 0, 0, 0),
                 self.create_line(0, 0, 0, 0),
@@ -124,7 +128,7 @@ class TouchSlider(tk.Canvas):
             thumb,
             fill=self.track if not self.pressed or disabled else self.accent,
             outline=edge,
-            width=2 if self.pressed or focused else 1,
+            width=2 * S["line"] if self.pressed or focused else S["line"],
         )
         grip = (
             self.cget("bg")

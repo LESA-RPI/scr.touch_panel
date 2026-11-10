@@ -38,10 +38,10 @@ percentages, which cannot reproduce arbitrary fractional drive settings.
 
 ## Switching and recovery
 
-Home combines stacked Lights on/off with time and outdoor weather. Blind
+Home combines side-by-side Lights on/off with time and outdoor weather. Blind
 callbacks check the saved permission and controller connection; movement defaults
 to Locked. The helper exposes whole-room blinds when the existing lift/tilt
-services are advertised. Room tools → Lighting groups
+services are advertised. Lights groups
 white-light adjustments, scenes, programmes and the channel editor. Home returns to everyday
 controls. All light controls share one latest selection queue. Wait for
 confirmation to distinguish a selection from a result.
@@ -125,10 +125,10 @@ or restore light settings. Remove this private file to reset appearance.
 A direct preview saves preferences only when `--preferences PATH` is supplied.
 `blinds_enabled` is a strict boolean, defaults to false and is saved separately
 from Home visibility. Changing this setting never sends a blind command.
-Screen & controls omits unlocking until the helper reports a connected controller.
+Settings → Screen omits unlocking until the helper reports a connected controller.
 Its permission controls update when connection state changes, including while the
 page remains open. Unlocking changes permission only; explicit Home buttons move blinds.
-Room tools → Date & weather selects Celsius or Fahrenheit. Old preference files
+Settings → Date & weather selects Celsius or Fahrenheit. Old preference files
 default to Fahrenheit. Direct previews can use `--temperature-unit c` or `f`.
 Switching units converts cached data; it does not fetch again or change room controls.
 Screen settings save `idle_timeout` as 0, 60, 300 or 900 seconds, defaulting to
@@ -189,27 +189,26 @@ the qualified Raspberry Pi OS image; other hosts may select another family with
 
 ## Room guide and troubleshooting
 
-Demo & guide separates a four-topic room tour from four control-help topics.
-The tour uses static channel/ranging illustrations and a selectable ceiling
-schematic. Its source snapshot is identified in `app/ceiling_map.json`; Project-X
-owns the canonical geometry. Update that snapshot only from reviewed source
-data, preserving its source date/hash and the distinction between mapped and
-live devices. It omits unmapped wall sensors and unverified fixture positions.
-Opening pages or changing map families starts no equipment or recording.
-The lighting story's explicit scene buttons share the normal controller guards
-and confirmation feedback. Safe page links keep the selected guide topic.
-The fixed header badge reflects the existing lighting adapter state, with no extra
-network polling. Its icons and labels distinguish Ready, Sending, Checking,
-Uncertain and Offline. Preview never reports Ready; Legacy shows its own mode.
+Guide keeps the four-topic room tour and three control-help topics beside their
+content, with no Previous/Next navigation. Its ceiling map shows one sensor family
+at a time and gives each marker a 44-pixel touch area. The source snapshot is
+`app/ceiling_map.json`; Project-X owns canonical geometry. Preserve its source
+date/hash and distinguish mapped positions from live devices. Guide also retains
+the panel-only Wi-Fi key and website QR card.
 
-Room tools → System & help offers read-only Check connection alongside panel
-controls and reference instructions. Reference commands are never executed by the interface.
-Room diagnostics opens a secondary view with cached service registrations,
-observation age, the latest check result and Check now. It uses the existing
-bounded metadata worker and its 60-second automatic cadence. A failed check
-retains the last successful observation and its original age. Gateway-mode
-website diagnostics reuse that owner cache; standalone diagnostics retain their
-own bounded probe. These checks never query a sensor or start a room service.
+The header status chip opens the Room connection sheet. Its Ready, Working…,
+Connecting…, Check needed and Lighting offline states use the owner's existing
+state without another network poll. This sheet and Settings → System are the
+only places that open Legacy. Its original application sits beneath a 112-pixel
+strip with one Back to Home button.
+
+Settings → System shows cached service registrations, observation age, the latest
+result and Check now. Only an explicit check starts the existing bounded metadata
+worker; navigation does not query the room. A failed check retains the last good
+observation and age. Gateway diagnostics reuse that owner cache; standalone
+diagnostics retain their own bounded probe. Checks never query a sensor or start
+a room service. Maintenance commands are displayed step by step and never run.
+Panel power warnings use the health power text and power_warning flag.
 TV/Status currently accepts pushed measurements without a verified read API.
 Direct HVAC getters share an unlocked controller connection with the existing
 HVAC client; use its passive feed for future readings, without another getter

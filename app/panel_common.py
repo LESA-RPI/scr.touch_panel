@@ -2,7 +2,6 @@
 
 from scr_touch_panel_lights import PRESETS
 from room_controls import BLIND_ACTIONS
-from design_tokens import THEMES
 import argparse
 import os
 from scr_touch_panel_lights import setter_words
@@ -20,43 +19,6 @@ CHANNEL_COLOURS = (
     "#d47d34",
     "#ba6052",
     "#a84658",
-)
-ACCENT = THEMES["light"]["accent"]
-ADVANCED_PAGES = [
-    ("Lighting", "lighting"),
-    ("Appearance", "appearance"),
-    ("Date & weather", "clock"),
-    ("Screen & controls", "screen"),
-    ("System & help", "system"),
-    ("About", "about"),
-]
-# Only presentation references travel with retained pages. Controller state, intent
-# generations and preferences always belong to the live Panel, never a cached page.
-PAGE_REFERENCES = (
-    "classic_buttons",
-    "classic_sliders",
-    "programme_buttons",
-    "light_buttons",
-    "home_power_buttons",
-    "scene_buttons",
-    "blind_buttons",
-    "blind_status_label",
-    "system_blind_status_label",
-    "light_feedback_card",
-    "recovery_label",
-    "recovery_button",
-    "weather_symbol",
-    "weather_symbol_size",
-    "weather_symbol_key",
-    "weather_symbol_item",
-    "weather_measurements",
-    "weather_metric_cells",
-    "weather_metric_values",
-    "weather_notice",
-    "daylight_label",
-    "daylight_canvas",
-    "daylight_drawn",
-    "weather_rendered_minute",
 )
 TIPS = {
     "Lights on": "Applies the everyday Fid scene to all lights. Warm white is under Lighting → White light.",
