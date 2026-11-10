@@ -11,7 +11,7 @@ def snapshot(panel):
         or panel.queued_intent
         or panel.release_target
         or panel.closing
-        or getattr(panel, "legacy_probe", None)
+        or getattr(panel, "legacy_stopping_at", None) is not None
         or panel.press_active
         or getattr(panel, "power_busy", lambda: False)()
     )

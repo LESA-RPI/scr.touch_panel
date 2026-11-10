@@ -92,15 +92,21 @@ all ten lights. In room control a stable check adopts the current settings.
 
 ## Lighting ownership and recovery
 
-Handoffs persist before they proceed. An interrupted handoff and storage errors
-block writes across restart; an interrupted everyday command does not.
+Handoffs persist before they proceed. Interrupted handoffs block writes across
+restart until Check connection succeeds; interrupted everyday commands use a fresh
+acquisition. Storage errors still block control.
 
 The public `lighting_recovery` snapshot contains `status`, `title`, `detail`,
 `can_check`, `needs_staff` and `write_blocked`.
-States are `normal`, `writing`, `checking`, `returning`,
-`needs_staff`, `offline`, `legacy`. Public `check_connection` takes no arguments,
-reads only and cannot clear uncertainty or override ownership. The website retains
-unknown receipts until a matching receipt or new owner session; it never resends.
+Persisted states are `normal`, `uncertain` and `legacy`; the public snapshot also
+uses `writing`, `checking`, `returning` and `offline` for current activity.
+Public `check_connection` takes no arguments. In normal operation it checks current
+settings. For any persisted uncertain/interrupted-return/Legacy state, after Legacy
+has exited, it uses bounded `return_legacy`: stop Sun/Circ, then two matching stable
+reads of all ten lights. Success clears uncertainty and keeps current settings;
+failure stays uncertain and permits another check. `needs_staff` is reserved for
+recovery storage errors. The website retains unknown receipts until a matching
+receipt or new owner session; it never resends.
 
 ## Optional weather details
 
@@ -147,15 +153,26 @@ uncertainty still block writes; an identity check never clears them.
 
 `legacy` (alias `original_fallback`) takes no arguments and opens `mode: "original"`
 after preserving release and successful helper exit. The unchanged original app
-sits behind a 144-pixel navigation strip; Beta/website actuators pause. Uncertainty guards still apply.
-Home covers original input, probes its exact Tk PID and checks the entry log:
-same readable file, bounded new output and no new callback/service errors.
-Failed checks retain `legacy` ownership and allow reopening the same app. Otherwise
-a durable writing marker precedes bounded `return_legacy`: stop Sun/Circ and read
-all ten fixtures twice. Stable success automatically enables Ready with current
-drive preserved. Failed stop, moving readback or lost result blocks both control
-paths across restart until local staff reconciliation. Original callbacks remain
-unchanged; no old scene is restored and no ROS/Status restart occurs.
+sits behind a 144-pixel navigation strip; Beta/website actuators pause. Beta saves a
+durable `legacy` checkpoint before starting exactly one child: `<classic python>
+-u -B app/run_original.py --classic-dir <dir>`, with that working directory, a
+separate process group and stdout/stderr appended to `original.log`.
+
+Back to Home stops that group with SIGTERM, waits up to three seconds, then uses
+SIGKILL if necessary and reaps the child before starting a helper. Legacy self-exit
+uses the same path. Process exit prevents further Legacy commands. Bounded
+`return_legacy` stops Sun/Circ and requires two matching all-ten stable reads;
+success returns Ready with current settings kept. Failed or lost returns leave
+lighting uncertain with Check connection available and Legacy able to reopen.
+No staff socket action is required. Beta never acquires while Legacy is alive.
+
+On startup a saved `legacy` checkpoint triggers the same return. Beta uses its
+private PID file and `/proc` cmdline containing `run_original.py` and the exact
+classic directory to identify and stop a surviving child first. Dead/stale PIDs
+are not signalled. The wrapper only supplies working-directory, import and Tk/PIL
+compatibility shims before running unchanged `main.py`. Legacy is never started
+at boot unless `SCR_START_MODE=original` explicitly requests it. No old scene is
+restored and no ROS/Status restart occurs.
 
 Blind readiness separates the short user-facing `detail` (Disabled, Busy or Ready)
 from a diagnostic `reason`. When no controller is connected, settings show one

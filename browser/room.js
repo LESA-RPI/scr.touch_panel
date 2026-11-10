@@ -306,9 +306,7 @@ function recoveryNotice(parent, always = false) {
   title.id = 'recovery-title';
   detail.id = 'recovery-detail';
   staff.id = 'recovery-staff';
-  staff.textContent = always
-    ? 'Staff: confirm the previous controller has stopped and no lighting request is pending before recovering the connection at the panel.'
-    : 'If lighting stays unavailable, ask the room host for help.';
+  staff.textContent = 'If lighting stays unavailable, ask the room host for help.';
   const check = button('Check connection', () => command('check_connection'), {
     action: 'check_connection',
   });
@@ -1527,6 +1525,7 @@ function sync() {
     returning: 'Returning lighting',
     checking: 'Checking lighting',
     needs_staff: recovery.title || 'Lighting needs attention',
+    uncertain: 'Lighting needs a check',
     offline: 'Lighting unavailable',
     legacy: 'Legacy',
   }[recovery.status];
@@ -1569,7 +1568,7 @@ function sync() {
   $('connection').dataset.state =
     state === null && reachable
       ? 'waiting'
-      : !available || !reachable || ['needs_staff', 'offline'].includes(recovery.status)
+      : !available || !reachable || ['uncertain', 'needs_staff', 'offline'].includes(recovery.status)
         ? 'problem'
         : state.can_control && !lightingBlocked && recovery.status === 'normal'
           ? 'ready'

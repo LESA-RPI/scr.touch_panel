@@ -128,8 +128,9 @@ def test_real_check_then_sun_request_keeps_navigation_responsive(view):
     view.worker = None
 
 
-def test_pending_check_never_clears_uncertain_handoff(view):
+def test_pending_check_clears_uncertain_handoff_only_after_bounded_success(view):
     shared_worker(view)
+    view.worker = None
     view.recovery.mark_uncertain("Legacy handoff did not confirm a preserved release.")
     view.light_state = "failed"
     view.open_advanced("system")
@@ -141,19 +142,26 @@ def test_pending_check_never_clears_uncertain_handoff(view):
         view.pending = {"action": action, "request_id": "test-check"}
         return True
 
-    view.request = delayed
+    def start(**kwargs):
+        assert kwargs == {"legacy_return": True}
+        view.legacy_returning = True
+        view.recovery.begin_write("test-check", returning=True)
+        delayed("return_legacy")
+
+    view.start_worker = start
     touch(view, view.recovery_button)
-    assert view.recovery_snapshot()["status"] == "checking"
+    assert view.recovery_snapshot()["status"] == "returning"
     assert view.recovery_snapshot()["write_blocked"]
     assert view.recovery.state["status"] == "uncertain" and view.ownership_blocked()
     view.pending = None
-    view.recovery_result({"action": "check"}, {"state": "checked"})
+    view.recovery_result({"action": "return_legacy", "request_id": "test-check"},
+                         {"state": "ready", "fixtures": 10})
+    view.light_state = "ready"
     view.update_light_buttons()
     view.root.update()
-    assert view.connection_text.get() == "Uncertain"
-    assert "Staff must confirm the handoff" in view.light_message
-    assert view.recovery.state["status"] == "uncertain" and view.ownership_blocked()
-    assert requests == ["check"]
+    assert view.connection_text.get() == "Ready"
+    assert view.recovery.state["status"] == "normal" and not view.ownership_blocked()
+    assert requests == ["return_legacy"]
     view.worker = None
 
 

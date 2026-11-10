@@ -155,7 +155,7 @@ def controller(monkeypatch):
     )
     state.show = state.shown.append
     state.worker = SimpleNamespace(
-        stdin=BytesIO(), stdout=SimpleNamespace(fileno=lambda: 99), poll=lambda: None
+        stdin=BytesIO(), stdout=SimpleNamespace(fileno=lambda: 99), poll=lambda: None, returncode=None
     )
     monkeypatch.setattr(panel.select, "select", lambda *args: ([], [], []))
     return state
@@ -259,24 +259,10 @@ def test_response_deadline_disables_controls_without_retry(controller, monkeypat
     assert controller.worker is None and controller.shown == []
 
 
-def test_startup_cancellation_waits_for_child_exit_before_showing_legacy(controller):
-    terminated = []
-    controller.worker.terminate = lambda: terminated.append(True)
-    controller.pending = None
-    panel.Panel.show(controller, "original")
-    assert terminated == [True] and controller.shown == []
-    assert controller.release_target == "original"
-    controller.poll_worker()
-    assert controller.shown == [] and controller.worker is not None
-    controller.worker.poll = lambda: -15
-    controller.poll_worker()
-    assert controller.worker is None and controller.shown == ["original"]
-
-
 def test_failed_relaunch_after_confirmed_old_session_keeps_legacy_available(
     controller, monkeypatch
 ):
-    controller.args = SimpleNamespace(journal="unused", expected_master="http://unused")
+    controller.args = SimpleNamespace(journal="unused", expected_master="http://unused", live_lights=False)
     controller.worker = None
     controller.release_confirmed = controller.light_changes_requested = True
     controller.cancel_hold = lambda: None
@@ -299,9 +285,10 @@ def test_helper_mode_argument_matches_persistent_or_bounded_trial(
     controller, monkeypatch, persistent
 ):
     controller.keep_switcher = persistent
-    controller.args = SimpleNamespace(journal="unused", expected_master="http://unused")
+    controller.args = SimpleNamespace(journal="unused", expected_master="http://unused", live_lights=False)
     commands = []
     worker = controller.worker
+    controller.worker = None
 
     def launch(command, **kwargs):
         commands.append(command)
@@ -351,7 +338,7 @@ def test_helper_exit_without_release_never_hands_off_unconfirmed_writes(
     controller.worker.poll = lambda: 1
     controller.poll_worker()
     assert controller.worker is None
-    assert controller.shown == ([] if changes_requested else ["original"])
+    assert controller.shown == []
     assert controller.light_state == "failed" and controller.scheduled
 
 
@@ -372,5 +359,6 @@ def test_confirmed_release_still_waits_for_exact_helper_to_exit(controller):
     assert controller.release_confirmed and controller.shown == []
     assert controller.worker is not None
     controller.worker.poll = lambda: 0
+    controller.worker.returncode = 0
     controller.poll_worker()
     assert controller.worker is None and controller.shown == ["original"]

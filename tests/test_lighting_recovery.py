@@ -12,9 +12,6 @@ import lighting_recovery
 from lighting_recovery import LightingRecovery
 
 
-LOG_POSITION = {"device": 5, "inode": 17, "size": 100}
-
-
 def test_background_checkpoints_remain_ordered_and_block_until_durable(tmp_path, monkeypatch):
     guard = LightingRecovery(tmp_path / "background.json", background=True)
     entered, release = threading.Event(), threading.Event()
@@ -29,7 +26,7 @@ def test_background_checkpoints_remain_ordered_and_block_until_durable(tmp_path,
 
     monkeypatch.setattr(guard, "_persist", stalled)
     try:
-        guard.enter_legacy(LOG_POSITION)
+        guard.enter_legacy()
         assert entered.wait(1)
         guard.mark_uncertain("Legacy handoff did not confirm a preserved release.")
         assert guard.state["status"] == "uncertain"
@@ -46,7 +43,7 @@ def test_everyday_commands_stay_in_memory_and_never_wait_for_storage(tmp_path):
     path = tmp_path / "lighting.json"
     guard = LightingRecovery(path, background=True)
     guard.begin_write("one-command")
-    assert not guard.pending and guard.state["status"] == "writing"
+    assert not guard.pending and guard.public()["status"] == "writing"
     guard.finish_write("one-command")
     assert guard.state["status"] == "normal" and not guard.public()["write_blocked"]
     assert not path.exists()
@@ -72,49 +69,22 @@ def test_retired_experiment_handoff_loads_as_uncertain_not_a_storage_error(tmp_p
     assert restarted.state["status"] == "uncertain" and restarted.public()["write_blocked"]
 
 
-def test_prior_legacy_checkpoint_retains_its_log_proof_and_return_guards(tmp_path):
+@pytest.mark.parametrize("status", ["uncertain", "recovering", "legacy", "releasing", "reserved"])
+def test_persisted_handoff_can_retry_bounded_return(tmp_path, status):
     path = tmp_path / "lighting.json"
-    guard = LightingRecovery(path)
-    guard.enter_legacy(LOG_POSITION)
-    old = json.loads(path.read_text())
-    old.update(token_hash="", label="", heartbeat_at=None)
+    old = dict(LightingRecovery().state, status=status, legacy_log=None,
+               acknowledged_at=1, recovered_at=None, request_id="", token_hash="", label="", heartbeat_at=None)
     path.write_text(json.dumps(old))
-    restarted = LightingRecovery(path)
-    assert not restarted.error and restarted.state == guard.state
-    assert restarted.public()["write_blocked"]
-    assert restarted.legacy_log_unchanged(LOG_POSITION, b"")
-    with pytest.raises(RuntimeError):
-        restarted.leave_legacy(idle_confirmed=True)
-    restarted.leave_legacy(idle_confirmed=True, callback_clean=True)
-    assert restarted.state["status"] == "recovering"
-    assert set(json.loads(path.read_text())) == set(guard.state)
-
-
-def test_crash_during_handoff_is_durable_and_stays_blocked(tmp_path):
-    path = tmp_path / "lighting.json"
     guard = LightingRecovery(path)
-    guard.enter_legacy(LOG_POSITION)
-    guard.leave_legacy(idle_confirmed=True, callback_clean=True)
+    assert not guard.error and guard.public()["can_check"]
+    assert guard.public()["write_blocked"]
+    guard.begin_write("check-connection", returning=True)
+    assert json.loads(path.read_text())["status"] == "uncertain"
     restarted = LightingRecovery(path)
-    assert restarted.public()["status"] == "uncertain"
-    assert restarted.public()["can_check"]
-    for unused in range(2):
-        with pytest.raises(RuntimeError):
-            restarted.ready(stable=True)
-    again = LightingRecovery(path)
-    assert again.public()["write_blocked"]
-    with pytest.raises(RuntimeError):
-        again.acknowledge(owner_closed=True, pending_clear=False)
-    again.acknowledge(owner_closed=True, pending_clear=True)
-    recovered = LightingRecovery(path)
-    assert recovered.public()["status"] == "uncertain"
-    with pytest.raises(RuntimeError):
-        recovered.ready(stable=True)
-    recovered.acknowledge(owner_closed=True, pending_clear=True)
-    recovered.ready(stable=True)
-    assert recovered.public()["status"] == "normal"
-    assert recovered.state["reason"]
-    assert recovered.state["request_id"] == ""
+    assert restarted.public()["can_check"] and restarted.public()["write_blocked"]
+    restarted.begin_write("retry", returning=True)
+    restarted.finish_write("retry")
+    assert LightingRecovery(path).state["status"] == "normal"
 
 
 def test_mismatched_response_never_resolves_pending_write(tmp_path):
@@ -137,13 +107,13 @@ def test_malformed_storage_fails_closed_and_is_preserved(tmp_path, raw):
     assert guard.error and guard.public()["needs_staff"]
     assert guard.public()["write_blocked"] and not guard.public()["can_check"]
     with pytest.raises(RuntimeError):
-        guard.acknowledge(owner_closed=True, pending_clear=True)
+        guard.begin_write("blocked", returning=True)
     assert path.read_text() == raw
 
 
 @pytest.mark.parametrize("key,value", (("version", True), ("status", "unknown"),
                                       ("updated_at", float("nan")), ("updated_at", 10 ** 300),
-                                      ("revision", -1), ("status", "recovering"), ("status", "writing")))
+                                      ("revision", -1)))
 def test_semantically_invalid_state_also_fails_closed(tmp_path, key, value):
     path = tmp_path / "lighting.json"
     state = dict(LightingRecovery().state, **{key: value})
@@ -161,131 +131,9 @@ def test_failed_durable_write_never_authorizes_hardware_operation(tmp_path, monk
 
     monkeypatch.setattr(lighting_recovery.os, "replace", fail_replace)
     with pytest.raises(RuntimeError):
-        guard.enter_legacy(LOG_POSITION)
+        guard.enter_legacy()
     assert guard.error and guard.public()["write_blocked"]
     with pytest.raises(RuntimeError):
         guard.begin_write("not-authorized-to-send")
     assert not path.exists()
     assert not list(tmp_path.glob(".lighting-*"))
-
-
-def test_local_staff_can_reconcile_crashed_owner_but_still_needs_fresh_acquire():
-    guard = LightingRecovery()
-    guard.mark_uncertain("Earlier Legacy return was not confirmed.")
-    guard.acknowledge(owner_closed=True, pending_clear=True)
-    assert guard.public()["write_blocked"]
-    guard.ready(stable=True)
-    assert not guard.public()["write_blocked"]
-
-
-def test_legacy_owner_survives_restart_and_requires_confirmed_idle_before_acquire(tmp_path):
-    path = tmp_path / "lighting.json"
-    guard = LightingRecovery(path)
-    guard.enter_legacy(LOG_POSITION)
-    restarted = LightingRecovery(path)
-    assert restarted.public()["status"] == "legacy"
-    assert restarted.public()["write_blocked"] and not restarted.public()["can_check"]
-    for operation in (lambda: restarted.begin_write("blocked"),
-                      lambda: restarted.acknowledge(owner_closed=True),
-                      lambda: restarted.leave_legacy(idle_confirmed=1, callback_clean=True),
-                      lambda: restarted.leave_legacy(idle_confirmed=True)):
-        with pytest.raises(RuntimeError):
-            operation()
-    restarted.leave_legacy(idle_confirmed=True, callback_clean=True)
-    assert restarted.public()["status"] == "recovering"
-    assert restarted.public()["write_blocked"]
-    restarted.ready(stable=True)
-    assert not restarted.public()["write_blocked"]
-
-
-def test_opening_legacy_cannot_bypass_unknown_write():
-    guard = LightingRecovery()
-    guard.mark_uncertain("Earlier result not confirmed.")
-    with pytest.raises(RuntimeError):
-        guard.enter_legacy()
-    assert guard.public()["write_blocked"]
-
-
-def test_interrupted_recovery_does_not_reuse_stale_owner_closure(tmp_path):
-    path = tmp_path / "lighting.json"
-    guard = LightingRecovery(path)
-    guard.enter_legacy(LOG_POSITION)
-    guard.leave_legacy(idle_confirmed=True, callback_clean=True)
-    assert guard.state["status"] == "recovering"
-    proof = guard.state["acknowledged_at"]
-    restarted = LightingRecovery(path)
-    assert restarted.public()["status"] == "uncertain"
-    assert restarted.state["acknowledged_at"] == proof  # Receipt retained; permission is not.
-    with pytest.raises(RuntimeError):
-        restarted.ready(stable=True)
-    restarted.acknowledge(owner_closed=True, pending_clear=True)
-    restarted.ready(stable=True)
-    assert not restarted.public()["write_blocked"]
-
-
-@pytest.mark.parametrize("marker", (b"Exception in Tkinter callback", b"Traceback", b"ROSException", b"ServiceException", b"Service call failed:"))
-def test_legacy_new_callback_error_blocks_automatic_return(marker):
-    guard = LightingRecovery()
-    guard.enter_legacy(LOG_POSITION)
-    log = b"normal output\n" + marker + b"\nfailure details\n"
-    current = dict(LOG_POSITION, size=LOG_POSITION["size"] + len(log))
-    assert not guard.legacy_log_unchanged(current, log)
-    assert guard.state["status"] == "legacy"
-
-
-def test_legacy_clean_appended_log_and_return_marker_restore_normal_without_fixture_replay(tmp_path):
-    path = tmp_path / "lighting.json"
-    guard = LightingRecovery(path)
-    guard.enter_legacy(LOG_POSITION)
-    log = b"successful room command\n"
-    position = dict(LOG_POSITION, size=LOG_POSITION["size"] + len(log))
-    assert guard.legacy_log_unchanged(position, log)
-    guard.leave_legacy(idle_confirmed=True, callback_clean=True)
-    with pytest.raises(RuntimeError):
-        guard.begin_write("ordinary-command-is-blocked")
-    guard.begin_write("return-from-original", returning=True)
-    assert json.loads(path.read_text())["status"] == "recovering"
-    assert LightingRecovery(path).public()["status"] == "uncertain"  # Interrupted return needs a check.
-    guard.finish_write("return-from-original")
-    assert json.loads(path.read_text())["status"] == "normal"
-    assert guard.public()["status"] == "normal"
-    assert not guard.public()["write_blocked"]
-
-
-@pytest.mark.parametrize("position,delta", ((dict(LOG_POSITION, inode=99), b""),
-                                          (dict(LOG_POSITION, device=99), b""),
-                                          (dict(LOG_POSITION, size=99), b""),
-                                          (dict(LOG_POSITION, size=101), b""),
-                                          (dict(LOG_POSITION, size=100), b"unread growth"),
-                                          ({"size": 100}, b"")))
-def test_legacy_rotated_truncated_or_partially_read_log_cannot_authorize_return(position, delta):
-    guard = LightingRecovery()
-    guard.enter_legacy(LOG_POSITION)
-    assert not guard.legacy_log_unchanged(position, delta)
-
-
-def test_old_legacy_record_loads_but_requires_explicit_reconciliation(tmp_path):
-    path = tmp_path / "lighting.json"
-    guard = LightingRecovery(path)
-    guard.enter_legacy()
-    old = json.loads(path.read_text())
-    old.pop("legacy_log")
-    path.write_text(json.dumps(old))
-    restarted = LightingRecovery(path)
-    assert not restarted.error and restarted.state["legacy_log"] is None
-    assert not restarted.legacy_log_unchanged(LOG_POSITION, b"")
-    with pytest.raises(RuntimeError):
-        restarted.leave_legacy(idle_confirmed=True, callback_clean=True)
-    restarted.acknowledge(owner_closed=True, pending_clear=True)
-    assert restarted.state["status"] == "recovering"
-
-
-@pytest.mark.parametrize("position", ({"device": True, "inode": 2, "size": 4},
-                                     {"device": 1, "inode": 2, "size": -1},
-                                     {"device": 1, "inode": 2},
-                                     {"device": 1, "inode": 2, "size": 4, "extra": 5}))
-def test_malformed_legacy_checkpoint_is_rejected_before_legacy_opens(position):
-    guard = LightingRecovery()
-    with pytest.raises(ValueError):
-        guard.enter_legacy(position)
-    assert guard.state["status"] == "normal"

@@ -37,23 +37,6 @@ export SCR_PANEL_MASTER
 export ROS_IP ROS_HOSTNAME
 export ROS_LOG_DIR="$cache/ros"
 sleep "${SCR_START_DELAY:-8}"
-original_running=false
-for pid in $(pgrep -f '[m]ain[.]py|[r]un_original[.]py' || true); do
-    if test "$(readlink "/proc/$pid/cwd" 2>/dev/null || true)" = "$SCR_CLASSIC_DIR"; then
-        original_running=true
-        break
-    fi
-done
-if ! $original_running; then
-    (
-        exec 9>&-
-        cd "$SCR_CLASSIC_DIR"
-        exec "$classic_python" -u -B "$app_dir/run_original.py" --classic-dir "$SCR_CLASSIC_DIR"
-    ) >>"$cache/original.log" 2>&1 &
-    classic_pid=$!
-    sleep 2
-    kill -0 "$classic_pid" 2>/dev/null || { echo 'Original panel failed to start; inspect original.log' >&2; exit 1; }
-fi
 run_dir=$(mktemp -d "$cache/panel-XXXXXXXX")
 set -- --preferences "${SCR_PANEL_PREFERENCES:-$HOME/.config/scr-panel/appearance.json}"
 if test -n "${SCR_WEATHER_LATITUDE:-}" && test -n "${SCR_WEATHER_LONGITUDE:-}"; then
@@ -70,4 +53,5 @@ export SCR_ROOM_NETWORK_NAME SCR_ROOM_NETWORK_PASSWORD
 exec "$panel_python" -B "$app_dir/scr_touch_panel.py" \
     --keep-switcher --start-mode "$start_mode" --live-lights --theme auto --duration 0 \
     --adapter-python "$adapter_python" \
+    --classic-python "$classic_python" --classic-dir "$SCR_CLASSIC_DIR" \
     --journal "$run_dir/events.jsonl" "$@" >>"$cache/switcher.log" 2>&1

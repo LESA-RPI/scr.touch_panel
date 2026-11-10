@@ -65,10 +65,10 @@ measure physical blind position. Screen & controls can show or hide the Home
 controls. The saved movement permission defaults to Locked; no unlock
 control is offered while the adapter is disconnected. Changing visibility never
 moves equipment or grants permission. Room tools keeps detailed controls together.
-The Legacy shortcut opens the original controls while website lighting pauses.
-Home checks the connection and stops Sun/Circ before automatically returning to
-Ready, keeping current light levels. If the original interface check fails, Legacy
-can reopen. An unconfirmed programme stop or lighting result needs the room host.
+The Legacy shortcut starts the original app on demand while website lighting pauses.
+Back to Home closes Legacy, stops Sun/Circ and checks stable settings before
+returning to Ready, keeping current light levels. If the return fails, press
+Check connection to try again; Legacy can also be reopened.
 Room tools opens each tool directly beside the sidebar and
 remembers the last tool.
 
@@ -193,8 +193,8 @@ used Python 2.7, while the fresh setup explicitly selects Python 3 for each.
 Legacy starts from [main.py](main.py); Beta starts from
 [app/scr_touch_panel.py](app/scr_touch_panel.py). The installed
 [launcher](app/start_panel.sh) reads private deployment settings and starts one
-original application plus Beta. The compatibility wrapper preserves the original
-source. Existing room ROS services and custom bindings are required for control;
+Beta. Beta starts Legacy only when requested, using a compatibility wrapper
+that preserves the original source. Existing room ROS services and custom bindings are required for control;
 a local ROS master on the panel is not required.
 
 Git preserves source, not a complete system. Obtain private configuration and

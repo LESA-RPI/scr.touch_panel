@@ -17,7 +17,7 @@ from preferences import sync_directory
 class LightingRecovery:
     """Called only by the panel owner."""
 
-    STATUSES = ("normal", "writing", "uncertain", "recovering", "legacy")
+    STATUSES = ("normal", "uncertain", "legacy")
 
     def __init__(self, path=None, clock=time.time, background=False):
         self.path, self.clock, self.error = os.fspath(path) if path else None, clock, None
@@ -25,9 +25,7 @@ class LightingRecovery:
         self.settled = threading.Event()
         self.settled.set()
         self.state = {"version": 1, "status": "normal", "revision": 0,
-                      "request_id": "", "acknowledged_at": None,
-                      "recovered_at": None, "reason": "", "updated_at": clock(),
-                      "legacy_log": None}
+                      "reason": "", "updated_at": clock()}
         if self.path is None:
             return
         try:
@@ -36,19 +34,16 @@ class LightingRecovery:
             value = json.loads(raw)
             if isinstance(value, dict):
                 # Keep existing Legacy checkpoints readable; new saves omit retired metadata.
-                for retired in ("token_hash", "label", "heartbeat_at"):
+                for retired in ("token_hash", "label", "heartbeat_at", "legacy_log", "request_id", "acknowledged_at", "recovered_at"):
                     value.pop(retired, None)
-                value.setdefault("legacy_log", None)  # Older records cannot authorize an automatic return.
-                if value.get("status") in ("releasing", "reserved"):
+                if value.get("status") == "writing":
+                    value["status"] = "normal"  # Old everyday command: fresh acquisition.
+                if value.get("status") in ("releasing", "reserved", "recovering"):
                     # Retired experiment handoff: someone else may have changed the lights.
                     value.update(status="uncertain", reason="An earlier experiment handoff did not finish.")
             if len(raw) > 8192 or not self._valid(value):
                 raise ValueError("Invalid lighting recovery state")
             self.state = value
-            if value["status"] == "writing":
-                value["status"] = "normal"  # Older records; the next acquire re-reads the lights.
-            if value["status"] == "recovering":
-                self.mark_uncertain("Panel stopped before the previous operation was confirmed.")
         except FileNotFoundError:
             pass
         except (OSError, ValueError, TypeError, RecursionError, RuntimeError) as error:
@@ -81,26 +76,16 @@ class LightingRecovery:
 
     @classmethod
     def _valid(cls, value):
-        keys = {"version", "status", "revision", "request_id", "acknowledged_at", "recovered_at", "reason", "updated_at", "legacy_log"}
+        keys = {"version", "status", "revision", "reason", "updated_at"}
         if not isinstance(value, dict) or set(value) != keys:
             return False
         if type(value["version"]) is not int or value["version"] != 1:
             return False
         if value["status"] not in cls.STATUSES or type(value["revision"]) is not int or value["revision"] < 0:
             return False
-        if any(not isinstance(value[key], str) or len(value[key]) > limit
-               for key, limit in (("request_id", 160), ("reason", 240))):
+        if not isinstance(value["reason"], str) or len(value["reason"]) > 240:
             return False
-        if value["status"] == "writing" and not value["request_id"]:
-            return False
-        if value["status"] == "recovering" and value["acknowledged_at"] is None:
-            return False
-        if value["updated_at"] is None:
-            return False
-        if value["legacy_log"] is not None and not cls._valid_log_position(value["legacy_log"]):
-            return False
-        return all(value[key] is None or (type(value[key]) in (float, int) and 0 <= value[key] < 1e15)
-                   for key in ("acknowledged_at", "recovered_at", "updated_at"))
+        return type(value["updated_at"]) in (float, int) and 0 <= value["updated_at"] < 1e15
 
     def _save(self, persist=True, **changes):
         if self.error:
@@ -157,80 +142,53 @@ class LightingRecovery:
         return value
 
     def begin_write(self, request_id, returning=False):
-        if self.state["status"] != "normal" and not (returning is True and self.state["status"] == "recovering"):
+        if self.error:
+            raise RuntimeError("Lighting recovery storage needs staff attention")
+        if self.state["status"] != "normal" and not returning:
             raise RuntimeError("Lighting ownership or an earlier command is unresolved")
-        # Kept in memory: a restart then still shows the saved "normal" (re-read on
-        # acquire) or, for a Legacy return, "recovering" (staff check).
-        self.returning = returning is True and self.state["status"] == "recovering"
-        self._save(persist=False, status="writing",
-                   request_id=self._text(request_id, 160, "request ID"))
+        if getattr(self, "request_id", None):
+            raise RuntimeError("A lighting command is already pending")
+        request_id = self._text(request_id, 160, "request ID")
+        self.returning = returning
+        # Save uncertainty before a bounded return; everyday writes stay in memory.
+        if returning:
+            self.mark_uncertain("Lighting connection check did not finish.")
+        self.request_id = request_id
 
     def finish_write(self, request_id):
-        """The command finished, confirmed or not; the panel still owns the lights."""
-        if self.state["status"] != "writing" or request_id != self.state["request_id"]:
+        if request_id != getattr(self, "request_id", None):
             raise ValueError("Lighting command result does not match")
-        self._save(persist=getattr(self, "returning", False), status="normal")
+        if self.returning:
+            self._save(status="normal", reason="")
+        self.request_id = None
 
     def mark_uncertain(self, reason):
+        self.request_id = None
         self._save(status="uncertain", reason=self._text(reason, 240, "recovery reason"))
 
-    @staticmethod
-    def _valid_log_position(value):
-        return (isinstance(value, dict) and set(value) == {"device", "inode", "size"}
-                and all(type(v) is int and v >= 0 for v in value.values()))
-
-    def enter_legacy(self, log_position=None):
-        if self.state["status"] != "normal":
+    def enter_legacy(self):
+        if self.state["status"] not in ("normal", "uncertain") or getattr(self, "request_id", None):
             raise RuntimeError("Lighting ownership must be resolved before opening Legacy")
-        if log_position is not None and not self._valid_log_position(log_position):
-            raise ValueError("Invalid Legacy log checkpoint")
-        self._save(status="legacy", legacy_log=dict(log_position) if log_position is not None else None)
-
-    def legacy_log_unchanged(self, log_position, current_new_bytes):
-        saved = self.state["legacy_log"]
-        if not self._valid_log_position(saved) or not self._valid_log_position(log_position):
-            return False
-        if not isinstance(current_new_bytes, bytes):
-            return False
-        if any(saved[key] != log_position[key] for key in ("device", "inode")) or log_position["size"] - saved["size"] != len(current_new_bytes):
-            return False
-        return not any(marker in current_new_bytes for marker in (
-            b"Exception in Tkinter callback", b"Traceback", b"ROSException", b"ServiceException",
-            b"Service call failed:"))
-
-    def leave_legacy(self, idle_confirmed=False, callback_clean=False):
-        if (self.state["status"] != "legacy" or idle_confirmed is not True
-                or callback_clean is not True or not self._valid_log_position(self.state["legacy_log"])):
-            raise RuntimeError("Confirm the original controller is idle and its callback log is clean")
-        self._save(status="recovering", acknowledged_at=self.clock())
-
-    def acknowledge(self, owner_closed=False, pending_clear=False):
-        """Local staff must confirm process/handler checks outside this guard."""
-        if owner_closed is not True or pending_clear is not True:
-            raise RuntimeError("Confirm the previous owner is closed and no command is pending")
-        if self.state["status"] not in ("uncertain", "legacy"):
-            raise RuntimeError("There is no blocked ownership to reconcile")
-        self._save(status="recovering", acknowledged_at=self.clock())
+        self._save(status="legacy")
 
     def ready(self, stable=False):
-        if stable is not True or self.state["status"] not in ("normal", "recovering"):
-            raise RuntimeError("Confirmed ownership and a stable read-only acquisition are required")
-        if self.state["status"] == "recovering":
-            self._save(status="normal", recovered_at=self.clock())
+        if stable is not True or self.state["status"] != "normal":
+            raise RuntimeError("A bounded lighting connection check is required")
 
     def public(self):
         status = "uncertain" if self.error else self.state["status"]
-        # No client may treat an optimistic in-memory transition as durable.
         if self.pending and not self.error:
-            status = {"normal": "writing", "legacy": "writing"}.get(status, status)
+            status = "writing"
+        elif getattr(self, "request_id", None):
+            status = "returning" if self.returning else "writing"
         titles = {"normal": "Lighting ready", "writing": "Changing lighting",
-                  "uncertain": "Lighting needs a check", "recovering": "Checking lighting connection",
+                  "uncertain": "Lighting needs a check", "returning": "Checking lighting connection",
                   "legacy": "Legacy controls are open"}
-        details = {"normal": "Current lighting is preserved.", "writing": "Waiting for the lighting command to finish.",
-                   "uncertain": "A Legacy handoff did not finish cleanly. Staff must check it before controls return.",
-                   "recovering": "Reading current settings before everyday controls return.",
+        details = {"normal": "Current lighting is preserved.", "writing": "Waiting for lighting to finish saving or changing.",
+                   "uncertain": "Press Check connection to stop Sun/Circ and confirm current light settings.",
+                   "returning": "Stopping Sun/Circ and checking current settings. Light levels are kept.",
                    "legacy": "The original room app controls the lights. Return Home to use Beta."}
         return {"status": status, "title": titles[status], "detail": details[status],
-                "can_check": not self.error and not self.pending and status in ("normal", "uncertain", "recovering"),
-                "needs_staff": bool(self.error) or status == "uncertain",
+                "can_check": not self.error and not self.pending and status in ("normal", "uncertain", "legacy"),
+                "needs_staff": bool(self.error),
                 "write_blocked": bool(self.error) or self.pending or status != "normal"}

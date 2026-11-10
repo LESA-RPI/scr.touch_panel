@@ -61,13 +61,14 @@ step or the complete topic and provides documentation links. Neither interface
 executes these references. Service-start commands use `cd ... && python ...` so
 a failed directory change cannot launch the script from another directory.
 
-Legacy opens the unchanged original app after preserving helper release and
-confirmed exit; website lighting pauses. Home checks the original interface,
-stops Sun/Circ and reads stable settings before automatically returning to Ready.
-No old scene is restored. A failed interface/log check lets the same Legacy owner
-reopen. Uncertainty after programme stopping or readback blocks both control paths
-until staff recovery. The [interface contract](docs/interface.md#optional-browser-gateway-version-1)
-defines these checks.
+Legacy starts the unchanged original app on demand after preserving helper release
+and successful exit. Beta owns its child process group and shows a navigation
+strip above it; website lighting pauses. Back to Home closes Legacy (TERM, up to
+three seconds, then KILL if needed), waits for exit, then stops Sun/Circ and reads
+all ten fixtures twice. Matching stable settings return to Ready without restoring
+an old scene. A Legacy crash or window close uses the same path. Failed returns
+leave Check connection available to retry this bounded check; Legacy can reopen.
+The [interface contract](docs/interface.md#optional-browser-gateway-version-1) defines the handoff.
 
 The helper has a ten-second parent lease and 30-second operation budget, with
 individual service calls bounded to at most twelve seconds. Persistent control
@@ -76,7 +77,7 @@ drive state still matches. In everyday room control, lights changed
 outside the panel are accepted as they are. A failed or lost result ends the helper;
 the panel starts a new one that reads the lights before the next change and never
 repeats the old command. Bounded trials still refuse writes and restoration after
-an external change. Legacy handoffs stay blocked until staff check them.
+an external change. Interrupted Legacy handoffs use the same Check connection path.
 Receipts are in the private `.lights-*.jsonl` files.
 
 Deadlines do not bound filesystem stalls.
@@ -85,10 +86,12 @@ Ownership checkpoints (Legacy handoffs) use one ordered
 background writer; the UI stays responsive while saving and the handoff waits for
 it. Everyday commands are kept in memory and are not saved per press.
 
-Legacy runs hidden while Beta is on screen, so taps cannot reach its buttons. Beta
-signals it about once a second; Legacy shows itself when the user opens it, or
-after 5 s without a signal (Beta closed or stuck). The private journal records widget-update time as `render_ms` and
-rate-limited callback delays over 200 ms; these are not physical touch latency.
+Legacy is absent while Beta is in everyday use. A durable Legacy checkpoint and
+private PID file let a restarted Beta identify and stop its previous Legacy child
+before returning control through the same bounded check. Persisted uncertain or
+interrupted-return states expose Check connection; failed checks can be retried.
+The private journal records widget-update time as `render_ms` and rate-limited
+callback delays over 200 ms; these are not physical touch latency.
 
 An initializing helper is cancelled after 30 seconds without sending a lighting
 command. The normal UI
@@ -99,9 +102,10 @@ lighting result. A helper still initializing can be cancelled without a write.
 
 ### When controls are unavailable
 
-Staff check the deployed version, current owner and private receipts. Stop previous
-workers/programmes and verify no remote lighting handler remains pending; a stable
-read alone cannot prove that. Keep Legacy covered on Home during recovery.
+Press Check connection to stop Sun/Circ and confirm two matching all-ten stable
+reads after an uncertain handoff. Success keeps current settings and restores
+Ready; failure leaves the button available. Staff can inspect the deployed version,
+current owner and private receipts if the connection remains unavailable.
 
 Never restart ROS/Status, delete ownership state or retry an uncertain setter to
 clear a block. Record deployment/recovery results in the private `.local/README.md`.
@@ -248,11 +252,13 @@ address without embedded credentials, query or fragment; keep real addresses out
 of Git. Only the fixed original `sun`/`circ` Run/Kill requests are admitted.
 Omitting it leaves programme controls unavailable while ordinary lighting remains
 usable. Automatic return from Legacy also requires this existing programme service
-to stop Sun/Circ; without it, the return stays blocked. Capability advertisement identifies configured services, not their health;
+to stop Sun/Circ; without it, lighting stays uncertain with Check connection available.
+Capability advertisement identifies configured services, not their health;
 qualify request acceptance and stable readback before a live change.
 Legacy and the light adapter use independent interpreter settings. The launcher
 sources the installed ROS setup, sets the same original
-environment, and checks process working directories before starting `main.py`.
+environment, and passes `--classic-dir` / `--classic-python` to Beta.
+The launcher starts only Beta; `SCR_START_MODE=original` asks Beta to open Legacy.
 Its file lock prevents two switchers. Journals and logs stay under
 `~/.cache/scr-panel`; retain them for investigation and manage their disk use.
 
@@ -269,7 +275,7 @@ Terminal=false
 
 The launcher uses `--keep-switcher --duration 0`. Legacy, Escape and window close
 use the guarded original-application path described above. Signal shutdown stops
-the switcher and leaves confirmed light settings in place.
+the switcher, its Legacy child and helper, leaving current light settings in place.
 
 User autostart runs only after desktop login. Check the actual display manager
 and session before enabling autologin; use that OS's supported configuration.
@@ -278,8 +284,10 @@ drop-in with `autologin-user` and `autologin-user-timeout=0`. These settings do
 not configure a different display manager. Autologin grants local desktop access.
 Confirm the configured user/session and perform an authorized reboot test.
 
-Rollback: send SIGTERM to the observed beta PID and wait for its helper to exit.
-Leave the original process running. Disable only the owned XDG autostart entry,
+Rollback: send SIGTERM to the observed Beta PID and wait for its helper and
+Legacy child to exit. If the original app is needed independently, launch its
+wrapper with the configured classic interpreter and working directory only after
+Beta and its helper have exited. Disable only the owned XDG autostart entry,
 or repoint `current` to a tested release. Restore the exact previous LightDM
 drop-in when undoing autologin; if none existed, remove only the added file.
 Preserve the private deployment values and receipts. Do not overwrite legacy code.

@@ -267,8 +267,8 @@ class Lights(object):
     def return_legacy(self):
         """Stop original programmes, then acquire the current scene without a setter.
 
-        Only the parent can establish that the original callback has finished.
-        Programme stops are writes, so any failed return keeps uncertainty latched.
+        The parent establishes that the original process has exited.
+        A failed return ends this helper; retry requires a fresh helper.
         """
         try:
             if (self.observe_only or not self.keep_settings or not self.programmes

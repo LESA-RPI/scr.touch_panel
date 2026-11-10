@@ -52,7 +52,7 @@ def test_resource_failure_removes_current_power_claim_until_a_new_reading():
 @pytest.mark.parametrize("same_page", [False, True])
 def test_contextual_lighting_help_resets_only_its_view_state(same_page):
     state = panel.Panel.__new__(panel.Panel)
-    state.release_target = state.closing = state.legacy_probe = None
+    state.release_target = state.closing = state.legacy_stopping_at = None
     state.power_busy = lambda: False
     state.mode, state.advanced_page = ("health", "system") if same_page else ("room", None)
     state.system_diagnostics_visible = state.support_commands_visible = True
@@ -66,10 +66,10 @@ def test_contextual_lighting_help_resets_only_its_view_state(same_page):
     assert calls == [("refresh" if same_page else "open", "system")]
 
 
-@pytest.mark.parametrize("field", ["release_target", "closing", "legacy_probe", "power_busy"])
+@pytest.mark.parametrize("field", ["release_target", "closing", "legacy_stopping_at", "power_busy"])
 def test_contextual_lighting_help_preserves_busy_navigation_guards(field):
     state = panel.Panel.__new__(panel.Panel)
-    state.release_target = state.closing = state.legacy_probe = None
+    state.release_target = state.closing = state.legacy_stopping_at = None
     state.power_busy = lambda: False
     state.support_page, state.support_step = 3, 2
     state.system_diagnostics_visible = state.support_commands_visible = True

@@ -870,7 +870,7 @@ def test_home_power_highlight_uses_confirmed_readback_and_clears_during_changes(
     assert [button.options["bg"] for button in buttons] == ["neutral", "confirmed"]
     assert buttons[1].options["fg"] == "page" and buttons[1].options["font"][-1] == "bold"
     for field in ("pending", "queued_intent", "release_target", "closing",
-                  "observing", "legacy_probe", "press_active"):
+                  "legacy_stopping_at", "press_active"):
         setattr(state, field, True)
         state.light_message = "Waiting for lighting confirmation."
         state.refresh_confirmation_age()

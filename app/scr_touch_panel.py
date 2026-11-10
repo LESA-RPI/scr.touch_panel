@@ -249,8 +249,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.dock.attributes("-topmost", True)
         self.dock.withdraw()
         self.set_theme()
-        if args.live_lights and self.mode != "original":
-            self.start_worker()
+        self.startup_lighting()
         self.repeat(self.tick, 1000)
         self.root.after(100, self.poll_worker)
         self.emit(
@@ -455,7 +454,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             and getattr(self, "mode", None) not in ("original", "black")
             and not any(getattr(self, name, None) for name in (
                 "pending", "queued_intent", "release_target", "closing", "closed",
-                "observing", "legacy_probe", "press_active",
+                "legacy_stopping_at", "press_active",
             ))
         )
         for button, power, label in getattr(self, "home_power_buttons", []):
@@ -852,6 +851,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 "checking": ("Checking", "clock", "waiting"),
                 "returning": ("Checking", "clock", "waiting"),
                 "needs_staff": ("Uncertain", "link-off", "warning"),
+                "uncertain": ("Uncertain", "link-off", "warning"),
                 "legacy": ("Legacy", "original", "neutral"),
             }.get(status, (text, kind, colour))
         if hasattr(self, "connection_text"):
@@ -880,14 +880,14 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
     def show(self, mode, advanced_page=None):
         if self.release_target is not None or self.closing or self.power_busy():
             return
-        if getattr(self, "legacy_probe", None) is not None:
+        if getattr(self, "legacy_stopping_at", None) is not None:
             return
         recovery = getattr(self, "recovery", None)
-        if mode == "original" and self.ownership_blocked() and (recovery.state["status"] != "legacy" or recovery.error or recovery.pending):
+        if mode == "original" and recovery is not None and (recovery.error or recovery.pending):
             self.status_text.set(self.recovery_snapshot()["detail"])
             return
-        if self.mode == "original" and mode != "original" and recovery is not None and recovery.state["status"] == "legacy" and self.args.live_lights:
-            self.begin_legacy_return(mode, advanced_page)
+        if self.mode == "original" and mode != "original" and self.args.live_lights:
+            self.stop_legacy()
             return
         if mode == "advanced":
             self.open_advanced()
@@ -898,7 +898,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             self.trial_deadline = None
         if mode == "original":
             self.trial_deadline = None
-            if self.light_state == "failed" and getattr(self, "light_changes_requested", False):
+            if self.light_state == "failed" and getattr(self, "light_changes_requested", False) and (recovery is None or recovery.state["status"] == "normal"):
                 self.status_text.set(
                     "Light result unconfirmed. Check the receipt before switching controllers."
                 )
@@ -906,29 +906,23 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         if mode == "original" and self.worker:
             self.release_target = "original"
             self.status_text.set("Finishing lighting control before opening Original fallback...")
-            if self.light_state == "connecting" and not self.light_changes_requested:
-                # Startup/acquire only reads. Do not wait for slow ROS imports to hand back Legacy.
-                self.worker.terminate()
-            elif self.light_state not in ("ready", "applying", "connecting"):
+            if self.light_state not in ("ready", "applying", "connecting"):
                 if not self.worker.stdin.closed:
                     self.worker.stdin.close()
             elif not self.pending:
                 self.request("release")
             self.update_light_buttons()
             return
-        if self.mode == "original" and mode != "original" and self.args.live_lights:
-            if not self.worker:
-                self.start_worker(legacy_return=True) if getattr(self, "legacy_returning", False) else self.start_worker()
-            else:
-                self.light_state = "connecting"
-                self.request("acquire")
-        if mode == "original" and getattr(self.args, "live_lights", False) and recovery is not None and recovery.state["status"] == "normal" and self.worker is None:
-            recovery.enter_legacy(log_position=self.original_log_position())
+        if mode == "original" and self.args.live_lights and recovery is not None and self.worker is None:
+            if recovery.state["status"] != "legacy":
+                recovery.enter_legacy()
             if recovery.pending:
                 self.release_target = "legacy_save"
                 self.legacy_save_started = monotonic()
                 self.status_text.set("Saving lighting handoff before opening Legacy…")
                 self.update_light_buttons()
+                return
+            if not self.start_legacy():
                 return
         if self.mode == "original" and mode != "original" and self.keep_switcher:
             self.trial_deadline = (
@@ -969,7 +963,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
 
     def update_navigation_buttons(self):
         """Make a pending handoff visible instead of accepting ignored touches."""
-        busy = bool(self.release_target or self.closing or self.power_busy() or getattr(self, "legacy_probe", None))
+        busy = bool(self.release_target or self.closing or self.power_busy() or getattr(self, "legacy_stopping_at", None))
         state = "disabled" if busy else "normal"
         buttons = getattr(self, "navigation_buttons", []) + [getattr(self, "original_fallback_button", None)]
         for button in buttons:
@@ -1003,7 +997,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         if getattr(self, "blank_hint", None) is not None:
             self.blank_hint.place_forget()
         self.dock.withdraw()
-        self.cover_legacy(force=True)
         if self.mode == "original":
             self.root.withdraw()
             self.dock.geometry("1280x144+0+0")
@@ -1920,7 +1913,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.emit("idle_timeout_selected", seconds=seconds)
 
     def open_lighting_help(self):
-        if self.release_target or self.closing or self.power_busy() or getattr(self, "legacy_probe", None):
+        if self.release_target or self.closing or self.power_busy() or getattr(self, "legacy_stopping_at", None):
             return
         changed = (getattr(self, "system_diagnostics_visible", False)
                    or self.support_commands_visible or self.support_page != 0 or self.support_step != 0)
@@ -1990,11 +1983,12 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 }
             )
 
-    def start_worker(self, observe_only=False, legacy_return=False):
-        if self.ownership_blocked() and self.recovery.state["status"] != "recovering" and not observe_only:
+    def start_worker(self, legacy_return=False):
+        if self.legacy_alive() or getattr(self, "legacy_stopping_at", None) is not None or getattr(self, "worker", None) is not None:
+            return
+        if self.ownership_blocked() and not legacy_return:
             self.lighting_feedback(self.recovery_snapshot().get("detail", "Lighting needs staff attention."))
             return
-        self.observing = observe_only
         self.legacy_returning = legacy_return
         path = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "scr_touch_panel_lights.py"
@@ -2014,8 +2008,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         ]
         if self.keep_switcher:
             command.append("--keep-settings")
-        if observe_only:
-            command.append("--observe-only")
         if getattr(self.args, "status_url", None):
             command.extend(["--status-url", self.args.status_url])
         self.release_confirmed = self.light_changes_requested = False
@@ -2038,8 +2030,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             self.worker = None
             self.light_state = "failed"
             recovery = getattr(self, "recovery", None)
-            if recovery is not None and recovery.state["status"] == "recovering":
-                recovery.mark_uncertain("The lighting helper could not start after ownership was returned.")
+            if recovery is not None and legacy_return:
+                self.legacy_returning = False
+                recovery.mark_uncertain("The lighting helper could not start. Press Check connection to try again.")
             self.status_text.set("Lighting helper could not start. Check System & help.")
             self.lighting_feedback("Lighting unavailable; helper could not start.")
             return
@@ -2063,6 +2056,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             or self.worker.poll() is not None
             or not getattr(self, "worker_ready", False)
         ):
+            return False
+        if self.legacy_alive() or getattr(self, "legacy_stopping_at", None) is not None:
             return False
         self.request_seq += 1
         item = {
@@ -2175,8 +2170,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
     def poll_worker_once(self):
         if self.closed:
             return
-        self.poll_legacy_return()
-        self.cover_legacy()
+        self.poll_legacy()
+        if self.closed:
+            return
         if (
             getattr(self, "mode", None) == "health"
             and getattr(self, "health_pending", None) is not None
@@ -2191,7 +2187,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             if self.release_target == "legacy_save" and recovery.pending and monotonic() - self.legacy_save_started > 10:
                 self.release_target = None
                 recovery.mark_uncertain("Legacy handoff could not be saved in time. Ask the room host.")
-                self.fail_worker("Lighting handoff save did not finish. Legacy remains covered; ask staff.")
+                self.fail_worker("Lighting handoff save did not finish. Legacy has not started. Press Check connection to try again.")
             if self.release_target == "legacy_save" and not recovery.pending:
                 self.release_target = None
                 if recovery.error:
@@ -2276,8 +2272,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                     self.adapter_metadata(response)
                     if self.release_target or self.closing:
                         action = "release"
-                    elif getattr(self, "observing", False):
-                        action = "check"
                     elif getattr(self, "legacy_returning", False):
                         action = "return_legacy"
                     else:
@@ -2388,7 +2382,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 self.worker = None
                 self.unsent_request = None
                 target, self.release_target = self.release_target, None
-                self.observing = False
                 if self.closing:
                     self.finish_close()
                     return
@@ -2398,8 +2391,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                         self.start_worker()  # Read-only acquire; the failed command is never repeated.
                 if target == "original":
                     safe = (
-                        getattr(self, "release_confirmed", False)
-                        or not getattr(self, "light_changes_requested", False)
+                        worker.returncode == 0 and getattr(self, "release_confirmed", False)
                     )
                     if safe:
                         self.show("original")
@@ -2409,6 +2401,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                         )
                 elif target == "power":
                     self.power_after_release(worker.returncode)
+                elif target == "check_connection":
+                    self.start_worker(legacy_return=True)
                 self.update_light_buttons()
         if not self.pending and getattr(self, "queued_intent", None) and self.intent_timer is None:
             self.dispatch_intent()
@@ -2544,15 +2538,10 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             if getattr(getattr(self, "recovery", None), "pending", False):
                 self.root.after(50, self.finish_close)
                 return
-            probe = getattr(self, "legacy_probe", None)
-            if probe is not None:
-                if probe.poll() is None:
-                    probe.kill()
-                    self.root.after(50, self.finish_close)
-                    return
-                probe.stdout.close()
-                probe.stderr.close()
-                self.legacy_probe = None
+            if getattr(self, "legacy_process", None) is not None or getattr(self, "legacy_previous_pid", None) is not None:
+                self.stop_legacy()
+                self.root.after(50, self.finish_close)
+                return
             if getattr(self, "preferences", None):
                 self.preferences.close()
                 if not self.preferences.done.is_set():
@@ -2730,6 +2719,10 @@ def main(argv=None):
         action="store_true",
         help="Local 1280x800 review without screen-size enforcement",
     )
+    parser.add_argument("--classic-dir", default=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        help="Preserved original main.py directory")
+    parser.add_argument("--classic-python", default="/usr/bin/python2.7",
+                        help="Installed interpreter for the original app")
     parser.add_argument("--lighting-state", help="Private persistent lighting ownership state; separate from appearance")
     args = parser.parse_args(argv)
     if (
