@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 from panel_guides import DEMO, SUPPORT, GUIDE_SECTIONS, CEILING_MAP
-from design_tokens import THEMES, WEATHER_ACCENTS
+from design_tokens import THEMES, WEATHER_ACCENTS, css
 from help_reference import reference
 from command_reference import command_tokens
 from room_controls import (
@@ -109,3 +109,5 @@ if __name__ == "__main__":
     Path(args.output).write_text(
         json.dumps(content(), ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
+    # The website's design tokens come from the same source as the panel's.
+    Path(args.output).with_name("tokens.css").write_text(css(), encoding="utf-8")

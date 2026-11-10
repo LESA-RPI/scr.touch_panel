@@ -33,6 +33,7 @@ GROUPS = {
 }
 ASSETS = {
     "/": ("index.html", "text/html"),
+    "/tokens.css": ("tokens.css", "text/css"),
     "/app.css": ("app.css", "text/css"),
     "/js/api.js": ("js/api.js", "text/javascript"),
     "/js/ui.js": ("js/ui.js", "text/javascript"),

@@ -21,10 +21,10 @@ export function status() {
   const s = S(), lights = L(), recovery = s.lighting_recovery || {};
   if (!store.reachable) return { key: 'off', label: 'Website offline', detail: "This page can't reach the touch panel right now. It reconnects by itself." };
   if (!s.available) return { key: 'warn', label: 'Panel unavailable', detail: s.detail || 'The touch panel is not accepting website controls.' };
-  if (s.mode === 'original') return { key: 'off', label: 'Legacy open', detail: 'The touch panel is showing the original (Legacy) controls. Lighting here is paused until someone taps Home on the panel.' };
+  if (s.mode === 'original') return { key: 'off', label: 'Legacy open', detail: 'The touch panel is showing the original (Legacy) controls. Return panel to Home to close Legacy and restore lighting controls.' };
   if (store.pending || store.awaiting || s.busy || lights.state === 'applying') return { key: 'busy', label: 'Working…', detail: 'A change is on its way. Other lighting buttons wait until it is confirmed.' };
   if (lights.state === 'connecting') return { key: 'busy', label: 'Connecting…', detail: 'The panel is reading the lights. Controls appear in a moment.' };
-  if (recovery.write_blocked || lights.state === 'failed') return { key: 'warn', label: 'Check needed', detail: (recovery.detail || 'A change could not be confirmed.') + ' Check connection reads the lights without changing them.' };
+  if (recovery.write_blocked || lights.state === 'failed') return { key: 'warn', label: 'Check needed', detail: recovery.detail || 'A change could not be confirmed. Press Check connection to confirm current settings.' };
   if (lights.state === 'disconnected') return { key: 'warn', label: 'Lighting offline', detail: 'The panel cannot reach the lighting service. Check connection tries again without changing anything.' };
   if (s.can_control) return { key: 'ready', label: 'Ready', detail: 'Lighting controls work on the panel and here.' };
   return { key: 'warn', label: 'Not ready', detail: recovery.detail || 'Lighting controls are paused.' };
@@ -160,7 +160,7 @@ export function lights(tab) {
     else {
       const start = ok && S().can_programme !== false;
       body = `<div class="programmes">${(c.programmes || []).map((p) => `<div class="card stack"><h3>${esc(p.label)}</h3><p class="muted small">${esc(p.detail)}</p>
-        <div><button class="btn" ${disabled(start)} data-cmd="programme" data-name="${esc(p.id)}" data-label="Start ${esc(p.label)}">${icon('play')}Start ${esc(p.label)}</button></div></div>`).join('')}</div>
+        <div><button class="btn primary" ${disabled(start)} data-cmd="programme" data-name="${esc(p.id)}" data-label="Start ${esc(p.label)}">${icon('play')}Start ${esc(p.label)}</button></div></div>`).join('')}</div>
         <div class="row"><button class="btn quiet" ${disabled(store.reachable && !busy() && S().mode !== 'original')} data-cmd="programme" data-name="Stop" data-label="Stop programmes">${icon('circle-slash')}Stop programmes</button>
         <span class="muted small">${lights.programme ? `${esc(lights.programme)} was requested. The room server runs it; any other light change stops it.` : 'No programme requested. Any other light change stops a running programme.'}</span></div>`;
     }
@@ -173,7 +173,7 @@ export function lights(tab) {
     const warm = c.previous_on || { arguments: { cct: 3500, intensity: 1000 } };
     body = `${slider('cct', 'Colour temperature', lights.cct ?? 3500, 1600, 10000, 100, 'K')}
       ${slider('intensity', 'Light level', lights.intensity ?? 1000, 0, 1900, 50, 'of 1,900')}
-      <div class="row wrap"><button class="btn" ${disabled(ok)} data-cmd="cct" data-cct="${warm.arguments.cct}" data-intensity="${warm.arguments.intensity}" data-label="Warm white">Apply Warm white</button>
+      <div class="row wrap"><button class="btn primary" ${disabled(ok)} data-cmd="cct" data-cct="${warm.arguments.cct}" data-intensity="${warm.arguments.intensity}" data-label="Warm white">Apply Warm white</button>
       <span class="muted small">3,500 K at level 1,000 (the old “On”). Sliders apply when you let go.</span></div>`;
   }
   return `<nav class="seg" aria-label="Lighting">${LIGHT_TABS.map(([id, label]) => `<a href="#lights/${id}" ${tab === id ? 'aria-current="page"' : ''}>${label}</a>`).join('')}</nav>
@@ -327,7 +327,7 @@ export function sheet(name) {
       <dl class="facts2"><dt>Lights</dt><dd>${lightsNow()}</dd><dt>Confirmed</dt><dd>${ago(L().confirmed_age_s)}</dd>
       <dt>Blinds</dt><dd>${esc(s.blinds?.reason || '–')}</dd><dt>Programme</dt><dd>${esc(L().programme ? L().programme + ' requested' : 'None requested')}</dd></dl>
       <button class="btn" ${disabled(canCheck)} data-cmd="check_connection" data-label="Connection check">${icon('system')}Check connection</button>
-      <p class="muted small">Reads the lights and never changes them.</p>
+      <p class="muted small">${recovery.write_blocked ? 'Stops Sun/Circ, then confirms stable light settings. Current light levels are kept.' : 'Reads the current light settings without changing them.'}</p>
       ${s.mode === 'original' ? '<button class="btn quiet" data-cmd="home" data-label="Return panel to Home">Return the touch panel to Home</button>' : ''}`;
   }
   if (name === 'reboot') {

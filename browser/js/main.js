@@ -16,8 +16,7 @@ function route() {
 }
 const device = () => (phone.matches ? 'phone' : innerWidth >= 1200 ? 'desktop' : 'tablet');
 
-const preview = new URLSearchParams(location.search);
-if (preview.get('ds')) document.documentElement.dataset.ds = preview.get('ds');
+const preview = new URLSearchParams(location.search); // ?theme=dark|light for screenshots
 function render(force = false) {
   document.documentElement.dataset.theme = preview.get('theme') || (dark.matches ? 'dark' : 'light');
   if (interacting && !force) return;
