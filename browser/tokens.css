@@ -23,8 +23,8 @@
   --tap:48px;
   --space:20px;
   --pad:28px;
-  --radius:6px;
-  --card-radius:8px;
+  --radius:0px;
+  --card-radius:0px;
   --line:1px;
 }
 [data-theme=dark]{
@@ -43,4 +43,23 @@
   --warning:#e8b86a;
   --weather-warm:#e5b874;
   --weather-cool:#8cb8db;
+}
+@media (prefers-color-scheme: dark){
+:root:not([data-theme=light]){
+  --bg:#171717;
+  --surface:#202020;
+  --ink:#f2f2f2;
+  --muted:#bdbdbd;
+  --control:#303030;
+  --border:#4d4d4d;
+  --accent:#d2d2d2;
+  --selected-ink:#202020;
+  --accent-pressed:#f2f2f2;
+  --pressed:#414141;
+  --icon-colour:#c7cbce;
+  --good:#89caa2;
+  --warning:#e8b86a;
+  --weather-warm:#e5b874;
+  --weather-cool:#8cb8db;
+}
 }

@@ -37,7 +37,7 @@ function lightsNow() {
   if (lights.confirmed_power === 'off' || lights.scene === 'Off') return 'Lights are off';
   if (lights.confirmed_power !== 'on') return 'Lights not confirmed yet';
   if (lights.scene) return `Lights are on · ${lights.scene}`;
-  return `Lights are on · ${num(lights.cct)} K, level ${num(lights.intensity)}`;
+  return `Lights are on · ${lights.recent || 'Current room settings'}`;
 }
 
 export function readback() {
@@ -61,15 +61,33 @@ export function chip() {
 const disabled = (on) => (on ? '' : 'disabled');
 
 // ---------- Home ----------
-function weatherBlock(compact) {
+function minutesOf(iso) {
+  const [h, m] = (iso || '').slice(11, 16).split(':').map(Number);
+  return Number.isFinite(h) ? h * 60 + m : null;
+}
+function daylight(w) {
+  const rise = minutesOf(w.sunrise), set = minutesOf(w.sunset);
+  const [h, m] = roomTime(S(), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).split(':').map(Number);
+  const now = h * 60 + m;
+  if (rise == null || set == null) return null;
+  const left = Math.min(100, Math.max(0, ((now - rise) / (set - rise)) * 100));
+  const span = (mins) => (mins >= 60 ? `${Math.floor(mins / 60)} h ${mins % 60} min` : `${mins} min`);
+  const text = now < rise ? `Sunrise in ${span(rise - now)}` : now > set ? 'After sunset' : `Sunset in ${span(set - now)}`;
+  return `<div class="daylight"><div class="daybar"><i data-left="${left.toFixed(1)}%"></i></div>
+    <div class="label-row small"><span>Sunrise ${roomTimeOf(w.sunrise)}</span><b>${text}</b><span>Sunset ${roomTimeOf(w.sunset)}</span></div></div>`;
+}
+function weatherCard() {
   const w = S().weather;
-  if (!w) return '<p class="muted">Weather unavailable right now.</p>';
+  if (!w) return '<section class="card weather"><p class="muted">Weather is unavailable right now.</p></section>';
   const f = S().preferences?.temperature !== 'c';
   const t = (key) => (w[key + (f ? '_f' : '_c')] == null ? '–' : Math.round(w[key + (f ? '_f' : '_c')]) + '°');
-  return `<div class="wx">${icon(weatherIcon(w), 'wx-icon')}<span class="temp">${t('temperature')}</span>
+  return `<section class="card weather" aria-label="Outdoor weather">
+    <div class="wx-head"><span class="muted small">Outdoors · Troy, NY</span><span class="muted small">Updated ${ago(S().weather_age_s)}</span></div>
+    <div class="wx">${icon(weatherIcon(w), 'wx-icon')}<span class="temp">${t('temperature')}</span>
       <div><div class="cond">${esc(w.condition || '')}</div><div class="muted small">Feels like ${t('feels_like')}</div></div></div>
-    <p class="facts"><span>High <b>${t('high')}</b></span><span>Low <b>${t('low')}</b></span><span>Rain today <b>${w.rain_chance == null ? '–' : Math.round(w.rain_chance) + '%'}</b></span></p>
-    ${compact ? '' : `<p class="muted small">Sunrise ${roomTimeOf(w.sunrise)} · Sunset ${roomTimeOf(w.sunset)} · updated ${ago(S().weather_age_s)}</p>`}`;
+    <dl class="wx-facts"><div><dt>High</dt><dd>${t('high')}</dd></div><div><dt>Low</dt><dd>${t('low')}</dd></div>
+      <div><dt>Rain today</dt><dd>${w.rain_chance == null ? '–' : Math.round(w.rain_chance) + '%'}</dd></div></dl>
+    ${daylight(w) || ''}</section>`;
 }
 function roomTimeOf(iso) {
   if (!iso) return '–';
@@ -114,9 +132,7 @@ export function home(device) {
       <p><a class="link" href="#lights/white">White light, scenes and channels ›</a></p>
       ${blindsBlock()}
     </div>
-    <aside class="clock">
-      <div class="muted small">Troy, NY</div>${time}${weatherBlock(device === 'phone')}
-    </aside>
+    <aside class="clock">${time}${weatherCard()}</aside>
     ${statusRow}
   </section>`;
 }
@@ -151,7 +167,7 @@ export function lights(tab) {
       const label = scene.id === 'Gradient' ? 'Gradient' : scene.label + ' scene';
       const cmd = scene.id === 'Gradient' ? 'data-cmd="gradient"' : `data-cmd="preset" data-name="${esc(scene.id)}"`;
       return `<button class="scene ${store.pending?.label === label ? 'sending' : ''}" ${disabled(ok)} ${cmd} data-label="${esc(label)}">
-        <span class="top"><span class="name">${esc(scene.label)}</span><span class="state ${current ? 'current' : ''}">${current ? 'Current' : store.pending?.label === label ? 'Sending…' : ''}</span></span>
+        <span class="top"><span class="name">${esc(scene.label)}</span><span class="state">${current ? 'Current' : store.pending?.label === label ? 'Sending…' : ''}</span></span>
         <span class="muted small">${esc(scene.detail)}</span>
         <span class="mix">${mix.map((v, i) => `<i data-h="${Math.max(4, v)}%" data-bg="${c.channels?.[i]?.colour || '#888'}"></i>`).join('')}</span></button>`;
     }).join('')}</div><p class="muted small">Tap a scene to apply it to the whole room. The bars show its eight-channel mixture.</p>`;
@@ -166,9 +182,13 @@ export function lights(tab) {
     }
   } else if (tab === 'channels') {
     const values = lights.channels || Array(8).fill(0);
-    body = `<div class="card channels">${(c.channels || []).map((ch, i) => `<label class="channel"><span class="swatch" data-bg="${ch.colour}"></span><span>${esc(ch.label)}</span>
-      <input type="range" min="0" max="100" step="1" value="${values[i] ?? 0}" data-chan="${i}" aria-label="${esc(ch.label)}" ${disabled(ok)}><span class="pc" data-val="chan${i}">${values[i] ?? 0}%</span></label>`).join('')}</div>
-      <p class="muted small">Changes apply when you let go. Values are drive levels, not measured brightness.</p>`;
+    body = `<div class="card"><div class="mixer" aria-hidden="true">${(c.channels || []).map((ch, i) => `<div><span>${esc(ch.label)}</span><div class="col"><i data-mix="${i}" data-h="${values[i] ?? 0}%" data-bg="${ch.colour}"></i></div><b data-val="chan${i}">${values[i] ?? 0}%</b></div>`).join('')}</div></div>
+      <div class="card channels">${(c.channels || []).map((ch, i) => `<div class="channel"><span class="label"><span class="row"><span class="swatch" data-bg="${ch.colour}"></span>${esc(ch.label)}</span><span class="phone-val" data-val="chan${i}">${values[i] ?? 0}%</span></span>
+        <button class="btn step" ${disabled(ok)} data-chanstep="${i}" data-delta="-5" aria-label="Lower ${esc(ch.label)}">−</button>
+        <input type="range" min="0" max="100" step="1" value="${values[i] ?? 0}" data-chan="${i}" aria-label="${esc(ch.label)}" ${disabled(ok)}>
+        <button class="btn step" ${disabled(ok)} data-chanstep="${i}" data-delta="5" aria-label="Raise ${esc(ch.label)}">+</button>
+        <span class="pc" data-val="chan${i}">${values[i] ?? 0}%</span></div>`).join('')}</div>
+      <p class="muted small">Each change applies when you let go, or with − / + in 5% steps. Values are drive levels, not measured brightness.</p>`;
   } else {
     const warm = c.previous_on || { arguments: { cct: 3500, intensity: 1000 } };
     body = `${slider('cct', 'Colour temperature', lights.cct ?? 3500, 1600, 10000, 100, 'K')}

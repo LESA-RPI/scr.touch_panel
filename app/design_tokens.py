@@ -37,13 +37,13 @@ THEMES = {
     },
 }
 
-# One sharp design system for the touch panel and the website. Pixel values; the
+# One sharp (square-cornered) design system for the touch panel and the website. Pixel values; the
 # panel uses "panel" (1280 x 800 touch), the website uses "web" (phone to desktop).
 SCALE = {
     "panel": {"text": 20, "small": 16, "title": 24, "heading": 34, "display": 120,
-              "tap": 72, "space": 24, "pad": 28, "radius": 6, "card_radius": 8, "line": 1},
+              "tap": 72, "space": 24, "pad": 28, "radius": 0, "card_radius": 0, "line": 1},
     "web": {"text": 16, "small": 14, "title": 19, "heading": 30, "display": 84,
-            "tap": 48, "space": 20, "pad": 28, "radius": 6, "card_radius": 8, "line": 1},
+            "tap": 48, "space": 20, "pad": 28, "radius": 0, "card_radius": 0, "line": 1},
 }
 
 
@@ -58,6 +58,10 @@ def css():
         "/* Generated from app/design_tokens.py by app/export_room_content.py. Do not edit. */\n"
         + block(":root", dict(THEMES["light"], **scale))
         + block("[data-theme=dark]", THEMES["dark"])
+        # Follow the device before any script runs, so dark phones never flash light.
+        + "@media (prefers-color-scheme: dark){\n"
+        + block(":root:not([data-theme=light])", THEMES["dark"])
+        + "}\n"
     )
 
 

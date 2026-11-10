@@ -31,7 +31,7 @@ function render(force = false) {
   const legacy = store.state?.mode === 'original' && store.reachable
     ? `<div class="banner"><p>The touch panel is showing Legacy controls. Lighting here is paused.</p><button class="btn quiet" data-cmd="home" data-label="Return panel to Home" ${busy() ? 'disabled' : ''}>Return panel to Home</button></div>` : '';
   const notice = store.notice ? `<p class="notice ${store.notice.warn ? 'warn' : ''}" role="alert">${esc(store.notice.text)} <button class="link" data-dismiss>Dismiss</button></p>` : '';
-  const html = `${legacy}${notice}<header class="pagehead"><h1>${device() === 'phone' && page === 'home' ? 'Conference Room' : titles[page]}</h1>${pages.chip()}</header>${body}`;
+  const html = `${legacy}${notice}<header class="pagehead"><h1>${titles[page]}</h1>${pages.chip()}</header>${body}`;
   if (html !== lastHtml) {
     const main = $('page');
     morph(main, html);
@@ -59,7 +59,7 @@ function nav() {
 
 // ---------- Input ----------
 document.addEventListener('click', async (event) => {
-  const el = event.target.closest('[data-cmd],[data-sheet],[data-pick],[data-pref],[data-step],[data-family],[data-marker],[data-copy],[data-dismiss],[data-close]');
+  const el = event.target.closest('[data-cmd],[data-sheet],[data-pick],[data-pref],[data-step],[data-chanstep],[data-family],[data-marker],[data-copy],[data-dismiss],[data-close]');
   if (!el || el.disabled) return;
   const d = el.dataset;
   if ('close' in d) sheetName = null;
@@ -79,6 +79,12 @@ document.addEventListener('click', async (event) => {
       el.textContent = 'Select and copy';
     }
     return;
+  } else if (d.chanstep !== undefined) {
+    const values = [...(store.state?.lights?.channels || Array(8).fill(0))];
+    const i = Number(d.chanstep);
+    values[i] = Math.min(100, Math.max(0, values[i] + Number(d.delta)));
+    const name = store.content?.channels?.[i]?.label || 'Channel';
+    await send('channels', { values }, `${name} ${values[i]}%`);
   } else if (d.step) {
     const lights = store.state?.lights || {};
     const limits = { cct: [1600, 10000], intensity: [0, 1900] };
@@ -113,8 +119,11 @@ document.addEventListener('input', (e) => {
   interacting = true;
   progress(input);
   const key = input.dataset.range ?? 'chan' + input.dataset.chan;
-  const label = document.querySelector(`[data-val="${key}"]`);
-  if (label) label.textContent = input.dataset.chan != null ? input.value + '%' : num(input.value);
+  document.querySelectorAll(`[data-val="${key}"]`).forEach((label) => (label.textContent = input.dataset.chan != null ? input.value + '%' : num(input.value)));
+  if (input.dataset.chan != null) {
+    const bar = document.querySelector(`[data-mix="${input.dataset.chan}"]`);
+    if (bar) bar.style.height = input.value + '%';
+  }
 });
 document.addEventListener('change', async (e) => {
   const input = e.target;
@@ -140,8 +149,12 @@ document.addEventListener('change', async (e) => {
 }));
 
 // ---------- Loop ----------
+// Scroll to the top only when the main page changes, not for tabs within it.
+let lastPage = route().page;
 addEventListener('hashchange', () => {
-  scrollTo(0, 0);
+  const { page } = route();
+  if (page !== lastPage || (device() === 'phone' && page !== 'lights')) scrollTo(0, 0);
+  lastPage = page;
   render(true);
 });
 phone.addEventListener('change', () => render(true));
