@@ -16,8 +16,10 @@ function route() {
 }
 const device = () => (phone.matches ? 'phone' : innerWidth >= 1200 ? 'desktop' : 'tablet');
 
+const preview = new URLSearchParams(location.search);
+if (preview.get('ds')) document.documentElement.dataset.ds = preview.get('ds');
 function render(force = false) {
-  document.documentElement.dataset.theme = dark.matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = preview.get('theme') || (dark.matches ? 'dark' : 'light');
   if (interacting && !force) return;
   const { page, rest } = route();
   const titles = { home: 'Smart Conference Room', lights: 'Lights', guide: 'Guide', settings: 'Settings' };

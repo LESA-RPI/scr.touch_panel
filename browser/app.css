@@ -180,3 +180,26 @@ pre{background:var(--surface);border:1px solid var(--border);border-radius:8px;p
   .home{grid-template-columns:1fr}
   .clock{border-left:0;padding-left:0}
 }
+
+/* ---------- Design option B: sharper (preview with ?ds=sharp) ---------- */
+[data-ds=sharp]{--radius:6px;--h1:30px;--h2:19px}
+[data-ds=sharp] h1{letter-spacing:-.02em;font-weight:700}
+[data-ds=sharp] h2{letter-spacing:-.01em}
+[data-ds=sharp] .btn{border-color:var(--border);background:var(--bg)}
+[data-ds=sharp] .btn:active{background:var(--surface)}
+[data-ds=sharp] .btn.big,[data-ds=sharp] .btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+[data-ds=sharp] .btn.big .note{color:inherit;opacity:.8}
+[data-ds=sharp] .btn.big:active{background:var(--ink)}
+[data-ds=sharp] .btn.sending{background:var(--ink)!important;color:var(--bg)}
+[data-ds=sharp] .btn.quiet{border-color:var(--border);background:transparent}
+[data-ds=sharp] .card,[data-ds=sharp] .scene,[data-ds=sharp] .status-row>*,[data-ds=sharp] .notice,[data-ds=sharp] .banner{border-radius:8px;background:var(--bg)}
+[data-ds=sharp] .scene:hover,[data-ds=sharp] .status-row>*:hover{border-color:var(--muted)}
+[data-ds=sharp] .chip{border-radius:6px;background:var(--bg)}
+[data-ds=sharp] .seg{border-radius:8px;background:var(--surface)}
+[data-ds=sharp] .seg a,[data-ds=sharp] .seg button{border-radius:6px}
+[data-ds=sharp] .rail a,[data-ds=sharp] .side a,[data-ds=sharp] .tabbar a{border-radius:6px}
+[data-ds=sharp] .rail a[aria-current=page],[data-ds=sharp] .side a[aria-current=page],[data-ds=sharp] .tabbar a[aria-current=page]{background:var(--ink);color:var(--bg)}
+[data-ds=sharp] .rail a[aria-current=page] .i,[data-ds=sharp] .side a[aria-current=page] .i{color:var(--bg)}
+[data-ds=sharp] .sheet{border-radius:10px}
+[data-ds=sharp] input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px}
+[data-ds=sharp] input[type=range]::-webkit-slider-thumb{width:26px;height:26px;margin-top:-10px;border-width:2px}
