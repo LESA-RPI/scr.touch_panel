@@ -58,6 +58,8 @@ def content():
             )
         }
     )
+    folder = Path(__file__).resolve().parents[1] / "assets/icons/svg"
+    names.update({path.stem: path.stem for path in sorted(folder.glob("*.svg"))})
     icons = {}
     for key, name in names.items():
         svg = ET.parse(

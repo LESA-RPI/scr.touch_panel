@@ -123,11 +123,13 @@ def health():
             .strip()
         )
         flags = int(reply.split("=")[1], 16)
-        result["power"] = (
-            "Current undervoltage detected" if flags & 1 else "No current undervoltage"
-        )
-        if flags & (1 << 16):
-            result["power"] += " / past warning since boot"
+        result["power_warning"] = bool(flags & (1 | 1 << 16))
+        if flags & 1:
+            result["power"] = "Under-voltage now. Check the Pi power supply."
+        elif flags & (1 << 16):
+            result["power"] = "Under-voltage happened since the last restart. Check the Pi power supply."
+        else:
+            result["power"] = "OK"
     except (OSError, ValueError, IndexError, subprocess.CalledProcessError):
         result["power"] = "Power status unavailable"
     return result
