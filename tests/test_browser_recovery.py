@@ -7,7 +7,7 @@ import subprocess
 import pytest
 
 
-def test_browser_recovery_preserves_unknown_receipts_and_experiment_ownership():
+def test_browser_recovery_preserves_unknown_receipts_and_ownership_guards():
     node = shutil.which("node")
     if node is None:
         pytest.skip("Node.js unavailable; frontend checks need its standard library")

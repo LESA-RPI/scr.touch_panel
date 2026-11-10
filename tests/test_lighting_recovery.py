@@ -12,15 +12,7 @@ import lighting_recovery
 from lighting_recovery import LightingRecovery
 
 
-TOKEN = "experiment-token-12345678"
-OTHER_TOKEN = "experiment-token-87654321"
-LABEL = "Lighting study"
 LOG_POSITION = {"device": 5, "inode": 17, "size": 100}
-
-
-def reserve(guard, token=TOKEN):
-    guard.begin_reservation(token, LABEL)
-    guard.reserve(token, released=True, helper_exited=True)
 
 
 def test_background_checkpoints_remain_ordered_and_block_until_durable(tmp_path, monkeypatch):
@@ -37,16 +29,16 @@ def test_background_checkpoints_remain_ordered_and_block_until_durable(tmp_path,
 
     monkeypatch.setattr(guard, "_persist", stalled)
     try:
-        guard.begin_reservation(TOKEN, LABEL)
+        guard.enter_legacy(LOG_POSITION)
         assert entered.wait(1)
-        guard.mark_uncertain("Experiment handoff did not confirm a preserved release.")
+        guard.mark_uncertain("Legacy handoff did not confirm a preserved release.")
         assert guard.state["status"] == "uncertain"
         assert guard.pending and guard.public()["write_blocked"]
         assert not guard.public()["can_check"]
     finally:
         release.set()
     assert guard.settled.wait(2)
-    assert written == ["releasing", "uncertain"]
+    assert written == ["legacy", "uncertain"]
     assert LightingRecovery(guard.path).state["status"] == "uncertain"
 
 
@@ -69,76 +61,40 @@ def test_older_record_left_mid_command_reopens_ready_for_a_fresh_read(tmp_path):
     restarted.ready(stable=True)
 
 
-def test_full_handoff_requires_preserved_release_exit_owner_closure_and_acquire(tmp_path):
+@pytest.mark.parametrize("status", ["releasing", "reserved"])
+def test_retired_experiment_handoff_loads_as_uncertain_not_a_storage_error(tmp_path, status):
+    path = tmp_path / "lighting.json"
+    old = dict(LightingRecovery().state, status=status, token_hash="a" * 64,
+               label="Study", heartbeat_at=1.0)
+    path.write_text(json.dumps(old))
+    restarted = LightingRecovery(path)
+    assert not restarted.error
+    assert restarted.state["status"] == "uncertain" and restarted.public()["write_blocked"]
+
+
+def test_prior_legacy_checkpoint_retains_its_log_proof_and_return_guards(tmp_path):
     path = tmp_path / "lighting.json"
     guard = LightingRecovery(path)
-    guard.begin_reservation(TOKEN, LABEL)
-    assert json.loads(path.read_text())["status"] == "releasing"
-    assert guard.public()["write_blocked"]
-    for release, exited in ((False, True), (True, False), (1, True)):
-        with pytest.raises(RuntimeError):
-            guard.reserve(TOKEN, released=release, helper_exited=exited)
-    guard.reserve(TOKEN, released=True, helper_exited=True)
+    guard.enter_legacy(LOG_POSITION)
+    old = json.loads(path.read_text())
+    old.update(token_hash="", label="", heartbeat_at=None)
+    path.write_text(json.dumps(old))
+    restarted = LightingRecovery(path)
+    assert not restarted.error and restarted.state == guard.state
+    assert restarted.public()["write_blocked"]
+    assert restarted.legacy_log_unchanged(LOG_POSITION, b"")
     with pytest.raises(RuntimeError):
-        guard.finish(TOKEN, owner_closed=True)
-    guard.finish(TOKEN, owner_closed=True, pending_clear=True)
-    assert guard.public()["status"] == "recovering"
-    with pytest.raises(RuntimeError):
-        guard.ready(stable=False)
-    guard.ready(stable=True)
-    assert guard.public()["status"] == "normal"
-    assert not guard.public()["write_blocked"]
-    assert guard.state["acknowledged_at"] is not None
-    assert guard.state["recovered_at"] is not None
-    assert guard.state["revision"] == 4
-
-
-def test_stale_and_wrong_tokens_cannot_release_a_new_experiment(tmp_path):
-    guard = LightingRecovery(tmp_path / "lighting.json")
-    reserve(guard)
-    for operation in (guard.heartbeat, guard.finish):
-        with pytest.raises(ValueError):
-            operation(OTHER_TOKEN)
-    guard.finish(TOKEN, owner_closed=True, pending_clear=True)
-    guard.ready(stable=True)
-    with pytest.raises(ValueError):
-        reserve(guard)
-    reserve(guard, OTHER_TOKEN)
-    with pytest.raises(ValueError):
-        guard.finish(TOKEN, owner_closed=True, pending_clear=True)
-    assert guard.public()["status"] == "reserved"
-
-
-def test_public_status_never_contains_token_or_token_hash(tmp_path):
-    guard = LightingRecovery(tmp_path / "lighting.json")
-    reserve(guard)
-    visible = json.dumps(guard.public())
-    assert TOKEN not in visible and guard.state["token_hash"] not in visible
-    assert TOKEN not in (tmp_path / "lighting.json").read_text()
-    assert guard.public()["label"] == LABEL
-
-
-def test_no_heartbeat_or_clock_jump_ever_reclaims_experiment(tmp_path):
-    now = [1000.0]
-    path = tmp_path / "lighting.json"
-    guard = LightingRecovery(path, clock=lambda: now[0])
-    reserve(guard)
-    for at in (10000000.0, 0.0):
-        now[0] = at
-        restarted = LightingRecovery(path, clock=lambda: now[0])
-        assert restarted.public()["status"] == "reserved"
-        assert restarted.public()["heartbeat_stale"]
-        assert restarted.public()["needs_staff"]
-        with pytest.raises(RuntimeError):
-            restarted.ready(stable=True)
-        with pytest.raises(RuntimeError):
-            restarted.begin_write("next-command")
+        restarted.leave_legacy(idle_confirmed=True)
+    restarted.leave_legacy(idle_confirmed=True, callback_clean=True)
+    assert restarted.state["status"] == "recovering"
+    assert set(json.loads(path.read_text())) == set(guard.state)
 
 
 def test_crash_during_handoff_is_durable_and_stays_blocked(tmp_path):
     path = tmp_path / "lighting.json"
     guard = LightingRecovery(path)
-    guard.begin_reservation(TOKEN, LABEL)
+    guard.enter_legacy(LOG_POSITION)
+    guard.leave_legacy(idle_confirmed=True, callback_clean=True)
     restarted = LightingRecovery(path)
     assert restarted.public()["status"] == "uncertain"
     assert restarted.public()["can_check"]
@@ -173,20 +129,6 @@ def test_mismatched_response_never_resolves_pending_write(tmp_path):
         guard.finish_write("command-one")
 
 
-def test_release_failure_after_panel_stops_preserves_reservation_proof(tmp_path):
-    path = tmp_path / "lighting.json"
-    guard = LightingRecovery(path)
-    guard.begin_reservation(TOKEN, LABEL)
-    guard.mark_uncertain("Lighting helper stopped without confirming preserved release.")
-    restarted = LightingRecovery(path)
-    assert restarted.state["label"] == LABEL
-    assert restarted.state["token_hash"] == guard.state["token_hash"]
-    with pytest.raises(RuntimeError):
-        restarted.finish(TOKEN, owner_closed=True, pending_clear=True)
-    with pytest.raises(RuntimeError):
-        restarted.ready(stable=True)
-
-
 @pytest.mark.parametrize("raw", ("{", "[]", "null", "{}", "x" * 8193))
 def test_malformed_storage_fails_closed_and_is_preserved(tmp_path, raw):
     path = tmp_path / "lighting.json"
@@ -201,8 +143,7 @@ def test_malformed_storage_fails_closed_and_is_preserved(tmp_path, raw):
 
 @pytest.mark.parametrize("key,value", (("version", True), ("status", "unknown"),
                                       ("updated_at", float("nan")), ("updated_at", 10 ** 300),
-                                      ("revision", -1), ("status", "reserved"),
-                                      ("status", "recovering"), ("status", "writing")))
+                                      ("revision", -1), ("status", "recovering"), ("status", "writing")))
 def test_semantically_invalid_state_also_fails_closed(tmp_path, key, value):
     path = tmp_path / "lighting.json"
     state = dict(LightingRecovery().state, **{key: value})
@@ -220,7 +161,7 @@ def test_failed_durable_write_never_authorizes_hardware_operation(tmp_path, monk
 
     monkeypatch.setattr(lighting_recovery.os, "replace", fail_replace)
     with pytest.raises(RuntimeError):
-        guard.begin_reservation(TOKEN, LABEL)
+        guard.enter_legacy(LOG_POSITION)
     assert guard.error and guard.public()["write_blocked"]
     with pytest.raises(RuntimeError):
         guard.begin_write("not-authorized-to-send")
@@ -228,19 +169,9 @@ def test_failed_durable_write_never_authorizes_hardware_operation(tmp_path, monk
     assert not list(tmp_path.glob(".lighting-*"))
 
 
-@pytest.mark.parametrize("token,label", (("short", LABEL), ("a" * 129, LABEL),
-                                        (TOKEN, ""), (TOKEN, "a" * 81),
-                                        (TOKEN, "line\nbreak")))
-def test_invalid_reservation_inputs_never_block_the_room(token, label):
-    guard = LightingRecovery()
-    with pytest.raises(ValueError):
-        guard.begin_reservation(token, label)
-    assert guard.public()["status"] == "normal"
-
-
 def test_local_staff_can_reconcile_crashed_owner_but_still_needs_fresh_acquire():
     guard = LightingRecovery()
-    reserve(guard)
+    guard.mark_uncertain("Earlier Legacy return was not confirmed.")
     guard.acknowledge(owner_closed=True, pending_clear=True)
     assert guard.public()["write_blocked"]
     guard.ready(stable=True)
@@ -255,7 +186,6 @@ def test_legacy_owner_survives_restart_and_requires_confirmed_idle_before_acquir
     assert restarted.public()["status"] == "legacy"
     assert restarted.public()["write_blocked"] and not restarted.public()["can_check"]
     for operation in (lambda: restarted.begin_write("blocked"),
-                      lambda: restarted.begin_reservation(TOKEN, LABEL),
                       lambda: restarted.acknowledge(owner_closed=True),
                       lambda: restarted.leave_legacy(idle_confirmed=1, callback_clean=True),
                       lambda: restarted.leave_legacy(idle_confirmed=True)):
@@ -268,28 +198,19 @@ def test_legacy_owner_survives_restart_and_requires_confirmed_idle_before_acquir
     assert not restarted.public()["write_blocked"]
 
 
-@pytest.mark.parametrize("status", ("uncertain", "reserved"))
-def test_opening_legacy_cannot_bypass_experiment_or_unknown_write(status):
+def test_opening_legacy_cannot_bypass_unknown_write():
     guard = LightingRecovery()
-    if status == "reserved":
-        reserve(guard)
-    else:
-        guard.mark_uncertain("Earlier result not confirmed.")
+    guard.mark_uncertain("Earlier result not confirmed.")
     with pytest.raises(RuntimeError):
         guard.enter_legacy()
     assert guard.public()["write_blocked"]
 
 
-@pytest.mark.parametrize("owner", ("experiment", "legacy"))
-def test_interrupted_recovery_does_not_reuse_stale_owner_closure(tmp_path, owner):
+def test_interrupted_recovery_does_not_reuse_stale_owner_closure(tmp_path):
     path = tmp_path / "lighting.json"
     guard = LightingRecovery(path)
-    if owner == "experiment":
-        reserve(guard)
-        guard.finish(TOKEN, owner_closed=True, pending_clear=True)
-    else:
-        guard.enter_legacy(LOG_POSITION)
-        guard.leave_legacy(idle_confirmed=True, callback_clean=True)
+    guard.enter_legacy(LOG_POSITION)
+    guard.leave_legacy(idle_confirmed=True, callback_clean=True)
     assert guard.state["status"] == "recovering"
     proof = guard.state["acknowledged_at"]
     restarted = LightingRecovery(path)

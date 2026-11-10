@@ -130,7 +130,7 @@ def test_real_check_then_sun_request_keeps_navigation_responsive(view):
 
 def test_pending_check_never_clears_uncertain_handoff(view):
     shared_worker(view)
-    view.recovery.mark_uncertain("Experiment handoff did not confirm a preserved release.")
+    view.recovery.mark_uncertain("Legacy handoff did not confirm a preserved release.")
     view.light_state = "failed"
     view.open_advanced("system")
     view.root.update()

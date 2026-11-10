@@ -77,19 +77,6 @@ def test_owner_reply_size_limit_remains_bounded(transport):
     assert transport.parts == []
 
 
-def test_valid_unicode_profile_fits_bounded_command_transport(transport):
-    import json
-
-    value = dict(id="profile-command-0001", revision="current", action="profile", arguments={
-        "value": {"title": "😀" * 100, "sensors": "😀" * 100,
-                  "stages": ["😀" * 58 + "%02d" % i for i in range(20)],
-                  "annotations": ["😀" * 19 + str(i) for i in range(4)]}})
-    transport.parts = [b'{"ok":true}\n']
-    assert controller.Controller("owner.sock").exchange(value)["ok"]
-    assert 4096 < len(transport.sent[0]) < 32768
-    assert json.loads(transport.sent[0]) == value
-
-
 def test_oversized_command_is_rejected_without_sending(transport):
     with pytest.raises(ValueError, match="too large"):
         controller.Controller("owner.sock").exchange({"value": "x" * 32768})

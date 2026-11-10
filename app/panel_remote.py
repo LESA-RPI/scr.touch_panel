@@ -20,11 +20,7 @@ def snapshot(panel):
         and panel.light_state == "ready"
         and not getattr(panel, "ownership_blocked", lambda: False)()
         and not busy
-        and not panel.running
         and panel.mode not in ("original", "black")
-    )
-    elapsed = panel.elapsed + (
-        time.monotonic() - panel.run_started if panel.running else 0
     )
     return {
         "version": 1,
@@ -40,7 +36,6 @@ def snapshot(panel):
         "can_control": lighting,
         "lighting_recovery": getattr(panel, "recovery_snapshot", lambda: {})(),
         "can_programme": getattr(panel, "programme_available", lambda: False)(),
-        "can_session": not busy and panel.mode != "original",
         "lights": {
             "capabilities": getattr(panel, "light_capabilities", {}),
             "programme": getattr(panel, "programme", None),
@@ -92,16 +87,6 @@ def snapshot(panel):
                 "weather_cool",
             )
         },
-        "experiment": {
-            "profile": panel.profile,
-            "can_load_profile": getattr(panel, "can_load_profile", lambda: False)(),
-            "running": panel.running,
-            "started": getattr(panel, "run_started", None) is not None or panel.elapsed > 0,
-            "stage": panel.stage,
-            "elapsed_s": int(elapsed),
-            "annotation": panel.annotation_text.get(),
-            "recording": False,
-        },
         "weather": panel.weather_reading,
         "weather_age_s": (
             None
@@ -119,8 +104,6 @@ def snapshot(panel):
 def execute(panel, request):
     action, args = request["action"], request["arguments"]
     state = snapshot(panel)
-    if action.startswith("handoff_"):
-        return panel.handoff(action[len("handoff_"):], args)
     if action == "refresh_status":
         if not panel.refresh_status():
             raise RuntimeError("Room service checks are unavailable or already running.")
@@ -133,12 +116,10 @@ def execute(panel, request):
         )
     if action == "check_connection":
         panel.check_connection()
-    elif action == "profile":
-        panel.load_profile(args["value"])
     elif action in ("on", "off", "preset", "cct", "channels", "gradient"):
         if not state["can_control"]:
             raise RuntimeError(
-                "Lighting is unavailable, uncertain, in Legacy or held by an experiment. Check the panel."
+                "Lighting is unavailable, uncertain or in Legacy. Check the panel."
             )
         if panel.idle_active:
             panel.return_from_idle()
@@ -168,25 +149,7 @@ def execute(panel, request):
             raise RuntimeError("Blinds · " + state["blinds"]["detail"])
         if not panel.blind_command(args["name"]):
             raise RuntimeError("Blind command was not accepted")
-    elif action in ("start", "pause", "previous", "next", "mark"):
-        if not state["can_session"]:
-            raise RuntimeError("Return from Legacy before using instructions.")
-        if action == "mark" and args["label"] not in panel.profile["annotations"]:
-            raise ValueError("Unknown annotation label")
-        panel.open_advanced("experiment")
-        if action == "start":
-            panel.start_preview()
-        elif action == "pause":
-            panel.stop_preview()
-        elif action == "previous":
-            panel.previous_stage()
-        elif action == "next":
-            panel.next_stage()
-        else:
-            panel.mark(args["label"])
     elif action in ("home", "legacy", "original_fallback", "blank", "clock_view"):
-        if panel.running and action != "home":
-            raise RuntimeError("Pause the instructions before switching the panel.")
         if action == "home":
             panel.open_home()
         else:

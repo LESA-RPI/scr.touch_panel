@@ -78,7 +78,7 @@ class EventJournal(object):
                         if durable:
                             self.completed.put_nowait(sequence)
                 # Console output is a secondary mirror. Its failure cannot undo
-                # a successfully persisted annotation.
+                # a successfully persisted event.
                 if not self.output_error:
                     try:
                         self.output.write(lines)

@@ -1114,14 +1114,6 @@ pre code {
 .notice[hidden] {
   display: none;
 }
-.session-stage {
-  font-size: 30px;
-  margin: 16px 0;
-}
-.timer {
-  font-size: 36px;
-  font-variant-numeric: tabular-nums;
-}
 .subtle {
   font-size: 15px;
   color: var(--muted);
@@ -1549,30 +1541,6 @@ summary {
   }
 }
 
-.profile-tools {
-  margin-top: 20px;
-  border-top: 1px solid var(--border);
-  padding-top: 12px;
-}
-.profile-tools summary {
-  cursor: pointer;
-  min-height: 48px;
-  display: list-item;
-  padding-block: 10px;
-}
-.profile-file {
-  display: block;
-  min-width: 0;
-  max-width: 100%;
-  margin-block: 12px;
-}
-.profile-file input {
-  display: block;
-  width: 100%;
-  max-width: 100%;
-  margin-top: 8px;
-}
-
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -1815,19 +1783,6 @@ summary {
   }
   .system-page .lighting-recovery p {
     grid-column: 1 / -1;
-  }
-  .experiment-card {
-    padding: 16px;
-  }
-  .experiment-card h3 {
-    font-size: 18px;
-  }
-  .session-stage {
-    font-size: 24px;
-    margin: 8px 0;
-  }
-  .timer {
-    font-size: 30px;
   }
   .guide-topic-sections {
     grid-template-columns: 1fr;

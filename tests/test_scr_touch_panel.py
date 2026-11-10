@@ -161,11 +161,7 @@ def test_restore_read_timeout_latches_failure_and_expired_lease_prevents_write()
     assert len(room.writes) == 1
 
 
-def test_profile_is_data_only_and_scheduled_theme_handles_midnight(tmp_path):
-    item = tmp_path / "profile.json"
-    item.write_text('{"script":"anything"}')
-    with pytest.raises(ValueError, match="permits"):
-        panel.profile(str(item))
+def test_scheduled_theme_handles_midnight():
     assert panel.scheduled_theme(8 * 60, 7 * 60, 19 * 60) == "light"
     assert panel.scheduled_theme(20 * 60, 7 * 60, 19 * 60) == "dark"
     assert panel.scheduled_theme(23 * 60, 19 * 60, 7 * 60) == "light"
@@ -651,7 +647,7 @@ def test_weather_details_are_optional_convert_units_and_reject_invalid_forecasts
 def test_idle_guards_and_wake_do_not_dispatch_a_touch(monkeypatch):
     state = panel.Panel.__new__(panel.Panel)
     state.idle_timeout, state.mode, state.light_state = 300, "room", "ready"
-    state.running = state.press_active = False
+    state.press_active = False
     for name in (
         "pending",
         "queued_intent",
@@ -662,12 +658,11 @@ def test_idle_guards_and_wake_do_not_dispatch_a_touch(monkeypatch):
     ):
         setattr(state, name, None)
     assert state.idle_eligible()
-    for mode in ("experiment", "original", "black", "visitor"):
+    for mode in ("original", "black", "visitor"):
         state.mode = mode
         assert not state.idle_eligible()
     state.mode = "room"
     for name in (
-        "running",
         "press_active",
         "pending",
         "queued_intent",
@@ -678,7 +673,7 @@ def test_idle_guards_and_wake_do_not_dispatch_a_touch(monkeypatch):
     ):
         setattr(state, name, True)
         assert not state.idle_eligible()
-        setattr(state, name, False if name in ("running", "press_active") else None)
+        setattr(state, name, False if name == "press_active" else None)
     for light_state in ("connecting", "applying", "failed"):
         state.light_state = light_state
         assert not state.idle_eligible()
@@ -874,7 +869,7 @@ def test_home_power_highlight_uses_confirmed_readback_and_clears_during_changes(
     assert [button.options["text"] for button in buttons] == ["Lights on", "Lights off"]
     assert [button.options["bg"] for button in buttons] == ["neutral", "confirmed"]
     assert buttons[1].options["fg"] == "page" and buttons[1].options["font"][-1] == "bold"
-    for field in ("pending", "queued_intent", "release_target", "closing", "running",
+    for field in ("pending", "queued_intent", "release_target", "closing",
                   "observing", "legacy_probe", "press_active"):
         setattr(state, field, True)
         state.light_message = "Waiting for lighting confirmation."
@@ -885,7 +880,7 @@ def test_home_power_highlight_uses_confirmed_readback_and_clears_during_changes(
         setattr(state, field, None)
         state.update_power_highlights()
         assert buttons[1].options["bg"] == "confirmed"
-    for status in ("uncertain", "reserved", "legacy", "recovering", "writing"):
+    for status in ("uncertain", "legacy", "recovering", "writing"):
         state.recovery.state["status"] = status
         state.update_power_highlights()
         assert all(button.options["bg"] == "neutral" for button in buttons)
@@ -984,20 +979,16 @@ def test_advanced_navigation_and_blank_return_preserve_tool_but_idle_opens_home(
 def journal_panel(journal, path):
     state = panel.Panel.__new__(panel.Panel)
     state.journal, state.args = journal, SimpleNamespace(journal=path)
-    state.sequence, state.stage, state.started = 0, 0, panel.monotonic()
+    state.sequence, state.started = 0, panel.monotonic()
     state.control_sequence = 0
-    state.mode, state.run_id, state.boot_id = "experiment", "trial", None
-    state.profile, state.pending_annotation = panel.DEFAULT_PROFILE, None
-    state.annotation_text = SimpleNamespace(
-        value="", set=lambda value: setattr(state.annotation_text, "value", value)
-    )
+    state.mode, state.run_id, state.boot_id = "room", "panel-run", None
     state.status_text = SimpleNamespace(
         value="", set=lambda value: setattr(state.status_text, "value", value)
     )
     return state
 
 
-def test_journal_fsync_does_not_block_emit_and_saved_waits_for_durable_ack(
+def test_journal_fsync_does_not_block_emit_and_power_waits_for_durable_ack(
     tmp_path, monkeypatch
 ):
     entered, release = threading.Event(), threading.Event()
@@ -1012,12 +1003,13 @@ def test_journal_fsync_does_not_block_emit_and_saved_waits_for_durable_ack(
     journal = event_journal.EventJournal(str(path), StringIO())
     state = journal_panel(journal, str(path))
     try:
-        state.emit("practice_started")
-        state.mark("Activity started")
+        state.emit("panel_opened")
+        state.power_checkpoint_saved = False
+        state.power_sequence = state.emit("power_requested", operation="reboot")
         assert entered.wait(2)
-        state.emit("instruction_selected")  # Returns while fsync remains blocked.
+        state.emit("mode_changed")  # Returns while fsync remains blocked.
         state.poll_journal()
-        assert state.annotation_text.value == "Saving annotation: Activity started"
+        assert not state.power_checkpoint_saved
         journal.close()  # Close requests drainage without joining the writer.
         assert not journal.done.is_set()
     finally:
@@ -1026,14 +1018,14 @@ def test_journal_fsync_does_not_block_emit_and_saved_waits_for_durable_ack(
         assert journal.done.wait(3)
         journal.thread.join(1)
     state.poll_journal()
-    assert state.annotation_text.value.startswith("Saved on panel: Activity started")
+    assert state.power_checkpoint_saved
     assert journal.error is None and not journal.thread.is_alive()
     records = [json.loads(line) for line in path.read_text().splitlines()]
     assert [item["sequence"] for item in records] == [1, 2, 3]
     assert [item["event"] for item in records] == [
-        "practice_started",
-        "annotation",
-        "instruction_selected",
+        "panel_opened",
+        "power_requested",
+        "mode_changed",
     ]
 
 
@@ -1068,7 +1060,7 @@ def test_journal_backlog_is_bounded_and_accepted_records_drain_in_order():
     assert not journal.thread.is_alive()
 
 
-def test_journal_failures_never_claim_unsaved_annotations_are_saved(
+def test_journal_failures_never_acknowledge_unsaved_power_requests(
     tmp_path, monkeypatch, capsys
 ):
     class FailedOutput:
@@ -1090,7 +1082,8 @@ def test_journal_failures_never_claim_unsaved_annotations_are_saved(
         journal = event_journal.EventJournal(path, output)
         state = journal_panel(journal, path)
         try:
-            state.mark("Activity finished")
+            state.power_checkpoint_saved = False
+            state.power_sequence = state.emit("power_requested", operation="reboot")
         finally:
             journal.close()
             assert journal.done.wait(3)
@@ -1098,22 +1091,18 @@ def test_journal_failures_never_claim_unsaved_annotations_are_saved(
         state.closed, state.worker, state.closing = False, None, "test"
         destroyed = []
         state.root = SimpleNamespace(
-            destroy=lambda: destroyed.append(state.annotation_text.value)
+            destroy=lambda: destroyed.append(state.power_checkpoint_saved)
         )
         state.finish_close()  # Final results must be processed before Tk disappears.
         stderr = capsys.readouterr().err
-        assert state.closed and destroyed == [state.annotation_text.value]
+        assert state.closed and destroyed == [state.power_checkpoint_saved]
         assert not journal.thread.is_alive()
         if kind == "mirror":
-            assert state.annotation_text.value.startswith(
-                "Saved on panel: Activity finished"
-            )
+            assert state.power_checkpoint_saved
             assert journal.output_error == "Injected output failure"
             assert not stderr
         else:
-            assert state.annotation_text.value.startswith("Annotation not saved:")
-            assert "Saved on panel" not in state.annotation_text.value
-            assert "Written to panel output" not in state.annotation_text.value
+            assert not state.power_checkpoint_saved
             assert "Panel journal shutdown failed:" in stderr
 
 

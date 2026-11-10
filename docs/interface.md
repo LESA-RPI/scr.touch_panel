@@ -4,66 +4,19 @@ These contracts serve the existing Tk client and optional SCR light helper.
 They are deliberately small. No registry, plugin loader or recorder
 service is implemented.
 
-## Study profile
-
-A JSON object may override `title`, `sensors`, `stages` and `annotations`.
-Unknown keys are rejected. No paths, callbacks or executable code are accepted.
-The panel loads this file through `--profile` at startup. The browser/API can
-operate its instructions and annotations, and load a session-only setup using
-`action: "profile", arguments: {"value": {...}}` through the same command envelope.
-Unknown keys, executable paths and callbacks remain forbidden.
-
-```json
-{
-  "title": "Room activity instructions",
-  "sensors": "Study description; not a live sensor connection",
-  "stages": ["Please sit still", "Move your hands", "Stand up"],
-  "annotations": ["Activity started", "Activity finished", "Unexpected event"]
-}
-```
-
-The title and description have at most 100 characters. There are 1–20 distinct
-instructions, each at most 60 characters, and 1–4 distinct annotation labels,
-each at most 20 characters. The client also checks text width at the selected
-font. The final instruction pauses instructions; navigation does not wrap.
-Runtime imports use the same validator and target-font fit checks, including
-two-line instructions and the available annotation-button width. Loading is
-accepted only while paused, with no pending touch, command, annotation save,
-power transition or experiment ownership. It resets stage, elapsed time and the
-annotation display, and rebuilds only an open Experiment view. It sends no room
-command, starts no recorder and does not write the startup profile.
-The snapshot's `experiment.can_load_profile` advertises readiness; the owner
-rechecks it at dispatch. A `profile_loaded` journal event contains the full setup
-and `recording: false`. Like other ordinary events, it is not a durable recording
-manifest. General HTTP/socket command envelopes are limited to 32 KiB; the
-private lighting handoff remains limited to 4 KiB.
-
-`experiment.started` is a derived display flag for Start/Resume wording, including
-a pause shorter than one elapsed second. Loading a profile resets it. It does not
-describe recording state or add a new instruction lifecycle.
-
 ## Panel journal
 
 `--journal` creates a new mode-0600 JSONL file, never appends to a recording.
 Events have `version: 1`, `event`, `panel_run_id`, `sequence`, `boot_id`, UTC,
-monotonic elapsed seconds, current mode/instruction and `recording: false`.
+monotonic elapsed seconds, current mode and `recording: false`.
 The boot identity is null where the operating system does not provide it.
 
-Events include panel open/close, mode/theme/clock changes, practice start/pause,
-instruction selection, named annotation, and lighting request/result.
+Events include panel open/close, mode/theme/clock changes and lighting request/result.
 One background writer preserves event order through a bounded 128-event queue.
 Ordinary event journal and console writes run outside the Tk thread. Events are flushed
-without a per-click fsync; annotation batches and final shutdown are synced.
-Annotations show Saving until their flush/fsync acknowledgement arrives; storage
-failure or a full queue is reported. Recent ordinary events can be lost on abrupt
+without a per-click fsync; power-request records and final shutdown are synced.
+Storage failure or a full queue is reported. Recent ordinary events can be lost on abrupt
 power failure. The lighting helper's separate durable recovery receipts are unchanged.
-Experiment mode writes a panel journal, not canonical sensor-recording metadata.
-The existing `practice_started`, `practice_paused` event names and `panel_practice`
-annotation scope remain unchanged for journal consumers.
-
-A future recorder adapter must provide actual recorder state and timestamp
-provenance. It must not infer recording from the instruction timer. Project-X or
-another experiment owns import, clock association and participant handling.
 
 ## Local light helper
 
@@ -114,7 +67,7 @@ words or release flags. Persistent `--keep-settings` acquisition admits any stab
 snapshot and reports its confirmed `power`; `baseline` is null for a custom mix.
 Its release returns `preserved: true, restored: false` without a fixture setter.
 Ordinary Beta navigation retains the same helper. Preserving release applies to
-Legacy, experiment handoff, shutdown and parent loss. Bounded trials
+Legacy, shutdown and parent loss. Bounded trials
 omit that flag, require an exactly restorable preset and retain `restored: true`
 on successful cleanup. Failure includes detail and whether outcome is unknown.
 Unknown extra fields are ignored; unsupported versions are refused.
@@ -123,7 +76,7 @@ Only one request is in flight. Requests are capped at 4096 bytes; buffers at
 8192 bytes. Requests older than the ten-second lease are refused. Both processes
 use the same host monotonic clock. Initialization is the only unsolicited message.
 Recovery receipts include baseline and request/result records.
-Handoff checkpoints (experiment reservation, Legacy entry and return) are saved by
+Handoff checkpoints (Legacy entry and return) are saved by
 one background writer in FIFO order and wait for those saves. Everyday commands are
 tracked in memory only. Helper input uses bounded nonblocking writes on Linux, failing closed
 when its pipe is full. Power execution waits for recovery storage as well.
@@ -140,33 +93,11 @@ all ten lights. In room control a stable check adopts the current settings.
 ## Lighting ownership and recovery
 
 Handoffs persist before they proceed. An interrupted handoff and storage errors
-block writes across restart; an interrupted everyday command does not. Heartbeats older than 60 seconds warn without reclaiming
-ownership. Tokens are stored hashed and excluded from public snapshots.
-
-The same-user mode-0600 socket accepts exactly `op: "lighting_handoff"`, `id`,
-`revision`, `action`, `arguments`, using existing bridge ID/revision/receipt rules.
-HTTP rejects this envelope. Private actions are:
-
-| Action | Exact arguments | Completion condition |
-|---|---|---|
-| `reserve` | `token`, `label` | Preserving helper release and successful exact helper exit; then reserved |
-| `heartbeat` | `token` | Matching active reservation updated; no fixture query |
-| `finish` | `token`, `owner_closed: true`, `pending_clear: true` | Matching reservation, fresh acquisition and normal Ready controls |
-| `recover` | `owner_closed: true`, `pending_clear: true` | Local staff reconciliation, fresh acquisition and normal Ready controls |
-
-Fresh tokens contain 16–128 ASCII letters, digits, underscores or hyphens. Labels
-contain 1–80 characters without controls; omit participant information. Finish/recover
-require operator confirmation that previous workers/programmes stopped and no
-remote request remains pending; stable readback alone cannot establish this.
-
-The [CLI](../WORKFLOWS.md#experiments-and-returning-everyday-control) uses `op: "read"`
-for status. Mutations submit once and wait up to 45 seconds. Reserve/heartbeat
-succeed when reserved; finish/recover only when normal, `can_control` and Ready
-after two matching all-ten scans. Timeout or lost reply never permits a retry.
+block writes across restart; an interrupted everyday command does not.
 
 The public `lighting_recovery` snapshot contains `status`, `title`, `detail`,
-`can_check`, `needs_staff`, `write_blocked`, `heartbeat_stale` and a generic `label`.
-States are `normal`, `writing`, `releasing`, `reserved`, `checking`, `returning`,
+`can_check`, `needs_staff` and `write_blocked`.
+States are `normal`, `writing`, `checking`, `returning`,
 `needs_staff`, `offline`, `legacy`. Public `check_connection` takes no arguments,
 reads only and cannot clear uncertainty or override ownership. The website retains
 unknown receipts until a matching receipt or new owner session; it never resends.
@@ -199,16 +130,16 @@ clients query receipts and never automatically repeat commands.
 
 The shared actions cover on/off, CCT/level, eight channels, admitted presets, Gradient,
 original programme requests, permitted whole-room blinds,
-instruction start/pause/previous/next/known annotations, panel appearance/clock/
+panel appearance/clock/
 weather/idle preferences, blind permission/visibility, Home, Legacy, Check connection, clock view and
-blank display. Inputs use bounded enums, numbers or validated profile data. Lighting requires ready
-readback, no pending/queued/held touch and no running instructions. Legacy,
-experiment reservation, blank and uncertain states block lighting. Ordinary Beta pages, including Guide,
-Settings, About and paused Experiment mode, do not restrict lighting availability.
-Panel and browser use these same study guards.
+blank display. Inputs use bounded enums or numbers. Lighting requires ready
+readback, no pending/queued/held touch. Legacy,
+blank and uncertain states block lighting. Ordinary Beta pages, including Guide,
+Settings and About, do not restrict lighting availability.
+Panel and browser use these same guards.
 `on` applies the Fid preset. White light's Warm white uses `cct` with 3500 K
 and intensity 1000; Fid remains a separately selectable scene.
-Acceptance is not lighting confirmation, annotation persistence or recording.
+Acceptance is not lighting confirmation or recording.
 During a requested Sun/Circ programme, a read-only check verifies the ten fixture
 identities without querying changing drive values or confirming running status.
 Stop performs the full stable-drive check. Read failures and pre-existing
@@ -216,8 +147,7 @@ uncertainty still block writes; an identity check never clears them.
 
 `legacy` (alias `original_fallback`) takes no arguments and opens `mode: "original"`
 after preserving release and successful helper exit. The unchanged original app
-sits behind a 144-pixel navigation strip; Beta/website actuators pause. Instruction,
-experiment and uncertainty guards still apply.
+sits behind a 144-pixel navigation strip; Beta/website actuators pause. Uncertainty guards still apply.
 Home covers original input, probes its exact Tk PID and checks the entry log:
 same readable file, bounded new output and no new callback/service errors.
 Failed checks retain `legacy` ownership and allow reopening the same app. Otherwise
@@ -234,7 +164,7 @@ connection remain independent; unlocking never connects a controller or moves bl
 
 `blinds_enabled` accepts a boolean `value`; `blind` accepts only a `name` of
 `lift`, `open` or `close`. The owner rechecks the saved permission, controller
-connection and busy/Legacy/experiment guards at dispatch. Visibility does not
+connection and busy/Legacy guards at dispatch. Visibility does not
 grant permission. The existing helper advertises connection when the whole-room
 lift/tilt services are present and persistent control owns the resource. Tk
 enqueues work without blocking for movement. The browser updates permission
@@ -267,7 +197,7 @@ references are display/copy text, never command actions.
 
 Pi power actions use `power` with exactly `operation` (`reboot` or `shutdown`)
 and `confirmed: true`. They share the existing network and revision checks.
-The owner refuses busy, running-instruction, Legacy, experiment-reserved and uncertain-light states,
+The owner refuses busy, Legacy and uncertain-light states,
 then requires confirmed ownership release, helper exit, saved preferences and a durable
 power-request record before one fixed OS command. Existing noninteractive
 permission and OS inhibitors are respected; no new privilege rule or automatic
@@ -278,7 +208,7 @@ describe availability and About information without changing schema version 1.
 `app/design_tokens.py` owns theme roles. `app/export_room_content.py` exports the
 panel-owned guide/help and Lucide paths for browser fallback and offline demos.
 The website reads guide/help only from that export. The live snapshot supplies
-current preferences, controls, receipts and experiment state. Beta and the website
+current preferences, controls and receipts. Beta and the website
 share the owner; Legacy hands control to the unchanged separate original app.
 
 `app/help_reference.py` owns each command step's computer, effect, purpose,
@@ -292,7 +222,7 @@ The ceiling map is a static derived snapshot of Project-X-Ceiling's registered
 grid cells, with source date and hash. It carries no device endpoint or health
 state and makes no network request. Channel/grid diagrams are static schematics.
 Explicit guide scene buttons use existing owner actions; navigation is passive.
-No new poller or background service is used by guides or profile setup.
+No new poller or background service is used by guides.
 The nested ceiling-map schema is version 2. Each family position has `cell`
 ([R index, C index]), `reference_id`, and lower-left-normalized `u`/`v` offsets.
 These are dated source annotations and logical references, not live device IDs

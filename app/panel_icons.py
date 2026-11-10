@@ -7,7 +7,7 @@ ASSETS = Path(__file__).resolve().parents[1] / "assets" / "icons"
 KINDS = {
     "room": "sliders-horizontal",
     "advanced": "sliders-horizontal",
-    "experiment": "flask-conical",
+    "sensors": "flask-conical",
     "health": "activity",
     "system": "activity",
     "visitor": "clock",

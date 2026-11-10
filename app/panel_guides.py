@@ -35,19 +35,6 @@ DEMO = (
     },
     {
         "section": "controls",
-        "title": "Experiment instructions",
-        "icon": "experiment",
-        "caption": "Instructions, markers and recording",
-        "links": [
-            {"label": "Open Experiment mode", "page": "experiment"},
-            {"label": "Open System & help", "page": "system"},
-        ],
-        "text": "Experiment mode guides a repeatable sequence of instructions and saves panel annotations.\n\n"
-        "It does not start a recorder. Arrange recording separately. An experiment must reserve lighting before it starts, then close its workers and return verified everyday control when finished.\n\n"
-        "Room tools → System & help shows room service availability. Availability alone does not prove usable sensor data.",
-    },
-    {
-        "section": "controls",
         "title": "Connection & help",
         "icon": "health",
         "caption": "Panel, services and weather",
@@ -56,7 +43,7 @@ DEMO = (
             {"label": "Open Date & weather", "page": "clock"},
         ],
         "text": "Beta and the room-network website share one controller. Join the room Wi-Fi before opening the website; the guide shows the connection details.\n\n"
-        "The lighting status explains when controls are ready, reserved for an experiment, checking or unconfirmed. Website offline means the page cannot reach the panel. Open System & help for guidance.\n\n"
+        "The lighting status explains when controls are ready, checking or unconfirmed. Website offline means the page cannot reach the panel. Open System & help for guidance.\n\n"
         "Weather is an outdoor model estimate, separate from indoor measurements. Source details are under Room tools → Date & weather.",
     },
     {
@@ -83,7 +70,7 @@ DEMO = (
         "section": "room",
         "title": "Distance & colour sensors",
         "visual": "distance",
-        "icon": "experiment",
+        "icon": "sensors",
         "caption": "COMBO, IRMA and Color",
         "text": "COMBO combines a coarse 8 × 8 distance grid with light-colour sensing. It times reflected light to estimate distance.\n\n"
         "IRMA Matrix gives a denser 25 × 20 distance view and reflected-signal strength. It measures distance, not body heat.\n\n"
@@ -108,7 +95,7 @@ SUPPORT = (
     (
         "Lighting",
         "room",
-        "Check connection reads current settings without changing the lights. If a change cannot be confirmed, the panel reads the lights again; press the control again if needed. Experiment controls return after cleanup.",
+        "Check connection reads current settings without changing the lights. If a change cannot be confirmed, the panel reads the lights again; press the control again if needed.",
         "",
     ),
     (

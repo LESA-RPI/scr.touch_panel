@@ -30,31 +30,6 @@ function website(respond, snapshot = () => ({available:true, session:'owner-one'
   return {context, commands, actionButtons, run:script => vm.runInContext(script, context)};
 }
 
-function profileWebsite(respond = request => ({status:202, ok:true, json:async () => ({ok:true, code:202, id:request.id})})) {
-  let site;
-  site = website(respond, () => JSON.parse(site.run('JSON.stringify(state)')));
-  site.run(`
-    const profileElements = new Map(['profile-file', 'profile-preview', 'profile-download', 'profile-status', 'profile-load', 'marks'].map(id => [id, {
-      textContent:'', value:'', dataset:{}, children:[],
-      replaceChildren(...children) {this.children = children;},
-      append(...children) {this.children.push(...children);},
-    }]));
-    const originalGet = document.getElementById;
-    document.getElementById = id => profileElements.get(id) || originalGet(id);
-    document.createElement = tag => ({
-      tagName:tag, dataset:{}, children:[], textContent:'',
-      setAttribute(name, value) {this[name] = value;}, append(...children) {this.children.push(...children);},
-    });
-    content.default_profile = {title:'Default instructions', sensors:'Room sensors', stages:['Sit still'], annotations:['Started']};
-    state = {available:true, session:'owner-one', revision:'one', csrf:'local', can_session:true,
-      experiment:{profile:content.default_profile, can_load_profile:true, running:false, stage:0, elapsed_s:0}};
-    function chooseProfile(value, name = 'instructions.json', size = 200) {
-      return previewProfile({name, size, text:async () => JSON.stringify(value)}, $('profile-file'));
-    }
-  `);
-  return site;
-}
-
 function diagnosticsWebsite(respond) {
   let site;
   site = website(respond, () => JSON.parse(site.run('JSON.stringify(state)')));
@@ -269,12 +244,10 @@ function preferencesWebsite(page, roomContent = {}) {
   assert.equal(panelHealth.run("$('panel-storage').textContent"), '— GiB free');
   assert.equal(panelHealth.run("$('panel-temperature').textContent"), '— °C');
   assert.equal(panelHealth.run("$('panel-power').textContent"), '—');
-  panelHealth.run("state.can_control = false; state.experiment = {running:true, profile:{title:'Instructions', stages:['Sit still'], annotations:[]}, stage:0, elapsed_s:0}; shippedSync();");
-  assert.equal(panelHealth.run("$('connection').textContent"), 'Instructions running');
   assert.equal(panelHealth.commands.length, 0);
 
   const display = website(() => {throw Error('Presentation must not send commands');});
-  for (const mode of ['guide', 'settings', 'health', 'about', 'experiment', 'classic']) {
+  for (const mode of ['guide', 'settings', 'health', 'about', 'classic']) {
     display.run(`state = {available:true, mode:${JSON.stringify(mode)}, can_control:true, lights:{message:'Light settings confirmed.'}}; shippedSync();`);
     assert.equal(display.run("$('legacy-banner').hidden"), true);
     assert.equal(display.run("$('light-message').textContent"), 'Light settings confirmed.');
@@ -638,132 +611,6 @@ function preferencesWebsite(page, roomContent = {}) {
   assert.equal(blindPermission.run("$('blind-lock').disabled"), true);
   await blindPermission.run("$('blind-lock').onclick()");
   assert.equal(blindPermission.commands.length, 2, 'A disconnected adapter cannot be unlocked');
-  const instructions = preferencesWebsite('experiment');
-  instructions.run("state.can_session = true; state.experiment = {profile:{title:'Instructions', stages:['First', 'Last'], annotations:[]}, stage:0, elapsed_s:0, started:false, running:false}; sync();");
-  assert.equal(instructions.run("$('instruction-start').textContent"), 'Start instructions');
-  assert.equal(instructions.run("$('instruction-start').disabled"), false);
-  assert.equal(instructions.run("$('instruction-pause').disabled"), true);
-  assert.equal(instructions.run("$('instruction-previous').disabled"), true);
-  instructions.run('state.experiment.running = true; state.experiment.started = true; sync();');
-  assert.equal(instructions.run("$('instruction-start').disabled"), true);
-  assert.equal(instructions.run("$('instruction-pause').disabled"), false);
-  instructions.run('state.experiment.running = false; sync();');
-  assert.equal(instructions.run("$('instruction-start').textContent"), 'Resume instructions', 'A pause before one whole second still resumes');
-  instructions.run('state.experiment.stage = 1; sync();');
-  assert.equal(instructions.run("$('instruction-next').textContent"), 'Finish instructions');
-  assert.equal(instructions.run("$('instruction-previous').disabled"), false);
-  instructions.run("state.experiment.started = false; state.experiment.stage = 0; sync();");
-  assert.equal(instructions.run("$('instruction-start').textContent"), 'Start instructions', 'A reset profile restores the initial label');
-  instructions.run("delete state.experiment.started; state.experiment.elapsed_s = 4; sync();");
-  assert.equal(instructions.run("$('instruction-start').textContent"), 'Resume instructions', 'Older owners retain elapsed-time compatibility');
-  instructions.run("unknown = 'unconfirmed-command'; sync();");
-  assert.equal(instructions.run("['instruction-start', 'instruction-pause', 'instruction-previous', 'instruction-next'].every(id => $(id).disabled)"), true);
-  assert.equal(instructions.commands.length, 0);
-
-  const profile = profileWebsite();
-  await profile.run("chooseProfile({title:'Visitor demo', stages:['Sit still', 'Walk'], annotations:['Beginning', 'Finished']})");
-  assert.equal(profile.commands.length, 0, 'Selecting a file only previews it');
-  assert.equal(profile.run('profilePreview.value.sensors'), 'Room sensors', 'Partial files use the panel-owned defaults');
-  assert.match(profile.run("$('profile-preview').textContent"), /Visitor demo.*2 instructions.*2 annotation buttons/);
-  profile.run('shippedSync(); shippedSync();');
-  assert.equal(profile.run('profilePreview.value.title'), 'Visitor demo', 'Ordinary polls retain the preview');
-  profile.run("state.revision = 'two'; syncProfile();");
-  assert.equal(profile.run("$('profile-load').disabled"), true);
-  assert.equal(profile.run("$('profile-file').disabled"), false, 'A changed panel permits choosing the same file again');
-  assert.match(profile.run("$('profile-status').textContent"), /panel changed/);
-  await profile.run('loadSelectedProfile()');
-  assert.equal(profile.commands.length, 0, 'A preview from an old revision cannot be loaded');
-  await profile.run("chooseProfile({title:'Visitor demo', stages:['Sit still', 'Walk'], annotations:['Beginning', 'Finished']})");
-  await profile.run('loadSelectedProfile()');
-  assert.equal(profile.commands.length, 1);
-  assert.equal(profile.commands[0].action, 'profile');
-  assert.equal(profile.commands[0].revision, 'two');
-  assert.deepEqual(profile.commands[0].arguments.value, {title:'Visitor demo', sensors:'Room sensors', stages:['Sit still', 'Walk'], annotations:['Beginning', 'Finished']});
-  assert.equal(profile.run('profilePreview'), null, 'A confirmed load clears its preview');
-  for (const accepted of [true, false]) {
-    const recoveredProfile = profileWebsite((request, context) => {
-      context.ownerReceipt = {id:request.id, ok:accepted, code:accepted ? 202 : 409, detail:'Shorten the instruction title to fit the panel.'};
-      vm.runInContext("state.receipts = [ownerReceipt]; state.revision = 'two';", context);
-      return {status:503, ok:false, json:async () => ({ok:false, code:503})};
-    });
-    await recoveredProfile.run("chooseProfile({title:'Recovered profile'})");
-    await recoveredProfile.run('loadSelectedProfile()');
-    assert.equal(recoveredProfile.run('unknown'), null);
-    assert.equal(recoveredProfile.commands.length, 1, 'Receipt recovery never repeats a profile load');
-    if (accepted) {
-      assert.equal(recoveredProfile.run('profilePreview'), null, 'A recovered successful receipt clears the stale preview');
-      assert.match(recoveredProfile.run('profileNotice'), /Profile loaded for this panel session/);
-      assert.match(recoveredProfile.run("$('message').textContent"), /Profile loaded for this panel session/);
-      assert.notEqual(recoveredProfile.run('messageTimer'), null);
-    } else {
-      assert.equal(recoveredProfile.run('profilePreview.value.title'), 'Recovered profile', 'A rejected load keeps its preview for review');
-      assert.match(recoveredProfile.run("$('message').textContent"), /Shorten the instruction title/);
-      assert.doesNotMatch(recoveredProfile.run('profileNotice'), /Profile loaded/);
-    }
-  }
-
-  for (const [setup, explanation] of [
-    ['state.experiment.running = true', /Pause instructions/],
-    ['state.busy = true', /current panel action/],
-    ['state.available = false', /Connect to the panel/],
-    ["unknown = 'unconfirmed'", /current panel action/],
-    ["state.session = 'owner-two'", /panel changed/],
-  ]) {
-    const blocked = profileWebsite();
-    await blocked.run('chooseProfile({})');
-    blocked.run(setup + '; syncProfile();');
-    assert.equal(blocked.run("$('profile-load').disabled"), true);
-    assert.match(blocked.run("$('profile-status').textContent"), explanation);
-    await blocked.run('loadSelectedProfile()');
-    assert.equal(blocked.commands.length, 0);
-  }
-  for (const selection of [
-    "chooseProfile({}, 'instructions.txt')",
-    "chooseProfile({}, 'instructions.json', 32769)",
-    "previewProfile({name:'broken.json', size:4, text:async () => '{bad'}, $('profile-file'))",
-    "chooseProfile({path:'/not/a/profile'})",
-    "chooseProfile({stages:['Duplicate', 'Duplicate']})",
-  ]) {
-    const invalid = profileWebsite();
-    await invalid.run('chooseProfile({})');
-    await invalid.run(selection);
-    assert.equal(invalid.run('profilePreview'), null, 'An invalid selection clears the previous file');
-    assert.ok(invalid.run('profileNotice'));
-    assert.equal(invalid.commands.length, 0);
-  }
-  const lateFile = profileWebsite();
-  const reading = lateFile.run("previewProfile({name:'old.json', size:30, text:() => new Promise(resolve => {resolveOld = resolve;})}, $('profile-file'))");
-  await lateFile.run("chooseProfile({title:'Latest file'})");
-  lateFile.run("resolveOld(JSON.stringify({title:'Old file'}))");
-  await reading;
-  assert.equal(lateFile.run('profilePreview.value.title'), 'Latest file', 'A slow earlier read cannot replace the latest selection');
-
-  const exported = profileWebsite();
-  exported.context.Blob = Blob;
-  exported.run(`
-    let downloadedBlob, downloadName, revoked;
-    URL = {createObjectURL(blob) {downloadedBlob = blob; return 'blob:local-profile';}, revokeObjectURL(value) {revoked = value;}};
-    document.body = {append() {}};
-    document.createElement = () => ({click() {downloadName = this.download;}, remove() {}});
-    setTimeout = fn => fn();
-    downloadProfile();
-  `);
-  assert.deepEqual(JSON.parse(await exported.run('downloadedBlob.text()')), JSON.parse(exported.run('JSON.stringify(state.experiment.profile)')));
-  assert.equal(exported.run('downloadName'), 'room-instructions.json');
-  assert.equal(exported.run('revoked'), 'blob:local-profile');
-  assert.equal(exported.commands.length, 0, 'Downloading a profile is local');
-
-  const annotations = profileWebsite();
-  annotations.run('shippedSync();');
-  const firstMark = annotations.run("$('marks').children[0]");
-  annotations.run('shippedSync();');
-  assert.equal(annotations.run("$('marks').children[0]"), firstMark, 'Unchanged profiles retain their annotation buttons');
-  annotations.run("state.experiment.profile = {...state.experiment.profile, annotations:['Visitor arrived', 'Visitor left']}; shippedSync();");
-  assert.equal(annotations.run("$('marks').children.length"), 2);
-  assert.equal(annotations.run("$('marks').children[0].textContent"), 'Visitor arrived');
-  await annotations.run("$('marks').children[0].onclick()");
-  assert.equal(annotations.commands[0].arguments.label, 'Visitor arrived', 'Replacement buttons send the current profile label');
-
   const start = {dataset:{action:'programme', programme:'Sun'}},
     stop = {dataset:{action:'programme', programme:'Stop'}},
     gradient = {dataset:{action:'gradient'}};
@@ -792,14 +639,6 @@ function preferencesWebsite(page, roomContent = {}) {
   assert.equal(await original.run("command('original_fallback')"), true);
   assert.equal(original.commands[0].action, 'original_fallback');
   assert.deepEqual(original.commands[0].arguments, {});
-  const legacyView = {dataset:{action:'legacy'}},
-    originalFallback = {dataset:{action:'original_fallback'}};
-  display.actionButtons.push(legacyView, originalFallback);
-  display.run("state = {available:true, mode:'experiment', can_control:false, lights:{}, experiment:{running:true, profile:{title:'Practice', stages:['Instruction'], annotations:[]},stage:0,elapsed_s:0}}; shippedSync();");
-  assert.equal(legacyView.disabled, true, 'Original Legacy is blocked during instructions');
-  assert.equal(originalFallback.disabled, true, 'Separate Original fallback is blocked during instructions');
-  assert.equal(display.commands.length, 0);
-
   for (const operation of ['reboot', 'shutdown']) {
     const power = powerWebsite();
     assert.equal(power.commands.length, 0, 'Rendering power controls never posts');

@@ -20,7 +20,7 @@ from room_controls import (
     DEFAULT_ROOM_NETWORK_NAME,
 )
 from panel_version import VERSION
-from panel_common import DEFAULT_PROFILE, CHANNELS, CHANNEL_COLOURS
+from panel_common import CHANNELS, CHANNEL_COLOURS
 import xml.etree.ElementTree as ET
 
 
@@ -32,7 +32,7 @@ def content():
         "white": "lightbulb",
         "off": "lightbulb-off",
         "scenes": "layers",
-        "experiment": "flask-conical",
+        "sensors": "flask-conical",
         "appearance": "sun-moon",
         "clock": "calendar-days",
         "screen": "monitor",
@@ -82,7 +82,6 @@ def content():
         "blinds_unavailable": BLINDS_UNAVAILABLE,
         "generated_from": "app/export_room_content.py",
         "blind_actions": BLIND_ACTIONS,
-        "default_profile": DEFAULT_PROFILE,
         "network_name": DEFAULT_ROOM_NETWORK_NAME,
         "channels": [{"label": name, "colour": colour} for name, colour in zip(CHANNELS, CHANNEL_COLOURS)],
         "guide": list(DEMO),

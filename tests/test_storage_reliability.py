@@ -44,7 +44,7 @@ def test_output_only_logging_reports_unavailable_output(output_kind):
     journal = event_journal.EventJournal(None, output)
     try:
         if output is not None:
-            journal.append("annotation\n", 1, durable=True)
+            journal.append("power_request\n", 1, durable=True)
         else:
             assert journal.done.wait(3)
     finally:
@@ -65,14 +65,14 @@ def test_console_error_without_message_never_claims_output_was_written(
 
     path = str(tmp_path / "events.jsonl") if private_file else None
     journal = event_journal.EventJournal(path, FailedOutput())
-    journal.append("annotation\n", 1, durable=True)
+    journal.append("power_request\n", 1, durable=True)
     finish(journal)
     assert journal.output_error
     assert journal.poll() == ([1] if private_file else [])
     assert bool(journal.error) is not private_file
 
 
-def test_new_journal_name_is_synced_before_annotation_acknowledgement(
+def test_new_journal_name_is_synced_before_power_request_acknowledgement(
     tmp_path, monkeypatch
 ):
     entered, release = threading.Event(), threading.Event()
@@ -88,7 +88,7 @@ def test_new_journal_name_is_synced_before_annotation_acknowledgement(
     path = tmp_path / "events.jsonl"
     journal = event_journal.EventJournal(str(path), StringIO())
     try:
-        journal.append("annotation\n", 1, durable=True)
+        journal.append("power_request\n", 1, durable=True)
         assert entered.wait(3)
         assert directories == [str(tmp_path)] and not journal.poll()
         assert path.read_text() == ""
@@ -96,10 +96,10 @@ def test_new_journal_name_is_synced_before_annotation_acknowledgement(
         release.set()
         finish(journal)
     assert journal.error is None and journal.poll() == [1]
-    assert path.read_text() == "annotation\n"
+    assert path.read_text() == "power_request\n"
 
 
-def test_failed_journal_directory_sync_never_acknowledges_annotation(
+def test_failed_journal_directory_sync_never_acknowledges_power_request(
     tmp_path, monkeypatch
 ):
     def failed_sync(directory):
@@ -112,7 +112,7 @@ def test_failed_journal_directory_sync_never_acknowledges_annotation(
     assert journal.error == "Journal filename persistence failed"
     assert journal.poll() == []
     with pytest.raises(IOError, match="filename persistence"):
-        journal.append("annotation\n", 1, durable=True)
+        journal.append("power_request\n", 1, durable=True)
 
 
 def test_unexpected_journal_failure_is_latched_and_rejects_later_events(monkeypatch):

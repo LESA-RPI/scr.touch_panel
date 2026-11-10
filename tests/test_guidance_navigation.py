@@ -117,13 +117,11 @@ def test_distance_illustrations_are_readable_reference_grids_without_live_reques
             assert label.winfo_height() >= label.winfo_reqheight()
 
 
-@pytest.mark.parametrize("guard", ["failed", "running", "ownership", "unsupported-gradient"])
+@pytest.mark.parametrize("guard", ["failed", "ownership", "unsupported-gradient"])
 def test_guide_light_actions_retain_control_and_capability_guards(view, guard):
     shared_worker(view)
     if guard == "failed":
         view.light_state = "failed"
-    elif guard == "running":
-        view.running = True
     elif guard == "ownership":
         view.recovery.mark_uncertain("An earlier test result was not confirmed")
     else:
@@ -145,5 +143,4 @@ def test_guide_light_actions_retain_control_and_capability_guards(view, guard):
         if disabled:
             button.invoke()
     assert not requests
-    view.running = False
     view.worker = None

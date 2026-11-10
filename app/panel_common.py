@@ -4,11 +4,9 @@ from scr_touch_panel_lights import PRESETS
 from room_controls import BLIND_ACTIONS
 from design_tokens import THEMES
 import argparse
-import json
 import os
 from scr_touch_panel_lights import setter_words
 import subprocess
-import sys
 import time
 
 FONT = "Cantarell"
@@ -26,7 +24,6 @@ CHANNEL_COLOURS = (
 ACCENT = THEMES["light"]["accent"]
 ADVANCED_PAGES = [
     ("Lighting", "lighting"),
-    ("Experiment mode", "experiment"),
     ("Appearance", "appearance"),
     ("Date & weather", "clock"),
     ("Screen & controls", "screen"),
@@ -39,7 +36,6 @@ PAGE_REFERENCES = (
     "classic_buttons",
     "classic_sliders",
     "programme_buttons",
-    "session_buttons",
     "light_buttons",
     "home_power_buttons",
     "scene_buttons",
@@ -62,33 +58,18 @@ PAGE_REFERENCES = (
     "daylight_drawn",
     "weather_rendered_minute",
 )
-DEFAULT_PROFILE = {
-    "title": "Room activity instructions",
-    "sensors": "Ceiling and colour sensors",
-    "stages": [
-        "Leave the room empty",
-        "Please sit still",
-        "Make small seated movements",
-        "Walk around the room",
-        "Leave the room empty again",
-    ],
-    "annotations": ["Activity started", "Activity finished", "Unexpected event"],
-}
 TIPS = {
     "Lights on": "Applies the everyday Fid scene to all lights. Warm white is under Lighting → White light.",
     "Lights off": "Sends zero drive to all light channels. The panel screen stays on.",
     "Advanced controls": "Adjust eight colour-channel drives. Values are controller percentages, not measured light.",
     "Room": "Everyday lighting. Changes send automatically after your touch settles.",
     "Visitor": "Room introduction and a large clock. Opening this page does not change lighting.",
-    "Experiment mode": "Instructions, elapsed time and panel annotations. No sensor recording starts.",
     "System": "Panel resources and advertised room services. Presence does not prove sensor health.",
     "Legacy": "Opens the original controls, keeping current lighting. Home returns to Beta.",
     "Original fallback": "Opens the untouched original application after releasing the shared controller. Return with Home.",
     "Blank screen": "Shows black pixels. Hold still for 2 seconds to return; the backlight remains on.",
     "Settings": "Appearance, date/time and screen options. Appearance choices can be saved on this device.",
     "About panel": "Panel credits and source repository. No room settings change.",
-    "Start instructions": "Starts the instruction timer only. It does not start sensor collection.",
-    "Next instruction": "Shows the next instruction. The final instruction does not wrap.",
     "End trial and restore": "Restores confirmed trial changes and returns to the original program.",
 }
 
@@ -150,41 +131,6 @@ def health():
     except (OSError, ValueError, IndexError, subprocess.CalledProcessError):
         result["power"] = "Power status unavailable"
     return result
-
-
-def profile(path):
-    value = {}
-    if path:
-        with open(path) as stream:
-            value = json.load(stream)
-    return validate_profile(value)
-
-
-def validate_profile(value):
-    """Validate instruction data from a startup file or a session-only import."""
-    if not isinstance(value, dict) or set(value) - set(DEFAULT_PROFILE):
-        raise ValueError("Profile permits title, sensors, stages and annotations only")
-    merged = dict(DEFAULT_PROFILE)
-    merged.update(value)
-    text_types = (str,) if sys.version_info[0] == 3 else (basestring,)
-    for key in ("title", "sensors"):
-        if not isinstance(merged[key], text_types) or not 1 <= len(merged[key]) <= 100:
-            raise ValueError("Title/sensors must contain 1..100 characters")
-    for key, maximum in [("stages", 20), ("annotations", 4)]:
-        items = merged[key]
-        limit = 60 if key == "stages" else 20
-        if (
-            not isinstance(items, list)
-            or not 1 <= len(items) <= maximum
-            or any(
-                not isinstance(item, text_types) or not 1 <= len(item) <= limit
-                for item in items
-            )
-            or len(set(items)) != len(items)
-        ):
-            raise ValueError("Provide distinct, short %s labels" % key)
-        merged[key] = list(items)
-    return merged
 
 
 def clock_minutes(text):

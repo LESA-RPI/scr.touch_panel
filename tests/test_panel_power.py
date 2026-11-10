@@ -146,7 +146,7 @@ class Value:
 @pytest.fixture
 def owner():
     panel = Panel.__new__(Panel)
-    panel.mode, panel.running, panel.light_state = "health", False, "ready"
+    panel.mode, panel.light_state = "health", "ready"
     panel.idle_active = False
     panel.worker = object()
     panel.pending = panel.queued_intent = panel.intent_timer = panel.slider_drag = None
@@ -171,7 +171,6 @@ def owner():
 @pytest.mark.parametrize(
     "field,value",
     [
-        ("running", True),
         ("pending", {}),
         ("queued_intent", ("cct",)),
         ("light_state", "failed"),

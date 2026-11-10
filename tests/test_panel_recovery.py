@@ -15,8 +15,6 @@ import lighting_recovery
 import panel_remote
 
 
-TOKEN = "experiment-owner-12345678"
-LABEL = "Lighting study"
 
 
 @pytest.fixture
@@ -35,19 +33,16 @@ def recoverable(tmp_path, monkeypatch):
     view.observing, view.recovery_check_at = False, None
     view.legacy_probe = view.legacy_target = None
     view.legacy_returning = False
-    view.reservation_token = None
     view.release_target = view.pending = view.queued_intent = view.intent_timer = None
-    view.press_active = view.running = view.idle_active = False
+    view.press_active = view.idle_active = False
     view.run_id, view.request_seq, view.sequence, view.view_generation = "test-owner", 0, 0, 0
     view.control_sequence = 0
-    view.elapsed, view.stage, view.profile = 0, 0, {}
     view.advanced_page = None
     view.confirmed_at = view.confirmed_power = view.confirmed_scene = None
     view.confirmed_light, view.light_message = "Not checked", "Lighting unavailable"
     view.cct = SimpleNamespace(get=lambda: 3500)
     view.intensity = SimpleNamespace(get=lambda: 1000)
     view.channel_values = [SimpleNamespace(get=lambda: 0) for unused in range(8)]
-    view.annotation_text = SimpleNamespace(get=lambda: "")
     view.theme_choice, view.theme, view.clock_24 = "light", "light", True
     view.temperature_unit, view.idle_timeout, view.help_on = "f", 300, True
     view.blinds_display, view.health_cache, view.room_status = "disabled", {}, "Not checked"
@@ -76,11 +71,6 @@ def live_helper(view):
                                   poll=lambda: None, returncode=None)
     view.last_heartbeat = panel.monotonic()
     return view.worker
-
-
-def held_experiment(view):
-    view.recovery.begin_reservation(TOKEN, LABEL)
-    view.recovery.reserve(TOKEN, released=True, helper_exited=True)
 
 
 def test_public_connection_check_starts_read_only_acquire_with_no_setter(recoverable, monkeypatch):
@@ -122,68 +112,9 @@ def test_failed_legacy_return_shows_staff_recovery_even_if_return_flag_remains(r
     assert state["needs_staff"] and state["write_blocked"]
 
 
-def test_reservation_is_not_granted_until_preserved_release_and_helper_exit(recoverable, monkeypatch):
-    worker = live_helper(recoverable)
-    monkeypatch.setattr(panel.select, "select", lambda *unused: ([], [], []))
-    recoverable.handoff("reserve", {"token": TOKEN, "label": LABEL})
-    request_id = recoverable.pending["request_id"]
-    assert recoverable.recovery.state["status"] == "releasing"
-    recoverable.worker_buffer = json.dumps({"version": 1, "request_id": request_id,
-        "state": "released", "preserved": True}) + "\n"
-    REAL_POLL_WORKER(recoverable)
-    assert recoverable.release_confirmed
-    assert recoverable.worker is worker
-    assert recoverable.recovery.state["status"] == "releasing"
-    worker.returncode = 0
-    worker.poll = lambda: 0
-    REAL_POLL_WORKER(recoverable)
-    assert recoverable.worker is None
-    assert recoverable.recovery.state["status"] == "reserved"
-    assert not recoverable.recovery_snapshot()["can_check"]
-
-
-def test_abnormal_exit_after_release_does_not_grant_experiment(recoverable, monkeypatch):
-    worker = live_helper(recoverable)
-    monkeypatch.setattr(panel.select, "select", lambda *unused: ([], [], []))
-    recoverable.handoff("reserve", {"token": TOKEN, "label": LABEL})
-    recoverable.worker_buffer = json.dumps({"version": 1, "request_id": recoverable.pending["request_id"],
-        "state": "released", "preserved": True}) + "\n"
-    REAL_POLL_WORKER(recoverable)
-    worker.returncode = 1
-    worker.poll = lambda: 1
-    REAL_POLL_WORKER(recoverable)
-    assert recoverable.recovery.state["status"] == "uncertain"
-    assert recoverable.recovery_snapshot()["write_blocked"]
-
-
-@pytest.mark.parametrize("arguments", ({"token": "wrong-experiment-owner"},
-                                      {"token": TOKEN, "owner_closed": True},
-                                      {"token": TOKEN, "owner_closed": True, "pending_clear": False}))
-def test_experiment_finish_needs_matching_token_and_both_closure_assertions(recoverable, monkeypatch, arguments):
-    held_experiment(recoverable)
-    starts = []
-    monkeypatch.setattr(recoverable, "start_worker", lambda **kwargs: starts.append(kwargs))
-    with pytest.raises((ValueError, RuntimeError)):
-        recoverable.handoff("finish", arguments)
-    assert starts == []
-    assert recoverable.recovery.state["status"] == "reserved"
-
-
-def test_verified_finish_waits_for_stable_all_fixture_acquire(recoverable, monkeypatch):
-    held_experiment(recoverable)
-    starts = []
-    monkeypatch.setattr(recoverable, "start_worker", lambda **kwargs: starts.append(kwargs))
-    recoverable.handoff("finish", {"token": TOKEN, "owner_closed": True, "pending_clear": True})
-    assert starts == [{}]
-    assert recoverable.recovery.state["status"] == "recovering"
-    assert recoverable.ownership_blocked()
-    recoverable.recovery_result({"action": "acquire"}, {"state": "ready", "fixtures": 10, "manual_blocked": False})
-    assert recoverable.recovery.state["status"] == "normal"
-
-
 def test_failed_reconnect_keeps_ownership_block_durable(recoverable):
-    held_experiment(recoverable)
-    recoverable.recovery.finish(TOKEN, owner_closed=True, pending_clear=True)
+    recoverable.recovery.enter_legacy({"device": 1, "inode": 2, "size": 0})
+    recoverable.recovery.leave_legacy(idle_confirmed=True, callback_clean=True)
     recoverable.recovery_result({"action": "acquire"}, {"state": "failed"})
     assert recoverable.recovery.state["status"] == "uncertain"
     restarted = LightingRecovery(recoverable.recovery.path)
@@ -203,32 +134,8 @@ def test_read_only_initial_acquire_failure_keeps_original_fallback_available(rec
     assert recoverable.recovery.state["status"] == "legacy"
 
 
-def test_lost_reservation_release_does_not_leave_a_ready_restart(recoverable, monkeypatch):
-    live_helper(recoverable)
-    monkeypatch.setattr(recoverable, "request", lambda *unused, **kwargs: False)
-    with pytest.raises(RuntimeError):
-        recoverable.handoff("reserve", {"token": TOKEN, "label": LABEL})
-    restarted = LightingRecovery(recoverable.recovery.path)
-    assert restarted.public()["status"] == "uncertain"
-    assert restarted.public()["write_blocked"]
-
-
-def test_expired_experiment_heartbeat_never_reclaims_ownership(recoverable, monkeypatch):
-    held_experiment(recoverable)
-    monkeypatch.setattr(recoverable.recovery, "clock", lambda: recoverable.recovery.state["heartbeat_at"] + 86400)
-    state = recoverable.recovery_snapshot()
-    assert state["status"] == "reserved" and state["needs_staff"]
-    assert not state["can_check"]
-    with pytest.raises(RuntimeError):
-        recoverable.check_connection()
-
-
-@pytest.mark.parametrize("status", ("reserved", "uncertain"))
-def test_legacy_cannot_bypass_unresolved_ownership(recoverable, status):
-    if status == "reserved":
-        held_experiment(recoverable)
-    else:
-        recoverable.recovery.mark_uncertain("Previous lighting ownership is unresolved.")
+def test_legacy_cannot_bypass_unresolved_ownership(recoverable):
+    recoverable.recovery.mark_uncertain("Previous lighting ownership is unresolved.")
     recoverable.show("original")
     assert recoverable.mode != "original"
     assert recoverable.recovery_snapshot()["write_blocked"]
@@ -246,22 +153,6 @@ def test_programme_check_keeps_its_explanation_and_ownership(recoverable, monkey
     )
     assert messages[0].startswith(detail)
     assert recoverable.recovery.state == before
-
-
-def test_reservation_token_is_absent_from_public_snapshot_and_events(recoverable, monkeypatch):
-    live_helper(recoverable)
-    events = []
-    original_emit = recoverable.emit
-
-    def emit(event, **values):
-        events.append((event, values))
-        return original_emit(event, **values)
-
-    monkeypatch.setattr(recoverable, "emit", emit)
-    recoverable.handoff("reserve", {"token": TOKEN, "label": LABEL})
-    visible = json.dumps(panel_remote.snapshot(recoverable))
-    assert TOKEN not in visible and recoverable.recovery.state["token_hash"] not in visible
-    assert TOKEN not in json.dumps(events)
 
 
 def test_public_legacy_action_opens_original_fallback(recoverable, monkeypatch):
@@ -367,25 +258,6 @@ def test_original_idle_without_log_proof_stays_blocked_and_same_legacy_can_reope
     assert recoverable.recovery.state["status"] == "legacy"
 
 
-def test_only_covered_original_and_explicit_staff_assertions_can_return_beta(recoverable, monkeypatch):
-    recoverable.recovery.enter_legacy()
-    recoverable.mode = "original"
-    starts = []
-    monkeypatch.setattr(recoverable, "start_worker", lambda **kwargs: starts.append(kwargs))
-    assertions = {"owner_closed": True, "pending_clear": True}
-    with pytest.raises(RuntimeError):
-        recoverable.handoff("recover", assertions)
-    recoverable.mode = "room"  # Original input is covered before local reconciliation.
-    with pytest.raises(RuntimeError):
-        recoverable.handoff("recover", {"owner_closed": True})
-    assert recoverable.recovery.state["status"] == "legacy" and starts == []
-    recoverable.handoff("recover", assertions)
-    assert recoverable.recovery.state["status"] == "recovering"
-    assert starts == [{}]
-    recoverable.recovery_result({"action": "acquire"}, {"state": "ready", "fixtures": 10, "manual_blocked": False})
-    assert not recoverable.ownership_blocked()
-
-
 def test_failed_read_only_legacy_probe_keeps_same_original_available(recoverable, monkeypatch):
     recoverable.recovery.enter_legacy()
     recoverable.mode = "original"
@@ -402,7 +274,7 @@ def test_failed_read_only_legacy_probe_keeps_same_original_available(recoverable
     assert recoverable.mode == "original"
 
 
-def test_navigation_and_staff_recovery_are_rejected_during_original_probe(recoverable):
+def test_navigation_is_rejected_during_original_probe(recoverable):
     recoverable.recovery.enter_legacy()
     recoverable.mode = "original"
     recoverable.legacy_probe = SimpleNamespace(poll=lambda: None)
@@ -411,8 +283,6 @@ def test_navigation_and_staff_recovery_are_rejected_during_original_probe(recove
         recoverable.show(mode)
         assert recoverable.mode == "original"
         assert recoverable.legacy_target == ("room", None)
-    with pytest.raises(RuntimeError):
-        recoverable.handoff("recover", {"owner_closed": True, "pending_clear": True})
     assert recoverable.recovery.state["status"] == "legacy"
 
 

@@ -17,14 +17,11 @@ let powerChoice = null,
   unknownSession = null, // panel session that was running when a receipt became unknown
   unknownAction = null,
   reachable = true; // false when this website's own server does not answer
-let profilePreview = null,
-  profileNotice = '',
-  profileRead = 0;
 const paths = {
   home: 'M3 10 12 3l9 7v11h-6v-7H9v7H3Z',
   white: 'M9 18h6m-5 3h4M8 13a6 6 0 1 1 8 0l-1 3H9Z',
   scenes: 'm12 3 10 5-10 5L2 8Zm-10 9 10 5 10-5M2 16l10 5 10-5',
-  experiment: 'M9 3h6m-5 0v7L4 20h16l-6-10V3',
+  sensors: 'M9 3h6m-5 0v7L4 20h16l-6-10V3',
   appearance:
     'M12 3v2m0 14v2M3 12h2m14 0h2M6 6l1 1m10 10 1 1M6 18l1-1M17 7l1-1M16 12a4 4 0 1 1-4-4',
   clock: 'M8 2v4m8-4v4M3 9h18M3 4h18v18H3Z',
@@ -70,7 +67,7 @@ function link(text, hash, kind) {
 }
 function canCheckConnection() {
   return state?.available && reachable && state?.lighting_recovery?.can_check &&
-    !['reserved', 'releasing', 'returning', 'checking'].includes(state.lighting_recovery.status);
+    !['returning', 'checking'].includes(state.lighting_recovery.status);
 }
 function canCheckRoomStatus() {
   return state?.available && reachable && state.room_diagnostics?.can_check &&
@@ -310,7 +307,7 @@ function recoveryNotice(parent, always = false) {
   detail.id = 'recovery-detail';
   staff.id = 'recovery-staff';
   staff.textContent = always
-    ? 'Staff: stop the experiment and confirm no lighting request is pending before recovering the connection at the panel.'
+    ? 'Staff: confirm the previous controller has stopped and no lighting request is pending before recovering the connection at the panel.'
     : 'If lighting stays unavailable, ask the room host for help.';
   const check = button('Check connection', () => command('check_connection'), {
     action: 'check_connection',
@@ -484,7 +481,6 @@ function home(root) {
 }
 const pages = [
   ['Lighting', 'lighting'],
-  ['Experiment mode', 'experiment'],
   ['Appearance', 'appearance'],
   ['Date & weather', 'clock'],
   ['Screen & controls', 'screen'],
@@ -569,46 +565,7 @@ function tools(root, page) {
   root.append(shell);
   detail.append(el('h2', pages.find((p) => p[1] === page)[0]));
   if (page === 'lighting') lighting(detail, tab);
-  else if (page === 'experiment') {
-    detail.append(
-      el('p', 'Recorder not connected · instructions and panel annotations only', 'muted'),
-    );
-    const card = el('div', undefined, 'card experiment-card'),
-      title = el('h3'),
-      stage = el('p', undefined, 'session-stage'),
-      timer = el('p', undefined, 'timer'),
-      status = el('p', undefined, 'muted');
-    title.id = 'profile-title';
-    stage.id = 'instruction';
-    timer.id = 'elapsed';
-    status.id = 'session-state';
-    card.append(title, stage, timer, status);
-    detail.append(card);
-    const row = el('div', undefined, 'row');
-    row.append(
-      button('Start instructions', () => command('start'), { action: 'start', primary: true }),
-      button('Pause', () => command('pause'), { action: 'pause' }),
-    );
-    row.children[0].id = 'instruction-start';
-    row.children[1].id = 'instruction-pause';
-    detail.append(row);
-    const steps = el('div', undefined, 'row');
-    steps.append(
-      button('Previous instruction', () => command('previous'), { action: 'previous' }),
-      button('Next instruction', () => command('next'), { action: 'next' }),
-    );
-    steps.children[0].id = 'instruction-previous';
-    steps.children[1].id = 'instruction-next';
-    detail.append(steps);
-    detail.append(el('p', 'Panel annotations', 'muted'));
-    const marks = el('div', undefined, 'row');
-    marks.id = 'marks';
-    detail.append(marks);
-    const note = el('p', undefined, 'subtle');
-    note.id = 'annotation';
-    detail.append(note);
-    profileTools(detail);
-  } else if (page === 'appearance') {
+  else if (page === 'appearance') {
     choices(
       setting(
         detail,
@@ -714,124 +671,6 @@ function tools(root, page) {
     a.href = 'https://github.com/LESA-RPI/scr.touch_panel';
     detail.append(a, el('p', 'Icons: Lucide · lucide.dev', 'subtle'));
   }
-}
-function profileTools(parent) {
-  const details = el('details', undefined, 'card profile-tools');
-  details.append(
-    el('summary', 'Instruction profile'),
-    el('p', 'Load instructions for this panel session only. Loading resets the instruction and timer; it does not start recording.', 'muted'),
-  );
-  const actions = el('div', undefined, 'row'),
-    download = button('Download profile', downloadProfile),
-    label = el('label', undefined, 'profile-file'),
-    file = el('input');
-  download.id = 'profile-download';
-  file.id = 'profile-file';
-  file.type = 'file';
-  file.accept = '.json,application/json';
-  file.onchange = () => previewProfile(file.files[0], file);
-  label.append(el('span', 'Load JSON profile'), file);
-  actions.append(download, label);
-  const preview = el('p'),
-    status = el('p', undefined, 'muted'),
-    load = button('Load profile', loadSelectedProfile, { action: 'profile' });
-  preview.id = 'profile-preview';
-  status.id = 'profile-status';
-  status.setAttribute('role', 'status');
-  load.id = 'profile-load';
-  details.append(actions, preview, status, load);
-  parent.append(details);
-}
-function profileIssue(checkSelection = true) {
-  if (!reachable || !state?.available) return 'Connect to the panel to load a profile.';
-  if (posting || unknown || state.busy) return 'Wait for the current panel action to finish.';
-  if (state.experiment?.running) return 'Pause instructions before loading a profile.';
-  if (['original', 'black'].includes(state.mode)) return 'Return the panel to Home before loading a profile.';
-  if (!state.experiment?.can_load_profile) return 'Finish the current panel action before loading a profile.';
-  if (checkSelection && profilePreview &&
-      (profilePreview.revision !== state.revision || profilePreview.session !== state.session))
-    return 'The panel changed. Choose the JSON file again to review it.';
-  return '';
-}
-function normalizeProfile(value) {
-  const keys = ['title', 'sensors', 'stages', 'annotations'];
-  if (!value || typeof value !== 'object' || Array.isArray(value) ||
-      Object.keys(value).some(key => !keys.includes(key)))
-    throw Error('Use a JSON object containing only title, sensors, stages and annotations.');
-  const result = { ...content.default_profile, ...value };
-  for (const key of ['title', 'sensors'])
-    if (typeof result[key] !== 'string' || !Array.from(result[key]).length || Array.from(result[key]).length > 100)
-      throw Error('Title and sensors must contain 1–100 characters.');
-  for (const [key, maximum, length] of [['stages', 20, 60], ['annotations', 4, 20]]) {
-    const items = result[key];
-    if (!Array.isArray(items) || !items.length || items.length > maximum ||
-        items.some(item => typeof item !== 'string' || !Array.from(item).length || Array.from(item).length > length) ||
-        new Set(items).size !== items.length)
-      throw Error(key === 'stages'
-        ? 'Provide 1–20 distinct instructions, each 1–60 characters.'
-        : 'Provide 1–4 distinct annotation labels, each 1–20 characters.');
-  }
-  return result;
-}
-async function previewProfile(file, input) {
-  const reading = ++profileRead,
-    revision = state?.revision,
-    session = state?.session;
-  profilePreview = null;
-  profileNotice = file ? 'Reading JSON profile…' : '';
-  input.value = '';
-  syncProfile();
-  if (!file) return;
-  try {
-    const issue = profileIssue(false);
-    if (issue) throw Error(issue);
-    if (!/\.json$/i.test(file.name) || file.size > 32768)
-      throw Error('Choose a JSON file no larger than 32 KiB.');
-    const value = normalizeProfile(JSON.parse(await file.text()));
-    if (reading !== profileRead || $('profile-file') !== input) return;
-    profilePreview = { value, revision, session };
-    profileNotice = '';
-  } catch (error) {
-    if (reading !== profileRead || $('profile-file') !== input) return;
-    profileNotice = error instanceof SyntaxError ? 'This file is not valid JSON.' : error.message;
-  }
-  syncProfile();
-}
-async function loadSelectedProfile() {
-  if (!profilePreview || profileIssue()) return;
-  const selected = profilePreview;
-  if (await command('profile', { value: selected.value }, selected.revision) && profilePreview === selected)
-    profileLoaded();
-  syncProfile();
-}
-function profileLoaded() {
-  profilePreview = null;
-  profileNotice = 'Profile loaded for this panel session. Instructions and timer reset; recorder not connected.';
-}
-function downloadProfile() {
-  if (!state?.available || !state.experiment?.profile) return;
-  const url = URL.createObjectURL(new Blob([JSON.stringify(state.experiment.profile, null, 2) + '\n'], { type: 'application/json' })),
-    anchor = el('a');
-  anchor.href = url;
-  anchor.download = 'room-instructions.json';
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-function syncProfile() {
-  if (!$('profile-file')) return;
-  const issue = profileIssue(),
-    value = profilePreview?.value;
-  $('profile-file').disabled = Boolean(profileIssue(false));
-  $('profile-download').disabled = !state?.available || !state.experiment?.profile;
-  $('profile-preview').hidden = !value;
-  update('profile-preview', value
-    ? value.title + ' · ' + value.stages.length + ' instructions · ' + value.annotations.length + ' annotation buttons'
-    : '');
-  update('profile-status', issue || profileNotice || (value ? 'Review this profile, then choose Load profile.' : 'Choose a JSON file to preview it before loading.'));
-  $('profile-load').hidden = !value;
-  $('profile-load').disabled = !value || Boolean(issue);
 }
 function lighting(detail, tab) {
   recoveryNotice(detail);
@@ -1097,7 +936,7 @@ function guide(root, index, section = 'room') {
       for (const [i, topic] of topics.entries()) {
         if ((topic.section || 'controls') !== key) continue;
         const a = link(undefined, 'guide-' + i,
-          { on: 'white', home: 'home', experiment: 'experiment', health: 'system', room: 'white' }[topic.icon]),
+          { on: 'white', home: 'home', sensors: 'sensors', health: 'system', room: 'white' }[topic.icon]),
           text = el('span', undefined, 'topic-text'),
           arrow = el('span', '›', 'topic-arrow');
         a.className = 'topic';
@@ -1130,7 +969,7 @@ function guide(root, index, section = 'room') {
   root.append(back);
   head.append(
     icon(
-      { on: 'white', home: 'home', experiment: 'experiment', health: 'system', room: 'white' }[
+      { on: 'white', home: 'home', sensors: 'sensors', health: 'system', room: 'white' }[
         t.icon
       ],
     ),
@@ -1542,7 +1381,6 @@ function powerAllowed(operation) {
     !posting &&
     !unknown &&
     !state.busy &&
-    !state.experiment?.running &&
     state.mode !== 'original' &&
     state.lights?.state !== 'failed' &&
     !powerRequest?.accepted
@@ -1680,14 +1518,12 @@ function sync() {
     s = state?.lights || {},
     available = state?.available === true,
     recovery = recoveryStatus(),
-    reserved = ['reserved', 'releasing', 'returning', 'checking'].includes(
+    transitioning = ['returning', 'checking'].includes(
       state?.lighting_recovery?.status,
     ),
-    lightingBlocked = reserved || state?.lighting_recovery?.write_blocked === true;
+    lightingBlocked = transitioning || state?.lighting_recovery?.write_blocked === true;
   const recoveryLabel = {
     writing: 'Sending',
-    reserved: 'Lighting reserved',
-    releasing: 'Returning lighting',
     returning: 'Returning lighting',
     checking: 'Checking lighting',
     needs_staff: recovery.title || 'Lighting needs attention',
@@ -1723,13 +1559,11 @@ function sync() {
                   ? recoveryLabel || 'Lighting unavailable'
                   : state.busy
                     ? 'Sending'
-                    : state.experiment?.running
-                      ? 'Instructions running'
-                      : state.can_control
-                        ? 'Ready'
-                        : s.state === 'failed'
-                          ? 'Uncertain'
-                          : 'Controls unavailable',
+                    : state.can_control
+                      ? 'Ready'
+                      : s.state === 'failed'
+                        ? 'Uncertain'
+                        : 'Controls unavailable',
   );
   // Colour the header status: ready, waiting (connecting/sending/Legacy) or problem.
   $('connection').dataset.state =
@@ -1745,9 +1579,7 @@ function sync() {
       ? 'The touch panel is showing Legacy, the separate original application. Website lighting is paused. Return Home to check the connection and automatically restore Beta controls when confirmed.'
       : state?.mode === 'black'
         ? 'The touch panel is blank. Return it to Home to use lighting.'
-        : state?.mode === 'experiment' && !state.experiment?.running && !state.can_control
-          ? 'Experiment mode is paused. Return the touch panel to Home to use lighting.'
-          : '';
+        : '';
   $('legacy-banner').hidden = !(available && panelMessage);
   update('panel-mode-message', panelMessage);
   syncRecovery(recovery);
@@ -1778,8 +1610,7 @@ function sync() {
   );
   for (const b of document.querySelectorAll('[data-action]')) {
     const a = b.dataset.action,
-      lighting = ['on', 'off', 'cct', 'preset', 'channels', 'gradient'].includes(a),
-      session = ['start', 'pause', 'previous', 'next', 'mark'].includes(a);
+      lighting = ['on', 'off', 'cct', 'preset', 'channels', 'gradient'].includes(a);
     if (a === 'refresh_status') {
       b.disabled = posting || !canCheckRoomStatus();
       continue;
@@ -1795,7 +1626,7 @@ function sync() {
       state.busy ||
       (a === 'blinds_enabled' && (!state?.blinds?.connected || typeof p.blinds_enabled !== 'boolean')) ||
       (['legacy', 'original_fallback', 'blank', 'clock_view'].includes(a) &&
-        (state.experiment?.running || reserved)) ||
+        transitioning) ||
       ((lighting || a === 'programme') && lightingBlocked) ||
       (a === 'programme'
         ? state.can_programme === false || !s.capabilities?.programmes ||
@@ -1806,12 +1637,7 @@ function sync() {
             ? !state?.blinds?.available
             : lighting
               ? !state.can_control
-              : session
-                ? !state.can_session ||
-                  (a === 'start' && state.experiment?.running) ||
-                  (a === 'pause' && !state.experiment?.running) ||
-                  (a === 'previous' && state.experiment?.stage === 0)
-                : false);
+              : false);
     if (b.disabled !== disabled) b.disabled = disabled;
     if (lighting || a === 'programme') {
       if (b.disabled && recovery.status !== 'normal')
@@ -1858,15 +1684,13 @@ function sync() {
       ? recovery.title + '. ' + recovery.detail
       : recovery.status !== 'normal'
         ? 'Light changes are paused. See the connection notice above.'
-        : state.experiment?.running
-          ? 'Instructions are running. Pause Experiment mode before using lighting.'
-          : !state.can_control && ['original', 'black', 'experiment'].includes(state.mode)
-            ? state.mode === 'original'
-              ? 'Use Legacy on the touch panel, or return Home for connection checks before Beta lighting becomes Ready.'
-              : 'Return the touch panel to Home to use lighting.'
-            : s.programme
-              ? 'Manual lighting stops programmes before applying.'
-              : s.message || 'Lighting unavailable.',
+        : !state.can_control && ['original', 'black'].includes(state.mode)
+          ? state.mode === 'original'
+            ? 'Use Legacy on the touch panel, or return Home for connection checks before Beta lighting becomes Ready.'
+            : 'Return the touch panel to Home to use lighting.'
+          : s.programme
+            ? 'Manual lighting stops programmes before applying.'
+            : s.message || 'Lighting unavailable.',
   );
   update(
     'light-recent',
@@ -1880,54 +1704,11 @@ function sync() {
   if ($('light-message')) $('light-message').className =
     available && recovery.status === 'normal' && state.can_control &&
       !posting && !unknown && !state.busy && !lightingBlocked &&
-      !state.experiment?.running && ['Light settings confirmed.', 'Lighting ready.'].includes(s.message)
+      ['Light settings confirmed.', 'Lighting ready.'].includes(s.message)
       ? 'visually-hidden' : '';
   if ($('light-feedback')) $('light-feedback').dataset.state =
     !available || recovery.needs_staff || s.state === 'failed' ? 'warning'
       : posting || state.busy || ['applying', 'connecting'].includes(s.state) ? 'pending' : 'normal';
-  const e = state?.experiment;
-  if (e) {
-    update('profile-title', e.profile.title);
-    update('instruction', e.profile.stages[e.stage]);
-    update(
-      'elapsed',
-      Math.floor(e.elapsed_s / 60)
-        .toString()
-        .padStart(2, '0') +
-        ':' +
-        (e.elapsed_s % 60).toString().padStart(2, '0'),
-    );
-    update(
-      'session-state',
-      'Instruction ' +
-        (e.stage + 1) +
-        ' of ' +
-        e.profile.stages.length +
-        ' · ' +
-        (e.running ? 'Running' : 'Paused'),
-    );
-    update('annotation', e.annotation);
-    for (const [id, text] of [
-      ['instruction-start', !e.running && (e.started ?? e.elapsed_s > 0) ? 'Resume instructions' : 'Start instructions'],
-      ['instruction-pause', 'Pause'],
-      ['instruction-previous', 'Previous instruction'],
-      ['instruction-next', e.stage === e.profile.stages.length - 1 ? 'Finish instructions' : 'Next instruction'],
-    ]) {
-      update(id, text);
-    }
-    const marks = $('marks'),
-      labels = JSON.stringify(e.profile.annotations);
-    if (marks && marks.dataset.labels !== labels) {
-      marks.dataset.labels = labels;
-      marks.replaceChildren();
-      for (const label of e.profile.annotations) {
-        const b = button(label, () => command('mark', { label }), { action: 'mark' });
-        b.disabled = posting || Boolean(unknown) || !available || !state.can_session;
-        marks.append(b);
-      }
-    }
-  }
-  syncProfile();
   update('schedule-light_at', minutes(p.light_at ?? 420));
   update('schedule-dark_at', minutes(p.dark_at ?? 1140));
   const h = state?.health || {};
@@ -2125,11 +1906,6 @@ async function readController() {
           powerRequest = null;
           message(receipt.detail || 'Power request was not accepted.');
         }
-      } else if (unknownAction === 'profile') {
-        if (receipt.ok) {
-          profileLoaded();
-          message(profileNotice, true);
-        } else message(receipt.detail || 'The instruction profile was not loaded.');
       } else message('The panel received the command. Check its current confirmation below.');
       unknown = null;
       unknownAction = null;

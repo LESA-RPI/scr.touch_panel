@@ -12,7 +12,6 @@ import stat
 import threading
 import time
 from room_controls import PRESETS, BLIND_ACTIONS
-from panel_common import validate_profile
 
 
 def command(value):
@@ -43,12 +42,6 @@ def command(value):
         "original_fallback": (),
         "blank": (),
         "clock_view": (),
-        "start": (),
-        "pause": (),
-        "previous": (),
-        "next": (),
-        "mark": ("label",),
-        "profile": ("value",),
         "cct": ("cct", "intensity"),
         "preset": ("name",),
         "channels": ("values",),
@@ -101,10 +94,6 @@ def command(value):
         valid = (
             type(args[key]) is type(choices[action][0]) and args[key] in choices[action]
         )
-    if action == "mark":
-        valid = isinstance(args["label"], str) and 1 <= len(args["label"]) <= 100
-    if action == "profile":
-        validate_profile(args["value"])
     if action == "power":
         valid = (
             args["operation"] in ("reboot", "shutdown") and args["confirmed"] is True
@@ -118,31 +107,6 @@ def command(value):
     if not valid:
         raise ValueError("Command values are out of range")
     return value
-
-
-def handoff_command(value):
-    """Private same-user protocol; the HTTP gateway never relays this envelope."""
-    if not isinstance(value, dict) or value.get("op") != "lighting_handoff":
-        raise ValueError("Invalid lighting handoff")
-    args = value.get("arguments")
-    shapes = {"reserve": {"token", "label"}, "heartbeat": {"token"},
-              "finish": {"token", "owner_closed", "pending_clear"},
-              "recover": {"owner_closed", "pending_clear"}}
-    action = value.get("action")
-    if not isinstance(action, str) or action not in shapes or not isinstance(args, dict) or set(args) != shapes[action]:
-        raise ValueError("Invalid lighting handoff arguments")
-    if "token" in args and (not isinstance(args["token"], str) or not re.fullmatch(r"[A-Za-z0-9_-]{16,128}", args["token"])):
-        raise ValueError("Invalid experiment token")
-    if "label" in args and (not isinstance(args["label"], str) or not 1 <= len(args["label"]) <= 80 or any(ord(c) < 32 or ord(c) == 127 for c in args["label"])):
-        raise ValueError("Invalid experiment label")
-    if action in ("finish", "recover") and (args["owner_closed"] is not True or args["pending_clear"] is not True):
-        raise ValueError("Confirm the previous owner is closed and no lighting request is pending")
-    envelope = dict(value)
-    if set(envelope) != {"op", "id", "revision", "action", "arguments"}:
-        raise ValueError("Invalid lighting handoff envelope")
-    # Reuse ordinary ID/revision validation, without adding private actions to it.
-    command(dict(id=envelope["id"], revision=envelope["revision"], action="check_connection", arguments={}))
-    return {key: envelope[key] for key in ("id", "revision", "arguments")} | {"action": "handoff_" + action}
 
 
 class Bridge:
@@ -192,11 +156,8 @@ class Bridge:
                                 bool(reply) and time.monotonic() - bridge.at < 2
                             )
                     else:
-                        private = isinstance(request, dict) and request.get("op") == "lighting_handoff"
-                        if private and len(raw) > 4096:
-                            raise ValueError("Private ownership request is too large")
                         item = {
-                            "value": handoff_command(request) if private else command(request),
+                            "value": command(request),
                             "deadline": time.monotonic() + 2,
                             "done": threading.Event(),
                             "cancelled": False,

@@ -168,7 +168,6 @@ def test_blind_permission_is_strict_and_independent_of_visibility_and_connection
             command(envelope("blinds_enabled", {"value": invalid}))
     state = Panel.__new__(Panel)
     state.pending = state.queued_intent = state.release_target = state.closing = None
-    state.running = False
     state.mode = "room"
     state.blinds_display = "hidden"
     state.blinds_enabled = False
@@ -191,7 +190,6 @@ def test_blind_permission_is_strict_and_independent_of_visibility_and_connection
         ("queued_intent", True),
         ("release_target", "original"),
         ("closing", True),
-        ("running", True),
         ("mode", "original"),
     ]:
         previous = getattr(state, field)
@@ -247,8 +245,8 @@ def remote_owner():
     owner = SimpleNamespace(
         args=SimpleNamespace(live_lights=True, timezone="America/New_York", light_at=420, dark_at=1140),
         pending=None, queued_intent=None, release_target=None, closing=None,
-        press_active=False, running=False, idle_active=False,
-        light_state="ready", mode="room", elapsed=0, run_started=time.monotonic(),
+        press_active=False, idle_active=False,
+        light_state="ready", mode="room",
         run_id="owner", sequence=1, control_sequence=1, view_generation=1,
         confirmed_power="on", confirmed_scene="Fid", confirmed_light="Fid scene",
         confirmed_at=None, light_message="Light settings confirmed.",
@@ -256,8 +254,7 @@ def remote_owner():
         channel_values=[variable(25) for _ in range(8)],
         theme_choice="light", theme="light", clock_24=False, temperature_unit="f",
         idle_timeout=300, help_on=True, blinds_display="disabled", blinds_enabled=False,
-        profile={"title":"Practice", "stages":["Pause"], "annotations":[]}, stage=0,
-        annotation_text=variable(""), weather_reading=None, weather_good=None,
+        weather_reading=None, weather_good=None,
         health_cache={}, room_status="Not checked",
         blind_state=lambda: {"available":False},
         emit=lambda *args, **kwargs: None, activity=lambda *args: None,
@@ -269,7 +266,7 @@ def remote_owner():
     return owner
 
 
-@pytest.mark.parametrize("mode", ["room", "classic", "guide", "settings", "health", "about", "advanced", "experiment", "visitor"])
+@pytest.mark.parametrize("mode", ["room", "classic", "guide", "settings", "health", "about", "advanced", "visitor"])
 def test_remote_lighting_uses_current_owner_without_changing_beta_page(remote_owner, mode):
     remote_owner.mode = mode
     assert snapshot(remote_owner)["can_control"] is True
@@ -278,16 +275,8 @@ def test_remote_lighting_uses_current_owner_without_changing_beta_page(remote_ow
     assert remote_owner.mode == mode
 
 
-def test_remote_instruction_started_preserves_fast_pause_and_resets_with_profile(remote_owner):
-    remote_owner.elapsed, remote_owner.run_started = 0.2, 100.0
-    state = snapshot(remote_owner)["experiment"]
-    assert state["elapsed_s"] == 0 and state["started"] is True
-    remote_owner.elapsed, remote_owner.run_started = 0, None
-    assert snapshot(remote_owner)["experiment"]["started"] is False
-
-
 @pytest.mark.parametrize("field,value", [
-    ("mode", "original"), ("mode", "black"), ("running", True),
+    ("mode", "original"), ("mode", "black"),
     ("pending", {"request_id":"pending"}), ("queued_intent", {"action":"on"}),
     ("release_target", "original"), ("closing", "exit"), ("press_active", True),
     ("light_state", "failed"), ("light_state", "connecting"),
@@ -305,7 +294,7 @@ def test_remote_lighting_keeps_safety_locks_on_every_beta_page(remote_owner, fie
 
 
 @pytest.mark.parametrize("field,value", [
-    ("running", True), ("pending", {"request_id": "pending"}),
+    ("pending", {"request_id": "pending"}),
     ("queued_intent", {"action": "on"}), ("release_target", "original"),
     ("closing", "exit"), ("press_active", True), ("light_state", "failed"),
     ("light_state", "connecting"), ("power_busy", lambda: True),
@@ -317,20 +306,6 @@ def test_remote_classic_keeps_every_owner_safety_lock(remote_owner, field, value
     with pytest.raises(RuntimeError):
         execute(remote_owner, envelope("on"))
     assert not remote_owner.calls and remote_owner.mode == "classic"
-
-
-@pytest.mark.parametrize("running", [False, True])
-def test_remote_legacy_opens_original_only_when_instructions_are_paused(remote_owner, running):
-    remote_owner.running = running
-    remote_owner.show = lambda mode: (remote_owner.calls.append(mode), setattr(remote_owner, "mode", mode))
-    if running:
-        with pytest.raises(RuntimeError, match="Pause"):
-            execute(remote_owner, envelope("legacy"))
-        assert not remote_owner.calls
-    else:
-        assert execute(remote_owner, envelope("legacy"))["ok"]
-        assert remote_owner.calls == ["original"] and remote_owner.mode == "original"
-    assert remote_owner.running is running
 
 
 def test_extended_lighting_commands_keep_bounded_public_shapes():
@@ -356,3 +331,9 @@ def test_remote_gradient_and_programme_call_existing_owner_without_navigation(re
     assert execute(remote_owner, envelope("programme", {"name": "Stop"}))["ok"]
     assert remote_owner.calls == [("gradient", {"immediate": True}), ("programme", "Stop")]
     assert remote_owner.mode == "guide"
+
+
+def test_remote_legacy_opens_original(remote_owner):
+    remote_owner.show = lambda mode: (remote_owner.calls.append(mode), setattr(remote_owner, "mode", mode))
+    assert execute(remote_owner, envelope("legacy"))["ok"]
+    assert remote_owner.calls == ["original"] and remote_owner.mode == "original"

@@ -20,7 +20,6 @@ class PanelRecovery:
         self.recovery = LightingRecovery(path, background=True)
         self.observing = False
         self.recovery_check_at = None
-        self.reservation_token = None
         self.legacy_probe = None
         self.legacy_target = None
         self.legacy_returning = False
@@ -32,7 +31,7 @@ class PanelRecovery:
         """The helper ended before confirming its request.
 
         An everyday command leaves the panel as owner, so a fresh helper reads
-        the lights again. Only an unfinished experiment or Legacy handoff needs staff.
+        the lights again. Only an unfinished Legacy handoff needs staff.
         """
         recovery = getattr(self, "recovery", None)
         if recovery is None or recovery.error:
@@ -41,7 +40,7 @@ class PanelRecovery:
         if status == "writing":
             recovery.finish_write(recovery.state["request_id"])
             self.reconnect_after_exit = True
-        elif status in ("releasing", "recovering"):
+        elif status == "recovering":
             recovery.mark_uncertain(reason)
 
     def ownership_blocked(self):
@@ -72,7 +71,7 @@ class PanelRecovery:
             result.update(status="offline", title="Lighting connection unavailable", detail="Check the connection without changing the lights.")
         if self.pending and self.pending.get("action") == "check":
             result.update(status="checking", title="Checking lighting", detail="Reading settings safely.", can_check=False)
-        result["can_check"] = bool(result["can_check"] and self.args.live_lights and not self.pending and not self.queued_intent and not self.power_busy() and not self.release_target and not self.closing and not self.running and (ignore_touch or not self.press_active) and self.mode != "original")
+        result["can_check"] = bool(result["can_check"] and self.args.live_lights and not self.pending and not self.queued_intent and not self.power_busy() and not self.release_target and not self.closing and (ignore_touch or not self.press_active) and self.mode != "original")
         if self.worker and (not getattr(self, "worker_ready", False) or self.worker.stdin.closed or self.worker.poll() is not None):
             result["can_check"] = False
         if self.recovery_check_at is not None and result["needs_staff"]:
@@ -102,8 +101,6 @@ class PanelRecovery:
             if not card._system:
                 detail = {
                     "needs_staff": "Use Legacy for lighting, or ask the room host." if self.recovery.state["status"] == "legacy" else "Read settings safely, or ask the room host.",
-                    "reserved": "Controls return after the experiment completes its cleanup.",
-                    "releasing": "Waiting for the panel controller to finish and stop.",
                     "returning": "Reading current settings before everyday controls return.",
                 }.get(state["status"], detail)
             text = (state.get("title", "") + ". " if card._system else "") + detail
@@ -259,36 +256,6 @@ class PanelRecovery:
         self.legacy_returning = True
         self.show(target[0], advanced_page=target[1])
 
-    def handoff(self, action, args):
-        if self.closing or self.release_target or self.pending or self.queued_intent or self.press_active or self.running or self.power_busy() or self.mode == "original" or self.legacy_probe is not None or self.recovery.pending:
-            raise RuntimeError("Finish the current panel action before changing lighting ownership.")
-        if action == "reserve":
-            if not self.keep_switcher or not self.worker or self.light_state != "ready" or self.programme:
-                raise RuntimeError("Lighting must be ready with no programme before an experiment.")
-            self.recovery.begin_reservation(args["token"], args["label"])
-            self.reservation_token = args["token"]
-            self.cancel_intent()
-            self.release_target = "experiment"
-            if not self.request("release"):
-                self.release_target = None
-                self.recovery.mark_uncertain("Panel lighting release could not be confirmed.")
-                raise RuntimeError("Experiment handoff failed. Do not start lighting control.")
-        elif action == "heartbeat":
-            self.recovery.heartbeat(args["token"])
-        elif action in ("finish", "recover"):
-            if self.worker:
-                raise RuntimeError("Wait for the previous lighting helper to stop.")
-            if action == "finish":
-                self.recovery.finish(**args)
-            else:
-                self.recovery.acknowledge(**args)
-            self.start_worker()
-        else:
-            raise ValueError("Unsupported handoff action")
-        self.emit("lighting_ownership", action=action, status=self.recovery.state["status"])
-        self.update_light_buttons()
-        return {"ok": True, "code": 202, "detail": "Ownership request accepted. Check lighting_recovery before proceeding."}
-
     def recovery_result(self, request, response):
         action, state = request["action"], response["state"]
         if action == "return_legacy":
@@ -321,13 +288,3 @@ class PanelRecovery:
             if not self.observing and self.recovery.state["status"] == "recovering":
                 self.recovery.mark_uncertain("Lighting could not be read after a handoff.")
             self.lighting_feedback("Lighting could not be read. Press Check connection to try again.")
-
-    def recovery_exit(self, target, returncode=0):
-        if target == "experiment":
-            if self.release_confirmed and returncode == 0:
-                self.recovery.reserve(self.reservation_token, released=True, helper_exited=True)
-                self.light_state = "disconnected"
-                self.lighting_feedback("Lighting reserved for an experiment. Everyday controls return after verified cleanup.")
-            else:
-                self.recovery.mark_uncertain("Experiment handoff did not confirm a preserved release.")
-        self.observing = False

@@ -24,7 +24,7 @@ separate release process are required.
 | Screen | Purpose |
 |---|---|
 | Home | Lights on/off, optional blind controls and clock/weather |
-| Room tools | Lighting, Experiment mode, system/help and device preferences in one sidebar |
+| Room tools | Lighting, system/help and device preferences in one sidebar |
 | Demo & guide | Explore the room through a visual tour, or open concise control help |
 
 Home is the default screen. **Lights on applies Fid** on both Beta and the website.
@@ -70,15 +70,7 @@ Home checks the connection and stops Sun/Circ before automatically returning to
 Ready, keeping current light levels. If the original interface check fails, Legacy
 can reopen. An unconfirmed programme stop or lighting result needs the room host.
 Room tools opens each tool directly beside the sidebar and
-remembers the last tool. Experiment mode runs instructions and panel annotations;
-its recorder is not connected.
-Start becomes Resume after a pause; the timer continues from its saved value.
-Annotation buttons save panel markers, separately from recording controls.
-On the website, Experiment mode → Instruction profile can download the current
-data-only JSON setup or preview and load another while instructions are paused.
-Loading resets instructions and their timer for the current panel session; it
-does not start recording or replace the startup profile. No physical keyboard or
-mouse is needed for this setup path. Profiles contain no scripts or device paths.
+remembers the last tool.
 
 Home and the idle view show outdoor temperature, conditions, feels-like temperature,
 today's high/low and rain chance when available, plus daylight. Source/model
@@ -99,13 +91,13 @@ the feedback area; the footer is reserved for explanations, progress and problem
 Room tools keeps its sidebar in place while changing tools. Unchanged clock/status
 values do not trigger another redraw. Resource checks run in the background so
 slow reads do not hold up touches.
-Lighting presses never wait for storage. Only experiment and Legacy handoffs
+Lighting presses never wait for storage. Only Legacy handoffs
 are saved before they proceed.
 Home, the screen saver and Lighting tabs reuse their existing widgets when you
 return. Readback, availability and slider bindings refresh before controls are
 shown; this does not cache lighting commands or bypass controller checks.
-Browsing Guide, Settings, About or paused Experiment mode does not disable lighting
-on the other interface. Running instructions, experiment ownership, pending work, Legacy, a blank panel
+Browsing Guide, Settings or About does not disable lighting
+on the other interface. Pending work, Legacy, a blank panel
 and uncertain results retain their control guards.
 
 White light shows the minimum and maximum beside each slider, and lighting
@@ -143,12 +135,11 @@ Flat sliders share a 48-pixel touch area, a visible grip and pressed/focus feedb
 Related buttons share widths and spacing; lighting results appear
 in a compact feedback area with the historical readback kept separate.
 **Room tools → Screen**
-offers Off, 1, 5 or 15 minutes. Idle does not interrupt Experiment mode, Legacy, held
+offers Off, 1, 5 or 15 minutes. Idle does not interrupt Legacy, held
 touches, pending commands or uncertain lighting. Preferences save appearance and
 idle choices, not light settings or recording state.
 
-**Lighting reserved for an experiment** means its owner must return everyday
-control when finished. **Check connection** reads current settings without changing
+**Check connection** reads current settings without changing
 them or repeating a command. If a change cannot be confirmed, the panel reads the
 lights again and controls return; press the control again if needed. **Room tools → System & help** provides guidance. **Website offline** means
 the page cannot reach the panel; it reconnects automatically.
@@ -220,11 +211,10 @@ need target font, internal text-fit, touch and failure-state checks.
 Earlier bounded Pi navigation, lighting and autostart trials are historical evidence;
 qualify the current release against the installed configuration before use.
 Prolonged reliability, physical blind motion and replacement hardware remain
-acceptance checks. Service presence is not physical device health. Experiment mode
-journals have `recording: false`; recorder integration needs a separate adapter.
+acceptance checks. Service presence is not physical device health.
 
 General panel code belongs here. Project-X owns its optional recorder integration.
-The browser and touch interface share one command owner and experiment ownership.
+The browser and touch interface share one command owner.
 On phones and portrait tablets, the website keeps Home, Room tools and Demo & guide in a bottom
 navigation bar. Compact tool selection, scrollable lighting tabs and scene rows
 leave more room for controls. Changing pages returns to the top; pending messages

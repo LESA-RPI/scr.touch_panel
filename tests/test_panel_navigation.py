@@ -39,7 +39,6 @@ def view(monkeypatch):
     monkeypatch.setattr(panel.Panel, "poll_worker", lambda self: None)
     monkeypatch.setattr(sys, "stdout", StringIO())
     args = argparse.Namespace(
-        profile=None,
         preferences=None,
         journal=None,
         duration=0,
@@ -209,30 +208,8 @@ def test_connection_check_waits_for_real_touch_release_and_rechecks_readiness(
     view.worker = None
 
 
-def test_home_explains_why_running_instructions_disable_lighting(view):
-    view.open_advanced("experiment")
-    view.start_preview()
-    view.open_home()
-    view.root.update()
-    assert "Pause Experiment mode" in view.status_text.get()
-    assert all(button.cget("state") == "disabled" for button in view.light_buttons)
 
 
-def test_instruction_controls_restore_current_state_after_leaving_and_returning(view):
-    view.elapsed, view.run_started, view.stage = 8, panel.monotonic(), 1
-    view.open_advanced("experiment")
-    view.root.update()
-    original = tuple(view.session_buttons)
-    assert original[0].cget("text") == "Resume instructions"
-    view.open_advanced("lighting")
-    view.root.update()
-    view.open_advanced("experiment")
-    view.root.update()
-    assert tuple(view.session_buttons) != original
-    assert view.session_buttons[0].cget("text") == "Resume instructions"
-    assert view.session_buttons[1].cget("state") == "disabled"
-    assert view.session_buttons[2].cget("state") == "normal"
-    assert view.session_buttons[3].cget("text") == "Next instruction"
 
 
 def test_unchanged_controls_and_recovery_do_not_schedule_geometry_work(view, monkeypatch):
@@ -255,16 +232,6 @@ def test_unchanged_controls_and_recovery_do_not_schedule_geometry_work(view, mon
     assert not changes
 
 
-@pytest.mark.parametrize("mode", ["original", "black", "visitor"])
-def test_native_display_switches_require_paused_instructions(mode):
-    view = panel.Panel.__new__(panel.Panel)
-    view.release_target = view.closing = None
-    view.running, view.mode = True, "experiment"
-    messages = []
-    view.status_text = SimpleNamespace(set=messages.append)
-    view.show(mode)
-    assert view.mode == "experiment"
-    assert messages == ["Pause the instructions before switching the panel."]
 
 
 def shared_worker(view):
@@ -512,18 +479,3 @@ def test_cached_classic_vertical_sliders_rebind_to_cct_after_navigation(view):
         assert view.slider_drag is None
     assert calls and set(calls) == {"cct"}
     assert traces == [len(variable.trace_info()) for variable in (view.cct, view.intensity)]
-
-
-def test_running_instructions_block_original_legacy_without_unlocking_controls(view):
-    worker = shared_worker(view)
-    view.open_advanced("experiment")
-    view.start_preview()
-    view.legacy_button.invoke()
-    view.root.update()
-    assert view.mode == "experiment" and view.running and view.worker is worker
-    assert "Pause" in view.status_text.get()
-    assert all(button.cget("state") == "disabled" for button in view.light_buttons)
-    assert all(button.cget("state") == "disabled" for button in view.programme_buttons)
-    view.open_home()
-    view.root.update()
-    assert view.running and view.worker is worker and view.request_seq == 23

@@ -185,8 +185,6 @@ class PanelViews:
             page = self.advanced_page
             if page == "lighting":
                 self.lighting_contents()
-            elif page == "experiment":
-                self.experiment_view()
             elif page == "system":
                 self.system_contents()
             elif page == "about":
@@ -218,17 +216,9 @@ class PanelViews:
         if page not in dict((key, label) for label, key in ADVANCED_PAGES):
             return
         target = (
-            "room"
-            if page == "lighting"
-            else (
-                "experiment"
-                if page == "experiment"
-                else (
-                    "health"
-                    if page == "system"
-                    else "about" if page == "about" else "settings"
-                )
-            )
+            "room" if page == "lighting" else
+            "health" if page == "system" else
+            "about" if page == "about" else "settings"
         )
         if self.release_target or self.closing:
             return
@@ -503,62 +493,6 @@ class PanelViews:
         self.light_feedback_card.pack_configure(side="bottom", before=editor)
         self.update_light_buttons()
 
-    def experiment_view(self):
-        self.label(self.body, "Experiment mode", 27).pack(anchor="w")
-        title = self.label(self.body, self.profile["title"], 17, True)
-        self.wrap_label(title).pack(fill="x")
-        self.label(
-            self.body,
-            "Recorder not connected · instructions and panel annotations only",
-            17,
-            True,
-        ).pack(anchor="w", pady=(6, 8))
-        area = tk.Frame(self.body, bg=self.surface, height=184)
-        area.pack(fill="x", pady=6)
-        area.pack_propagate(False)
-        self.stage_label = self.label(area, size=24)
-        self.stage_label.config(height=2)
-        self.wrap_label(self.stage_label).pack(fill="x", padx=22, pady=(8, 2))
-        status = tk.Frame(area, bg=self.surface, height=50)
-        status.pack(fill="x", padx=22)
-        status.pack_propagate(False)
-        self.run_label = self.label(status, size=17, muted=True)
-        self.run_label.pack(side="left")
-        self.timer_label = self.label(status, size=26)
-        self.timer_label.pack(side="right")
-        metadata = self.label(
-            area, "Profile describes: " + self.profile["sensors"], 16, True
-        )
-        self.wrap_label(metadata).pack(fill="x", padx=22, pady=(0, 4))
-        self.session_buttons = self.row_buttons(
-            self.body,
-            [
-                ("Start instructions", self.start_preview, True),
-                ("Pause", self.stop_preview, False),
-            ],
-            height=60,
-        )
-        self.session_buttons += self.row_buttons(
-            self.body,
-            [
-                ("Previous instruction", self.previous_stage, False),
-                ("Next instruction", self.next_stage, False),
-            ],
-            height=60,
-        )
-        self.label(self.body, "Panel annotations", 15, True).pack(anchor="w", pady=(2, 0))
-        self.row_buttons(
-            self.body,
-            [
-                (label, lambda label=label: self.mark(label), False)
-                for label in self.profile["annotations"]
-            ],
-        )
-        annotation = self.label(self.body, size=16, muted=True)
-        annotation.config(textvariable=self.annotation_text)
-        self.wrap_label(annotation).pack(fill="x")
-        self.update_session()
-
     def preference_menu(self, parent, title, choices, current, choose):
         row = tk.Frame(parent, bg=parent.cget("bg"))
         row.pack(fill="x", pady=(10, 6))
@@ -625,7 +559,7 @@ class PanelViews:
                      ]],
                 )
                 self.wrap_label(self.label(
-                    content, "Auto waits for idle time. Experiment mode keeps its theme.", 17, True
+                    content, "Auto waits for idle time.", 17, True
                 )).pack(fill="x", pady=(8, 0))
             self.preference_menu(
                 content, "Touch explanations", [("On", True), ("Off", False)],
@@ -681,7 +615,7 @@ class PanelViews:
             )
             self.label(
                 content,
-                "First touch opens Home. Pauses during experiments and commands.",
+                "First touch opens Home. Pauses during commands.",
                 14,
                 True,
             ).pack(anchor="w", pady=(0, 6))

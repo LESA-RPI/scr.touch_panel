@@ -76,22 +76,22 @@ function website() {
   await clean.run("command('check_connection')");
   assert.equal(clean.run('unknown'), null, 'A read-only check cannot create actuator uncertainty');
 
-  for (const status of ['reserved', 'releasing', 'returning', 'checking']) {
-    const reserved = website();
-    reserved.state({can_control: true, lights: {state: 'ready', capabilities: {programmes: true}},
-      lighting_recovery: {status, title: 'Lighting reserved for an experiment',
-        detail: 'Everyday lighting returns when the experiment releases control.', can_check: true}});
-    await reserved.run('refresh()');
+  for (const status of ['returning', 'checking']) {
+    const transitioning = website();
+    transitioning.state({can_control: true, lights: {state: 'ready', capabilities: {programmes: true}},
+      lighting_recovery: {status, title: 'Checking lighting connection',
+        detail: 'Reading current settings before everyday controls return.', can_check: true}});
+    await transitioning.run('refresh()');
     for (const action of ['on', 'off', 'programme', 'legacy'])
-      assert.equal(reserved.actions.find(b => b.dataset.action === action).disabled, true,
+      assert.equal(transitioning.actions.find(b => b.dataset.action === action).disabled, true,
         `${status} blocks ${action}, even with an older can_control value`);
-    assert.equal(reserved.elements.get('check-connection').hidden, true);
-    assert.equal(await reserved.run("command('check_connection')"), false,
-      'An experiment reservation blocks fixture queries even if can_check is stale');
-    assert.equal(reserved.requests.length, 0);
-    assert.equal(reserved.elements.get('connection').dataset.state, 'waiting');
-    assert.equal(reserved.elements.get('lighting-recovery').hidden, false);
-    assert.equal(reserved.elements.get('recovery-staff').hidden, true);
+    assert.equal(transitioning.elements.get('check-connection').hidden, true);
+    assert.equal(await transitioning.run("command('check_connection')"), false,
+      'An ongoing connection check blocks fixture queries even if can_check is stale');
+    assert.equal(transitioning.requests.length, 0);
+    assert.equal(transitioning.elements.get('connection').dataset.state, 'waiting');
+    assert.equal(transitioning.elements.get('lighting-recovery').hidden, false);
+    assert.equal(transitioning.elements.get('recovery-staff').hidden, true);
   }
 
   const connection = website();
@@ -129,7 +129,7 @@ function website() {
   assert.match(legacyNormal.elements.get('panel-mode-message').textContent, /automatically restore Beta controls when confirmed/);
   assert.doesNotMatch(legacyNormal.elements.get('panel-mode-message').textContent, /room host must/);
   legacyNormal.state({mode: 'room', can_control: true, lights: {state: 'ready'},
-    lighting_recovery: {status: 'normal', title: 'Lighting ready', detail: 'Current lighting is preserved.', can_check: true}});
+    lighting_recovery: {status: 'normal', title: 'Lighting ready', detail: 'Current lighting is ptransitioning.', can_check: true}});
   await legacyNormal.run('refresh()');
   assert.equal(legacyNormal.elements.get('connection').textContent, 'Ready');
   assert.equal(legacyNormal.actions.find(b => b.dataset.action === 'off').disabled, false);

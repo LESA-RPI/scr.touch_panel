@@ -69,8 +69,7 @@ def test_timing_event_keeps_revision_and_command_dispatches_only_once(journalled
 
 @pytest.mark.parametrize("event", [
     "light_requested", "light_result", "browser_command", "mode_changed",
-    "profile_loaded", "lighting_ownership", "temperature_unit_selected",
-    "practice_started", "annotation", "power_requested", "new_state_event",
+    "temperature_unit_selected", "power_requested", "new_state_event",
 ])
 def test_state_events_still_reject_the_old_revision_before_dispatch(journalled_owner, bridge, event):
     owner = journalled_owner
@@ -82,7 +81,7 @@ def test_state_events_still_reject_the_old_revision_before_dispatch(journalled_o
     assert snapshot(owner)["revision"] != revision
     assert dispatch(bridge, owner, envelope("on", revision=revision))["code"] == 409
     assert not owner.calls
-    assert owner.records[0][2] is (event in ("annotation", "power_requested"))
+    assert owner.records[0][2] is (event == "power_requested")
 
 
 @pytest.mark.parametrize("field,value", [("view_generation", 2), ("run_id", "new-owner")])

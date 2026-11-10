@@ -76,12 +76,12 @@ drive state still matches. In everyday room control, lights changed
 outside the panel are accepted as they are. A failed or lost result ends the helper;
 the panel starts a new one that reads the lights before the next change and never
 repeats the old command. Bounded trials still refuse writes and restoration after
-an external change. Experiment and Legacy handoffs stay blocked until staff check them.
+an external change. Legacy handoffs stay blocked until staff check them.
 Receipts are in the private `.lights-*.jsonl` files.
 
 Deadlines do not bound filesystem stalls.
 
-Ownership checkpoints (experiment and Legacy handoffs) use one ordered
+Ownership checkpoints (Legacy handoffs) use one ordered
 background writer; the UI stays responsive while saving and the handoff waits for
 it. Everyday commands are kept in memory and are not saved per press.
 
@@ -92,32 +92,10 @@ rate-limited callback delays over 200 ms; these are not physical touch latency.
 
 An initializing helper is cancelled after 30 seconds without sending a lighting
 command. The normal UI
-waits for ownership release for Legacy, experiment handoff, shutdown and power actions;
+waits for ownership release for Legacy, shutdown and power actions;
 a process exit alone cannot confirm an in-flight
 lighting result. A helper still initializing can be cancelled without a write.
 `SIGKILL` or host power loss cannot guarantee bounded-trial restoration.
-
-### Experiments and returning everyday control
-
-Run the CLI as the panel user with its configured private control socket. Use a
-fresh private token and a generic label. Reserve before starting an external
-lighting worker; wait for success, then send heartbeats while it owns lighting.
-
-```sh
-TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')"
-python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" reserve --token "$TOKEN" --label Experiment
-python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" heartbeat --token "$TOKEN"
-```
-
-After stopping the worker and verifying no remote lighting request remains pending:
-
-```sh
-python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" finish --token "$TOKEN" --owner-closed --pending-clear
-```
-
-Successful finish means verified Ready controls with the current scene preserved.
-A failed or timed-out finish is incomplete cleanup: do not start another worker or
-repeat the request. Crashes, expired heartbeats and restarts never reclaim lighting.
 
 ### When controls are unavailable
 
@@ -125,12 +103,6 @@ Staff check the deployed version, current owner and private receipts. Stop previ
 workers/programmes and verify no remote lighting handler remains pending; a stable
 read alone cannot prove that. Keep Legacy covered on Home during recovery.
 
-```sh
-python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" status
-python3 app/lighting_handoff.py --socket "$SCR_CONTROL_SOCKET" recover --owner-closed --pending-clear
-```
-
-The flags acknowledge those completed checks. The website cannot make them.
 Never restart ROS/Status, delete ownership state or retry an uncertain setter to
 clear a block. Record deployment/recovery results in the private `.local/README.md`.
 
@@ -162,7 +134,7 @@ from Home. This is a display choice only and cannot enable blind commands.
 the screen saver and its existing weather cache/cadence. The Preview screen saver
 button opens this same view. Every wake opens Home so visitors
 can find Lights on/off. The first wake touch is intercepted before button bindings;
-controls need a subsequent touch. Experiment mode, Legacy, blank screen, active touches,
+controls need a subsequent touch. Legacy, blank screen, active touches,
 pending/queued commands, restoration and uncertain lighting block idle entry.
 Lighting failures leave idle automatically. Confirmation age uses monotonic time
 from matching successful acquire/apply replies; failures never refresh it. It is
@@ -199,7 +171,7 @@ out of the everyday view. It starts one helper at most
 every 15 minutes while Home or the clock view is open, bounds its response to 32 KiB and kills
 the helper after eight seconds. Requests never use the Tk thread. A failed
 refresh labels the last available data; data older than 30 minutes has an age
-warning. Weather never drives lights, screen themes or experiment timing.
+warning. Weather never drives lights, screen themes.
 
 The weather helper and UI ship together: its JSON contains numeric temperatures,
 optional feels-like/high/low/rain fields,
@@ -249,15 +221,6 @@ is unverified. A restart can interrupt controls and passive/acquisition consumer
 Keep the panel's own autostart separate from room-server maintenance.
 
 ## Startup and rollback
-
-Researchers can set up instructions from the room website under Experiment mode
-→ Instruction profile. Download the current JSON as a starting point. Choose a
-JSON file (at most 32 KiB), review its title/counts, then choose Load profile.
-Pause instructions and finish pending actions first. A changed panel revision
-requires reviewing the file again. The owner checks schema and cabinet text fit
-before replacing the setup. Loading resets its timer and instruction index for
-this panel session; restarting reloads the startup `--profile` file. Export a
-setup for reuse. This path neither reserves lighting nor starts a recorder.
 
 The client does not install or change OS services. The deployment launcher
 uses a private `~/.config/scr-panel/deployment.env` file:
@@ -324,15 +287,14 @@ Preserve the private deployment values and receipts. Do not overwrite legacy cod
 Keep journals, host configuration, participant data and screenshots private.
 Do not delete logs or disable services merely because they look unused.
 
-Panel event logging uses one background thread and a bounded queue. Annotations
-show Saving before Saved; do not interpret Saving as persistence confirmation.
+Panel event logging uses one background thread and a bounded queue.
 Close drains the writer asynchronously after lighting cleanup. Ordinary navigation
 does not wait for SD-card fsync. Hardware-command recovery receipts remain synced
 in the separate light helper.
 
 Theme times use the panel process's configured timezone. Auto changes wait for
-60 seconds without a touch and do not occur in Experiment mode. Settings use familiar
-appearance, date/time, schedule and screen rows. Font and study defaults are launch
+60 seconds without a touch. Settings use familiar
+appearance, date/time, schedule and screen rows. Font defaults are launch
 configuration; no separate settings service is needed.
 
 ## Reliable operation and maintenance
@@ -444,8 +406,8 @@ trusted subnet.
 | Role | Intended access |
 |---|---|
 | Visitor | Room introduction and non-personal status; no device writes |
-| Room user | Everyday lighting when no experiment owns it |
-| Staff | Advanced controls, experiment integration and configuration |
+| Room user | Everyday lighting |
+| Staff | Advanced controls and configuration |
 
 Enforce roles in the backend, not only by hiding buttons. Do not expose personal
 experiment metadata to visitors. These proposed roles do not secure the existing
@@ -457,11 +419,11 @@ Reuse the existing adapter and confirmed-readback rules. Migrate ownership only
 after qualifying the new transport and updating its consumers together. Report
 requested, pending, confirmed and uncertain results with age; do not infer physical
 brightness or sensor health from service presence. Connection loss must not cause
-automatic command retries or silent takeover of an experiment.
+automatic command retries.
 
 Prefer standard semantic HTML/CSS, large touch targets and visible keyboard focus.
 Keep weather/help usable when room control is unavailable. Describe capabilities
-and experiment profiles as data; keep Project-X's recorder integration in its own
+as data; keep Project-X's recorder integration in its own
 repository. The implemented version 1 gateway schema is in docs/interface.md.
 Choose packages for that tested workflow; no framework or room-server upgrade is
 required for the current client. README owns setup, WORKFLOWS owns operation,
@@ -533,11 +495,8 @@ unavailable, web controls disable while the panel and guide/help remain usable.
 Common actions and their rejection rules are owned by
 [the interface contract](docs/interface.md#optional-browser-gateway-version-1).
 Changing a website page does not move room devices. Explicit Legacy/display
-controls affect the cabinet. A running instruction session blocks lighting on
-both interfaces until paused. Pause instructions before opening Legacy, Blank or
-clock view on either interface. Home keeps the instruction session running; use
-Room tools → Experiment mode to pause it. Ordinary Beta pages and paused
-instructions leave lighting available through the other interface. The gateway
+controls affect the cabinet. Ordinary Beta pages leave lighting available through
+the other interface. The gateway
 also relays Gradient, original programme requests and permitted whole-room blind
 actions through the same owner; it does not add independent hardware drivers.
 Individual fixture/window selectors remain unimplemented. Reference commands may be copied,
