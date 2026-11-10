@@ -46,6 +46,30 @@ export function weatherIcon(weather) {
   return 'weather-cloud-rain';
 }
 
+// Update the page in place so a button under a finger is never replaced mid-tap.
+export function morph(target, html) {
+  const next = document.createElement(target.tagName);
+  next.innerHTML = html;
+  patchChildren(target, next);
+}
+function patchChildren(old, next) {
+  const a = [...old.childNodes], b = [...next.childNodes];
+  b.forEach((node, i) => {
+    const current = a[i];
+    if (!current) old.appendChild(node);
+    else if (current.nodeType !== node.nodeType || current.nodeName !== node.nodeName) old.replaceChild(node, current);
+    else if (node.nodeType === Node.TEXT_NODE) {
+      if (current.nodeValue !== node.nodeValue) current.nodeValue = node.nodeValue;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      [...current.attributes].forEach((attr) => !node.hasAttribute(attr.name) && current.removeAttribute(attr.name));
+      [...node.attributes].forEach((attr) => current.getAttribute(attr.name) !== attr.value && current.setAttribute(attr.name, attr.value));
+      if (current.tagName === 'INPUT' && current.value !== node.getAttribute('value')) current.value = node.getAttribute('value');
+      patchChildren(current, node);
+    }
+  });
+  for (let i = a.length - 1; i >= b.length; i--) a[i].remove();
+}
+
 // CSP forbids inline style attributes: pages mark dynamic values with data-* and we apply them here.
 export function applyStyles(root) {
   root.querySelectorAll('[data-bg]').forEach((el) => (el.style.background = el.dataset.bg));

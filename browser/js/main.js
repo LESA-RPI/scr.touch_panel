@@ -1,13 +1,13 @@
 // Routing, rendering and input. Pages are pure markup; commands go through api.send.
 import { store, onChange, poll, send, loadContent, busy, notify } from './api.js';
-import { esc, icon, applyStyles, progress, num } from './ui.js';
+import { esc, icon, applyStyles, progress, num, morph } from './ui.js';
 import * as pages from './pages.js';
 
 const $ = (id) => document.getElementById(id);
 const phone = matchMedia('(max-width: 760px)');
 const dark = matchMedia('(prefers-color-scheme: dark)');
 let sheetName = null;
-let interacting = false; // a slider is being dragged: don't redraw under the finger
+let interacting = false; // a finger is down: don't redraw under it
 let lastHtml = '';
 
 function route() {
@@ -33,7 +33,7 @@ function render(force = false) {
   const html = `${legacy}${notice}<header class="pagehead"><h1>${device() === 'phone' && page === 'home' ? 'Conference Room' : titles[page]}</h1>${pages.chip()}</header>${body}`;
   if (html !== lastHtml) {
     const main = $('page');
-    main.innerHTML = html;
+    morph(main, html);
     applyStyles(main);
     lastHtml = html;
   }
@@ -42,7 +42,8 @@ function render(force = false) {
   if (sheetName) {
     const markup = pages.sheet(sheetName);
     if (sheet.dataset.html !== markup) {
-      sheet.querySelector('.sheet-body').innerHTML = markup;
+      morph(sheet.querySelector('.sheet-body'), markup);
+      applyStyles(sheet);
       sheet.dataset.html = markup;
     }
     if (!sheet.open) sheet.showModal();
@@ -104,9 +105,7 @@ $('sheet').addEventListener('close', () => {
 });
 
 // Sliders: show the value while dragging, send once on release.
-document.addEventListener('pointerdown', (e) => {
-  if (e.target.matches('input[type=range]')) interacting = true;
-});
+document.addEventListener('pointerdown', () => (interacting = true));
 document.addEventListener('input', (e) => {
   const input = e.target;
   if (!input.matches('input[type=range]')) return;
@@ -131,7 +130,13 @@ document.addEventListener('change', async (e) => {
   }
   render(true);
 });
-['pointerup', 'pointercancel'].forEach((type) => document.addEventListener(type, () => setTimeout(() => (interacting = false), 400)));
+// Release the hold after the click (or slider change) has run.
+['pointerup', 'pointercancel'].forEach((type) => document.addEventListener(type, (e) => {
+  setTimeout(() => {
+    interacting = false;
+    render();
+  }, e.target.matches?.('input[type=range]') ? 600 : 250);
+}));
 
 // ---------- Loop ----------
 addEventListener('hashchange', () => {
