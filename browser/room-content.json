@@ -1,0 +1,3768 @@
+{
+  "version": 1,
+  "app_version": "0.2.20",
+  "icons": {
+    "tools": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M10 5H3"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 19H3"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M14 3v4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 17v4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M21 12h-9"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M21 19h-5"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M21 5h-7"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 10v4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 12H3"
+        }
+      }
+    ],
+    "home": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+        }
+      }
+    ],
+    "lighting": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M9 18h6"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M10 22h4"
+        }
+      }
+    ],
+    "white": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M9 18h6"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M10 22h4"
+        }
+      }
+    ],
+    "off": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16.8 11.2c.8-.9 1.2-2 1.2-3.2a6 6 0 0 0-9.3-5"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m2 2 20 20"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M6.3 6.3a4.67 4.67 0 0 0 1.2 5.2c.7.7 1.3 1.5 1.5 2.5"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M9 18h6"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M10 22h4"
+        }
+      }
+    ],
+    "scenes": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"
+        }
+      }
+    ],
+    "sensors": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M6.453 15h11.094"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8.5 2h7"
+        }
+      }
+    ],
+    "appearance": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 2v2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 12a4 4 0 0 0-4-4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m19 5-1.256 1.256"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20 12h2"
+        }
+      }
+    ],
+    "clock": [
+      {
+        "tag": "circle",
+        "attributes": {
+          "cx": "12",
+          "cy": "12",
+          "r": "10"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 6v6l4 2"
+        }
+      }
+    ],
+    "screen": [
+      {
+        "tag": "rect",
+        "attributes": {
+          "width": "20",
+          "height": "14",
+          "x": "2",
+          "y": "3",
+          "rx": "2"
+        }
+      },
+      {
+        "tag": "line",
+        "attributes": {
+          "x1": "8",
+          "x2": "16",
+          "y1": "21",
+          "y2": "21"
+        }
+      },
+      {
+        "tag": "line",
+        "attributes": {
+          "x1": "12",
+          "x2": "12",
+          "y1": "17",
+          "y2": "21"
+        }
+      }
+    ],
+    "system": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"
+        }
+      }
+    ],
+    "about": [
+      {
+        "tag": "circle",
+        "attributes": {
+          "cx": "12",
+          "cy": "12",
+          "r": "10"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 16v-4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 8h.01"
+        }
+      }
+    ],
+    "guide": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 5v16"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"
+        }
+      }
+    ],
+    "legacy": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M15 3h6v6"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M10 14 21 3"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+        }
+      }
+    ],
+    "weather-sun": [
+      {
+        "tag": "circle",
+        "attributes": {
+          "cx": "12",
+          "cy": "12",
+          "r": "4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 2v2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 20v2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m4.93 4.93 1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m17.66 17.66 1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M2 12h2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20 12h2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m6.34 17.66-1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m19.07 4.93-1.41 1.41"
+        }
+      }
+    ],
+    "weather-moon": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"
+        }
+      }
+    ],
+    "weather-cloud-sun": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 2v2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m4.93 4.93 1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20 12h2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m19.07 4.93-1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M15.947 12.65a4 4 0 0 0-5.925-4.128"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"
+        }
+      }
+    ],
+    "weather-cloud-moon": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M13 16a3 3 0 0 1 0 6H7a5 5 0 1 1 4.9-6z"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "transform": "translate(-2.4 3.5)",
+          "d": "M18.376 14.512a6 6 0 0 0 3.461-4.127c.148-.625-.659-.97-1.248-.714a4 4 0 0 1-5.259-5.26c.255-.589-.09-1.395-.716-1.248a6 6 0 0 0-4.594 5.36"
+        }
+      }
+    ],
+    "weather-cloud": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"
+        }
+      }
+    ],
+    "weather-cloud-rain": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 14v6"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 14v6"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 16v6"
+        }
+      }
+    ],
+    "weather-cloud-snow": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 15h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 19h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 17h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 21h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 15h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 19h.01"
+        }
+      }
+    ],
+    "weather-cloud-lightning": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m13 12-3 5h4l-3 5"
+        }
+      }
+    ],
+    "weather-cloud-fog": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 17H7"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M17 21H9"
+        }
+      }
+    ],
+    "weather-circle-question-mark": [
+      {
+        "tag": "circle",
+        "attributes": {
+          "cx": "12",
+          "cy": "12",
+          "r": "10"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 17h.01"
+        }
+      }
+    ],
+    "activity": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"
+        }
+      }
+    ],
+    "arrow-left": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m12 19-7-7 7-7"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M19 12H5"
+        }
+      }
+    ],
+    "blinds": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M3 3h18"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20 7H8"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20 11H8"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M10 19h10"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 15h12"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M4 3v14"
+        }
+      },
+      {
+        "tag": "circle",
+        "attributes": {
+          "cx": "4",
+          "cy": "19",
+          "r": "2"
+        }
+      }
+    ],
+    "book-open": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 5v16"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z"
+        }
+      }
+    ],
+    "calendar-days": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 2v3"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 2v3"
+        }
+      },
+      {
+        "tag": "rect",
+        "attributes": {
+          "x": "3",
+          "y": "3",
+          "width": "18",
+          "height": "18",
+          "rx": "2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M3 9h18"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 13h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 13h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 13h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 17h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 17h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 17h.01"
+        }
+      }
+    ],
+    "chevron-left": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m15 18-6-6 6-6"
+        }
+      }
+    ],
+    "chevron-right": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m9 18 6-6-6-6"
+        }
+      }
+    ],
+    "circle-check": [
+      {
+        "tag": "circle",
+        "attributes": {
+          "cx": "12",
+          "cy": "12",
+          "r": "10"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m16 9-5.5 5.5L8 12"
+        }
+      }
+    ],
+    "circle-question-mark": [
+      {
+        "tag": "circle",
+        "attributes": {
+          "cx": "12",
+          "cy": "12",
+          "r": "10"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 17h.01"
+        }
+      }
+    ],
+    "circle-slash": [
+      {
+        "tag": "circle",
+        "attributes": {
+          "cx": "12",
+          "cy": "12",
+          "r": "10"
+        }
+      },
+      {
+        "tag": "line",
+        "attributes": {
+          "x1": "9",
+          "x2": "15",
+          "y1": "15",
+          "y2": "9"
+        }
+      }
+    ],
+    "cloud-fog": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 17H7"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M17 21H9"
+        }
+      }
+    ],
+    "cloud-lightning": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m13 12-3 5h4l-3 5"
+        }
+      }
+    ],
+    "cloud-moon": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M13 16a3 3 0 0 1 0 6H7a5 5 0 1 1 4.9-6z"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "transform": "translate(-2.4 3.5)",
+          "d": "M18.376 14.512a6 6 0 0 0 3.461-4.127c.148-.625-.659-.97-1.248-.714a4 4 0 0 1-5.259-5.26c.255-.589-.09-1.395-.716-1.248a6 6 0 0 0-4.594 5.36"
+        }
+      }
+    ],
+    "cloud-rain": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 14v6"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 14v6"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 16v6"
+        }
+      }
+    ],
+    "cloud-snow": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 15h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 19h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 17h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 21h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 15h.01"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 19h.01"
+        }
+      }
+    ],
+    "cloud-sun": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 2v2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m4.93 4.93 1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20 12h2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m19.07 4.93-1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M15.947 12.65a4 4 0 0 0-5.925-4.128"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"
+        }
+      }
+    ],
+    "cloud": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"
+        }
+      }
+    ],
+    "droplets": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"
+        }
+      }
+    ],
+    "external-link": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M15 3h6v6"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M10 14 21 3"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+        }
+      }
+    ],
+    "eye-off": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M14.084 14.158a3 3 0 0 1-4.242-4.242"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m2 2 20 20"
+        }
+      }
+    ],
+    "flask-conical": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M14 2v6a2 2 0 0 0 .245.96l5.51 10.08A2 2 0 0 1 18 22H6a2 2 0 0 1-1.755-2.96l5.51-10.08A2 2 0 0 0 10 8V2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M6.453 15h11.094"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8.5 2h7"
+        }
+      }
+    ],
+    "house": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"
+        }
+      }
+    ],
+    "info": [
+      {
+        "tag": "circle",
+        "attributes": {
+          "cx": "12",
+          "cy": "12",
+          "r": "10"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 16v-4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 8h.01"
+        }
+      }
+    ],
+    "layers": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"
+        }
+      }
+    ],
+    "lightbulb-off": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16.8 11.2c.8-.9 1.2-2 1.2-3.2a6 6 0 0 0-9.3-5"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m2 2 20 20"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M6.3 6.3a4.67 4.67 0 0 0 1.2 5.2c.7.7 1.3 1.5 1.5 2.5"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M9 18h6"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M10 22h4"
+        }
+      }
+    ],
+    "lightbulb": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M9 18h6"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M10 22h4"
+        }
+      }
+    ],
+    "monitor-off": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 17v4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M17 17H4a2 2 0 0 1-2-2V5a2 2 0 0 1 1.184-1.826"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m2 2 20 20"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 21h8"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8.656 3H20a2 2 0 0 1 2 2v10a2 2 0 0 1-.293 1.042"
+        }
+      }
+    ],
+    "monitor": [
+      {
+        "tag": "rect",
+        "attributes": {
+          "width": "20",
+          "height": "14",
+          "x": "2",
+          "y": "3",
+          "rx": "2"
+        }
+      },
+      {
+        "tag": "line",
+        "attributes": {
+          "x1": "8",
+          "x2": "16",
+          "y1": "21",
+          "y2": "21"
+        }
+      },
+      {
+        "tag": "line",
+        "attributes": {
+          "x1": "12",
+          "x2": "12",
+          "y1": "17",
+          "y2": "21"
+        }
+      }
+    ],
+    "moon": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"
+        }
+      }
+    ],
+    "pause": [
+      {
+        "tag": "rect",
+        "attributes": {
+          "x": "14",
+          "y": "3",
+          "width": "5",
+          "height": "18",
+          "rx": "1"
+        }
+      },
+      {
+        "tag": "rect",
+        "attributes": {
+          "x": "5",
+          "y": "3",
+          "width": "5",
+          "height": "18",
+          "rx": "1"
+        }
+      }
+    ],
+    "play": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z"
+        }
+      }
+    ],
+    "sliders-horizontal": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M10 5H3"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 19H3"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M14 3v4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 17v4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M21 12h-9"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M21 19h-5"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M21 5h-7"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 10v4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M8 12H3"
+        }
+      }
+    ],
+    "sun-moon": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 2v2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M14.837 16.385a6 6 0 1 1-7.223-7.222c.624-.147.97.66.715 1.248a4 4 0 0 0 5.26 5.259c.589-.255 1.396.09 1.248.715"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 12a4 4 0 0 0-4-4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m19 5-1.256 1.256"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20 12h2"
+        }
+      }
+    ],
+    "sun": [
+      {
+        "tag": "circle",
+        "attributes": {
+          "cx": "12",
+          "cy": "12",
+          "r": "4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 2v2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 20v2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m4.93 4.93 1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m17.66 17.66 1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M2 12h2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20 12h2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m6.34 17.66-1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m19.07 4.93-1.41 1.41"
+        }
+      }
+    ],
+    "sunrise": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 2v8"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m4.93 10.93 1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M2 18h2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20 18h2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m19.07 10.93-1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M22 22H2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m8 6 4-4 4 4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 18a4 4 0 0 0-8 0"
+        }
+      }
+    ],
+    "sunset": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 10V2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m4.93 10.93 1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M2 18h2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M20 18h2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m19.07 10.93-1.41 1.41"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M22 22H2"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m16 6-4 4-4-4"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M16 18a4 4 0 0 0-8 0"
+        }
+      }
+    ],
+    "terminal": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M12 19h8"
+        }
+      },
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "m4 17 6-6-6-6"
+        }
+      }
+    ],
+    "thermometer": [
+      {
+        "tag": "path",
+        "attributes": {
+          "d": "M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"
+        }
+      }
+    ]
+  },
+  "themes": {
+    "light": {
+      "bg": "#ffffff",
+      "surface": "#f5f6f7",
+      "ink": "#24292d",
+      "muted": "#596269",
+      "control": "#e0e5e8",
+      "border": "#c9ced2",
+      "accent": "#364047",
+      "selected_ink": "#ffffff",
+      "accent_pressed": "#444f57",
+      "pressed": "#d2d9dd",
+      "icon_colour": "#515d65",
+      "good": "#1d6f44",
+      "warning": "#875709",
+      "weather_warm": "#a16a24",
+      "weather_cool": "#3b7590"
+    },
+    "dark": {
+      "bg": "#171717",
+      "surface": "#202020",
+      "ink": "#f2f2f2",
+      "muted": "#bdbdbd",
+      "control": "#303030",
+      "border": "#4d4d4d",
+      "accent": "#d2d2d2",
+      "selected_ink": "#202020",
+      "accent_pressed": "#f2f2f2",
+      "pressed": "#414141",
+      "icon_colour": "#c7cbce",
+      "good": "#89caa2",
+      "warning": "#e8b86a",
+      "weather_warm": "#e5b874",
+      "weather_cool": "#8cb8db"
+    }
+  },
+  "weather_accents": {
+    "sun": "weather_warm",
+    "moon": "weather_warm",
+    "cloud-sun": "weather_warm",
+    "cloud-moon": "weather_warm",
+    "cloud-rain": "weather_cool",
+    "cloud-snow": "weather_cool",
+    "cloud-lightning": "weather_cool"
+  },
+  "lighting_tabs": [
+    [
+      "White light",
+      "white"
+    ],
+    [
+      "Scenes",
+      "scenes"
+    ],
+    [
+      "Programmes",
+      "programmes"
+    ],
+    [
+      "Channels",
+      "channels"
+    ]
+  ],
+  "scenes": [
+    {
+      "id": "Fid",
+      "label": "Fid",
+      "detail": "Everyday lighting. Same as Lights on."
+    },
+    {
+      "id": "Sat",
+      "label": "Sat",
+      "detail": "Room-wide colour mixture."
+    },
+    {
+      "id": "Dul",
+      "label": "Dul",
+      "detail": "Room-wide colour mixture."
+    }
+  ],
+  "gradient": {
+    "id": "Gradient",
+    "label": "Gradient",
+    "detail": "Colour pattern across the room lights."
+  },
+  "programmes": [
+    {
+      "id": "Sun",
+      "label": "Sun",
+      "detail": "Colour and light-level curve, staggered across the room."
+    },
+    {
+      "id": "Circ",
+      "label": "Circ",
+      "detail": "Colour and light-level curve across the whole room."
+    }
+  ],
+  "presets": {
+    "Fid": [
+      39,
+      6,
+      25,
+      56,
+      57,
+      100,
+      3,
+      6
+    ],
+    "Sat": [
+      21,
+      14,
+      4,
+      73,
+      22,
+      100,
+      22,
+      4
+    ],
+    "Dul": [
+      41,
+      2,
+      25,
+      53,
+      38,
+      100,
+      2,
+      0
+    ],
+    "Off": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "previous_on": {
+    "label": "Warm white",
+    "detail": "3500 K, level 1000.",
+    "arguments": {
+      "cct": 3500,
+      "intensity": 1000
+    }
+  },
+  "unavailable_lighting": "Lighting programmes are unavailable while the room connection is not configured.",
+  "blinds_unavailable": "Not available yet: the blind adapter is not connected.",
+  "generated_from": "app/export_room_content.py",
+  "blind_actions": [
+    [
+      "lift",
+      "Lift blinds"
+    ],
+    [
+      "open",
+      "Open slats"
+    ],
+    [
+      "close",
+      "Close & lower"
+    ]
+  ],
+  "network_name": "SCR_AP",
+  "channels": [
+    {
+      "label": "Blue 1",
+      "colour": "#4764bc"
+    },
+    {
+      "label": "Blue 2",
+      "colour": "#337cb9"
+    },
+    {
+      "label": "Blue 3",
+      "colour": "#2198c2"
+    },
+    {
+      "label": "Lime",
+      "colour": "#86a83b"
+    },
+    {
+      "label": "Amber",
+      "colour": "#c69c32"
+    },
+    {
+      "label": "Orange",
+      "colour": "#d47d34"
+    },
+    {
+      "label": "Red 1",
+      "colour": "#ba6052"
+    },
+    {
+      "label": "Red 2",
+      "colour": "#a84658"
+    }
+  ],
+  "guide": [
+    {
+      "section": "controls",
+      "title": "Lighting",
+      "icon": "on",
+      "caption": "White light and saved scenes",
+      "links": [
+        {
+          "label": "Open Lighting",
+          "page": "lighting"
+        },
+        {
+          "label": "Open Home",
+          "page": "home"
+        }
+      ],
+      "text": "Use Lights on and Lights off on Home for everyday lighting.\n\nRoom tools → Lighting brings White light, Scenes, Programmes and Channels together. Opening a tab does not change the lights.\n\nLast confirmed shows the most recent controller readback and its age. If a change cannot be confirmed, the panel reads the lights again and controls return. Check connection reads current lighting without changing it; ask the room host if controls stay unavailable."
+    },
+    {
+      "section": "controls",
+      "title": "Room controls",
+      "icon": "home",
+      "caption": "Lighting, blinds and preferences",
+      "links": [
+        {
+          "label": "Open Home",
+          "page": "home"
+        },
+        {
+          "label": "Open Screen & controls",
+          "page": "screen"
+        }
+      ],
+      "text": "Home opens the everyday room page. Opening a page does not change the lights.\n\nLift blinds, Open slats and Close & lower are on Home. Movement is locked by default and requires a connected controller. Screen & controls explains availability and saves whether the controls are shown.\n\nRoom tools also holds appearance, screen and weather preferences. If equipment controls stay unavailable, ask the room host."
+    },
+    {
+      "section": "controls",
+      "title": "Connection & help",
+      "icon": "health",
+      "caption": "Panel, services and weather",
+      "links": [
+        {
+          "label": "Open System & help",
+          "page": "system"
+        },
+        {
+          "label": "Open Date & weather",
+          "page": "clock"
+        }
+      ],
+      "text": "Beta and the room-network website share one controller. Join the room Wi-Fi before opening the website; the guide shows the connection details.\n\nThe lighting status explains when controls are ready, checking or unconfirmed. Website offline means the page cannot reach the panel. Open System & help for guidance.\n\nWeather is an outdoor model estimate, separate from indoor measurements. Source details are under Room tools → Date & weather."
+    },
+    {
+      "section": "room",
+      "title": "A room for research",
+      "icon": "home",
+      "caption": "Lighting, sensing and shared space",
+      "text": "The Smart Conference Room brings lighting and several kinds of sensors into one shared space. Researchers compare their different views to study presence, movement and the room environment.\n\nCeiling sensors measure distance or light colour. Four Azure Kinect cameras provide colour, depth and infrared reference views for comparing sensors.\n\nThis tour starts no equipment or recording. A sensor appearing on the map does not mean it is currently connected or recording.",
+      "links": []
+    },
+    {
+      "section": "room",
+      "title": "Lighting & colour",
+      "visual": "channels",
+      "actions": true,
+      "icon": "on",
+      "caption": "Ten lights, eight channels",
+      "text": "Ten lights mix eight channels into white light and colour scenes. Gradient spreads colour across the room. Values are drive settings, not measured brightness.",
+      "links": [
+        {
+          "label": "Open Lighting",
+          "page": "lighting"
+        }
+      ]
+    },
+    {
+      "section": "room",
+      "title": "Distance & colour sensors",
+      "visual": "distance",
+      "icon": "sensors",
+      "caption": "COMBO, IRMA and Color",
+      "text": "COMBO combines a coarse 8 × 8 distance grid with light-colour sensing. It times reflected light to estimate distance.\n\nIRMA Matrix gives a denser 25 × 20 distance view and reflected-signal strength. It measures distance, not body heat.\n\nColor sensors track light-colour changes without taking a photograph. Raw values need calibration for absolute measurements.",
+      "links": []
+    },
+    {
+      "section": "room",
+      "title": "Ceiling map",
+      "icon": "health",
+      "caption": "Explore the sensor families",
+      "text": "Select a sensor family to see its registered ceiling positions.",
+      "map": true,
+      "links": []
+    }
+  ],
+  "guide_sections": [
+    [
+      "Room tour",
+      "room"
+    ],
+    [
+      "Control help",
+      "controls"
+    ]
+  ],
+  "ceiling_map": {
+    "schema_version": 2,
+    "title": "Ceiling sensor map",
+    "caption": "Choose a family, then tap a marker for its name, reference ID and sensor details.",
+    "grid": {
+      "columns": 14,
+      "rows": 5,
+      "row_one_edge": "bottom"
+    },
+    "orientation": "Reference grid: R1–R14 along the long axis; C1–C5 across. The displayed origin is at the lower left.",
+    "note": "Faint squares: light troffers; slatted squares: HVAC vents; crosses: sprinklers. Approximate positions; symbols do not show size or live status. Four side-mounted Color sensors omitted.",
+    "source": {
+      "repository": "Project-X-Ceiling",
+      "path": "data/output/sensor-extraction/sensors_all_m.csv",
+      "date": "2026-02-24",
+      "sha256": "3043c19b74a23d817c5b0c11221879815ca9dbdb324855017ea837b681e16f77",
+      "calibration": {
+        "configuration_path": "config/ceiling_field_map.yaml",
+        "configuration_sha256": "e5c936e385bcc0c5bc86787755a7b483fa46bec4e2f7c38538656b3ba7bfd252",
+        "method_path": "project_x_ceiling/field_map/sources.py",
+        "method_sha256": "c3ff776771ed1533e5c38057099b90e259f03eaf0d40075037f396a90fed8035",
+        "method": "calibrate_grid",
+        "offset_origin": "lower-left",
+        "offset_decimal_places": 3,
+        "source": "color_sensors",
+        "grid_origin_x_m": 0.00068884293951256,
+        "grid_origin_y_m": -0.0007497753818507813,
+        "cell_width_m": 0.6084983695769538,
+        "cell_height_m": 0.6131904761904762,
+        "sensor_count": 53,
+        "inlier_count": 52,
+        "residual_rms_m": 0.008332069093828807
+      },
+      "palette": {
+        "path": "project_x_ceiling/field_map/static/base.css",
+        "sha256": "b5c0f572fcbf0e11080629b5c421ad3fae812819f1a1a390e8fcd03ea1611d10"
+      }
+    },
+    "families": [
+      {
+        "id": "color",
+        "label": "Color",
+        "description": "TCS34725 sensors measure red, green, blue and clear light channels. These ceiling sensors observe changes in room light; they do not form a camera image.",
+        "positions": [
+          {
+            "cell": [
+              1,
+              1
+            ],
+            "reference_id": "1-1-color",
+            "u": 0.137,
+            "v": 0.497
+          },
+          {
+            "cell": [
+              1,
+              2
+            ],
+            "reference_id": "1-2-color",
+            "u": 0.119,
+            "v": 0.471
+          },
+          {
+            "cell": [
+              1,
+              3
+            ],
+            "reference_id": "1-3-color",
+            "u": 0.814,
+            "v": 0.469
+          },
+          {
+            "cell": [
+              1,
+              4
+            ],
+            "reference_id": "1-4-color",
+            "u": 0.134,
+            "v": 0.473
+          },
+          {
+            "cell": [
+              1,
+              5
+            ],
+            "reference_id": "1-5-color",
+            "u": 0.15,
+            "v": 0.463
+          },
+          {
+            "cell": [
+              2,
+              1
+            ],
+            "reference_id": "2-1-color",
+            "u": 0.108,
+            "v": 0.508
+          },
+          {
+            "cell": [
+              2,
+              3
+            ],
+            "reference_id": "2-3-color",
+            "u": 0.118,
+            "v": 0.491
+          },
+          {
+            "cell": [
+              2,
+              5
+            ],
+            "reference_id": "2-5-color",
+            "u": 0.141,
+            "v": 0.478
+          },
+          {
+            "cell": [
+              3,
+              1
+            ],
+            "reference_id": "3-1-color",
+            "u": 0.13,
+            "v": 0.481
+          },
+          {
+            "cell": [
+              3,
+              2
+            ],
+            "reference_id": "3-2-color",
+            "u": 0.111,
+            "v": 0.503
+          },
+          {
+            "cell": [
+              3,
+              3
+            ],
+            "reference_id": "3-3-color",
+            "u": 0.112,
+            "v": 0.501
+          },
+          {
+            "cell": [
+              3,
+              4
+            ],
+            "reference_id": "3-4-color",
+            "u": 0.109,
+            "v": 0.498
+          },
+          {
+            "cell": [
+              3,
+              5
+            ],
+            "reference_id": "3-5-color",
+            "u": 0.124,
+            "v": 0.489
+          },
+          {
+            "cell": [
+              4,
+              1
+            ],
+            "reference_id": "4-1-color",
+            "u": 0.12,
+            "v": 0.512
+          },
+          {
+            "cell": [
+              4,
+              5
+            ],
+            "reference_id": "4-5-color",
+            "u": 0.133,
+            "v": 0.502
+          },
+          {
+            "cell": [
+              5,
+              1
+            ],
+            "reference_id": "5-1-color",
+            "u": 0.129,
+            "v": 0.512
+          },
+          {
+            "cell": [
+              5,
+              2
+            ],
+            "reference_id": "5-2-color",
+            "u": 0.119,
+            "v": 0.502
+          },
+          {
+            "cell": [
+              5,
+              3
+            ],
+            "reference_id": "5-3-color",
+            "u": 0.116,
+            "v": 0.501
+          },
+          {
+            "cell": [
+              5,
+              4
+            ],
+            "reference_id": "5-4-color",
+            "u": 0.13,
+            "v": 0.511
+          },
+          {
+            "cell": [
+              5,
+              5
+            ],
+            "reference_id": "5-5-color",
+            "u": 0.129,
+            "v": 0.523
+          },
+          {
+            "cell": [
+              6,
+              1
+            ],
+            "reference_id": "6-1-color",
+            "u": 0.125,
+            "v": 0.531
+          },
+          {
+            "cell": [
+              6,
+              3
+            ],
+            "reference_id": "6-3-color",
+            "u": 0.125,
+            "v": 0.506
+          },
+          {
+            "cell": [
+              6,
+              5
+            ],
+            "reference_id": "6-5-color",
+            "u": 0.133,
+            "v": 0.504
+          },
+          {
+            "cell": [
+              7,
+              1
+            ],
+            "reference_id": "7-1-color",
+            "u": 0.116,
+            "v": 0.523
+          },
+          {
+            "cell": [
+              7,
+              2
+            ],
+            "reference_id": "7-2-color",
+            "u": 0.127,
+            "v": 0.506
+          },
+          {
+            "cell": [
+              7,
+              3
+            ],
+            "reference_id": "7-3-color",
+            "u": 0.114,
+            "v": 0.508
+          },
+          {
+            "cell": [
+              7,
+              4
+            ],
+            "reference_id": "7-4-color",
+            "u": 0.132,
+            "v": 0.511
+          },
+          {
+            "cell": [
+              7,
+              5
+            ],
+            "reference_id": "7-5-color",
+            "u": 0.124,
+            "v": 0.512
+          },
+          {
+            "cell": [
+              8,
+              1
+            ],
+            "reference_id": "8-1-color",
+            "u": 0.159,
+            "v": 0.484
+          },
+          {
+            "cell": [
+              8,
+              5
+            ],
+            "reference_id": "8-5-color",
+            "u": 0.146,
+            "v": 0.522
+          },
+          {
+            "cell": [
+              9,
+              1
+            ],
+            "reference_id": "9-1-color",
+            "u": 0.127,
+            "v": 0.469
+          },
+          {
+            "cell": [
+              9,
+              3
+            ],
+            "reference_id": "9-3-color",
+            "u": 0.106,
+            "v": 0.501
+          },
+          {
+            "cell": [
+              9,
+              5
+            ],
+            "reference_id": "9-5-color",
+            "u": 0.119,
+            "v": 0.512
+          },
+          {
+            "cell": [
+              10,
+              1
+            ],
+            "reference_id": "10-1-color",
+            "u": 0.12,
+            "v": 0.502
+          },
+          {
+            "cell": [
+              10,
+              2
+            ],
+            "reference_id": "10-2-color",
+            "u": 0.126,
+            "v": 0.495
+          },
+          {
+            "cell": [
+              10,
+              3
+            ],
+            "reference_id": "10-3-color",
+            "u": 0.115,
+            "v": 0.506
+          },
+          {
+            "cell": [
+              10,
+              4
+            ],
+            "reference_id": "10-4-color",
+            "u": 0.116,
+            "v": 0.496
+          },
+          {
+            "cell": [
+              10,
+              5
+            ],
+            "reference_id": "10-5-color",
+            "u": 0.115,
+            "v": 0.499
+          },
+          {
+            "cell": [
+              11,
+              1
+            ],
+            "reference_id": "11-1-color",
+            "u": 0.127,
+            "v": 0.464
+          },
+          {
+            "cell": [
+              11,
+              5
+            ],
+            "reference_id": "11-5-color",
+            "u": 0.124,
+            "v": 0.507
+          },
+          {
+            "cell": [
+              12,
+              1
+            ],
+            "reference_id": "12-1-color",
+            "u": 0.115,
+            "v": 0.523
+          },
+          {
+            "cell": [
+              12,
+              2
+            ],
+            "reference_id": "12-2-color",
+            "u": 0.108,
+            "v": 0.505
+          },
+          {
+            "cell": [
+              12,
+              3
+            ],
+            "reference_id": "12-3-color",
+            "u": 0.12,
+            "v": 0.508
+          },
+          {
+            "cell": [
+              12,
+              4
+            ],
+            "reference_id": "12-4-color",
+            "u": 0.121,
+            "v": 0.509
+          },
+          {
+            "cell": [
+              12,
+              5
+            ],
+            "reference_id": "12-5-color",
+            "u": 0.125,
+            "v": 0.501
+          },
+          {
+            "cell": [
+              13,
+              1
+            ],
+            "reference_id": "13-1-color",
+            "u": 0.135,
+            "v": 0.499
+          },
+          {
+            "cell": [
+              13,
+              3
+            ],
+            "reference_id": "13-3-color",
+            "u": 0.121,
+            "v": 0.506
+          },
+          {
+            "cell": [
+              13,
+              5
+            ],
+            "reference_id": "13-5-color",
+            "u": 0.152,
+            "v": 0.507
+          },
+          {
+            "cell": [
+              14,
+              1
+            ],
+            "reference_id": "14-1-color",
+            "u": 0.126,
+            "v": 0.504
+          },
+          {
+            "cell": [
+              14,
+              2
+            ],
+            "reference_id": "14-2-color",
+            "u": 0.128,
+            "v": 0.505
+          },
+          {
+            "cell": [
+              14,
+              3
+            ],
+            "reference_id": "14-3-color",
+            "u": 0.12,
+            "v": 0.505
+          },
+          {
+            "cell": [
+              14,
+              4
+            ],
+            "reference_id": "14-4-color",
+            "u": 0.118,
+            "v": 0.504
+          },
+          {
+            "cell": [
+              14,
+              5
+            ],
+            "reference_id": "14-5-color",
+            "u": 0.151,
+            "v": 0.481
+          }
+        ],
+        "colours": {
+          "light": "#56b4e9",
+          "dark": "#7cc6ef"
+        }
+      },
+      {
+        "id": "combo",
+        "label": "COMBO",
+        "description": "STM32WB55 board with VL53L8CX 8 × 8 time-of-flight distances and TCS3430 XYZ/IR light-channel readings.",
+        "positions": [
+          {
+            "cell": [
+              1,
+              1
+            ],
+            "reference_id": "1-1-combo",
+            "u": 0.277,
+            "v": 0.197
+          },
+          {
+            "cell": [
+              1,
+              2
+            ],
+            "reference_id": "1-2-combo",
+            "u": 0.275,
+            "v": 0.803
+          },
+          {
+            "cell": [
+              1,
+              4
+            ],
+            "reference_id": "1-4-combo",
+            "u": 0.282,
+            "v": 0.168
+          },
+          {
+            "cell": [
+              1,
+              5
+            ],
+            "reference_id": "1-5-combo",
+            "u": 0.309,
+            "v": 0.789
+          },
+          {
+            "cell": [
+              2,
+              1
+            ],
+            "reference_id": "2-1-combo",
+            "u": 0.258,
+            "v": 0.182
+          },
+          {
+            "cell": [
+              2,
+              5
+            ],
+            "reference_id": "2-5-combo",
+            "u": 0.284,
+            "v": 0.794
+          },
+          {
+            "cell": [
+              3,
+              1
+            ],
+            "reference_id": "3-1-combo",
+            "u": 0.282,
+            "v": 0.192
+          },
+          {
+            "cell": [
+              3,
+              2
+            ],
+            "reference_id": "3-2-combo",
+            "u": 0.272,
+            "v": 0.81
+          },
+          {
+            "cell": [
+              3,
+              4
+            ],
+            "reference_id": "3-4-combo",
+            "u": 0.262,
+            "v": 0.175
+          },
+          {
+            "cell": [
+              3,
+              5
+            ],
+            "reference_id": "3-5-combo",
+            "u": 0.278,
+            "v": 0.799
+          },
+          {
+            "cell": [
+              4,
+              1
+            ],
+            "reference_id": "4-1-combo",
+            "u": 0.269,
+            "v": 0.192
+          },
+          {
+            "cell": [
+              4,
+              5
+            ],
+            "reference_id": "4-5-combo",
+            "u": 0.273,
+            "v": 0.812
+          },
+          {
+            "cell": [
+              5,
+              1
+            ],
+            "reference_id": "5-1-combo",
+            "u": 0.27,
+            "v": 0.192
+          },
+          {
+            "cell": [
+              5,
+              2
+            ],
+            "reference_id": "5-2-combo",
+            "u": 0.272,
+            "v": 0.82
+          },
+          {
+            "cell": [
+              5,
+              4
+            ],
+            "reference_id": "5-4-combo",
+            "u": 0.277,
+            "v": 0.185
+          },
+          {
+            "cell": [
+              5,
+              5
+            ],
+            "reference_id": "5-5-combo",
+            "u": 0.282,
+            "v": 0.812
+          },
+          {
+            "cell": [
+              6,
+              1
+            ],
+            "reference_id": "6-1-combo",
+            "u": 0.279,
+            "v": 0.208
+          },
+          {
+            "cell": [
+              6,
+              5
+            ],
+            "reference_id": "6-5-combo",
+            "u": 0.284,
+            "v": 0.801
+          },
+          {
+            "cell": [
+              7,
+              1
+            ],
+            "reference_id": "7-1-combo",
+            "u": 0.27,
+            "v": 0.202
+          },
+          {
+            "cell": [
+              7,
+              2
+            ],
+            "reference_id": "7-2-combo",
+            "u": 0.28,
+            "v": 0.829
+          },
+          {
+            "cell": [
+              7,
+              4
+            ],
+            "reference_id": "7-4-combo",
+            "u": 0.29,
+            "v": 0.188
+          },
+          {
+            "cell": [
+              7,
+              5
+            ],
+            "reference_id": "7-5-combo",
+            "u": 0.278,
+            "v": 0.806
+          },
+          {
+            "cell": [
+              8,
+              1
+            ],
+            "reference_id": "8-1-combo",
+            "u": 0.281,
+            "v": 0.192
+          },
+          {
+            "cell": [
+              8,
+              5
+            ],
+            "reference_id": "8-5-combo",
+            "u": 0.273,
+            "v": 0.801
+          },
+          {
+            "cell": [
+              9,
+              1
+            ],
+            "reference_id": "9-1-combo",
+            "u": 0.277,
+            "v": 0.187
+          },
+          {
+            "cell": [
+              9,
+              5
+            ],
+            "reference_id": "9-5-combo",
+            "u": 0.268,
+            "v": 0.794
+          },
+          {
+            "cell": [
+              10,
+              1
+            ],
+            "reference_id": "10-1-combo",
+            "u": 0.269,
+            "v": 0.172
+          },
+          {
+            "cell": [
+              10,
+              2
+            ],
+            "reference_id": "10-2-combo",
+            "u": 0.277,
+            "v": 0.823
+          },
+          {
+            "cell": [
+              10,
+              4
+            ],
+            "reference_id": "10-4-combo",
+            "u": 0.269,
+            "v": 0.175
+          },
+          {
+            "cell": [
+              10,
+              5
+            ],
+            "reference_id": "10-5-combo",
+            "u": 0.274,
+            "v": 0.793
+          },
+          {
+            "cell": [
+              11,
+              1
+            ],
+            "reference_id": "11-1-combo",
+            "u": 0.278,
+            "v": 0.176
+          },
+          {
+            "cell": [
+              11,
+              5
+            ],
+            "reference_id": "11-5-combo",
+            "u": 0.28,
+            "v": 0.799
+          },
+          {
+            "cell": [
+              12,
+              1
+            ],
+            "reference_id": "12-1-combo",
+            "u": 0.276,
+            "v": 0.2
+          },
+          {
+            "cell": [
+              12,
+              2
+            ],
+            "reference_id": "12-2-combo",
+            "u": 0.271,
+            "v": 0.82
+          },
+          {
+            "cell": [
+              12,
+              4
+            ],
+            "reference_id": "12-4-combo",
+            "u": 0.271,
+            "v": 0.178
+          },
+          {
+            "cell": [
+              12,
+              5
+            ],
+            "reference_id": "12-5-combo",
+            "u": 0.281,
+            "v": 0.801
+          },
+          {
+            "cell": [
+              13,
+              1
+            ],
+            "reference_id": "13-1-combo",
+            "u": 0.29,
+            "v": 0.199
+          },
+          {
+            "cell": [
+              13,
+              5
+            ],
+            "reference_id": "13-5-combo",
+            "u": 0.295,
+            "v": 0.799
+          },
+          {
+            "cell": [
+              14,
+              1
+            ],
+            "reference_id": "14-1-combo",
+            "u": 0.269,
+            "v": 0.195
+          },
+          {
+            "cell": [
+              14,
+              5
+            ],
+            "reference_id": "14-5-combo",
+            "u": 0.281,
+            "v": 0.812
+          }
+        ],
+        "colours": {
+          "light": "#0072b2",
+          "dark": "#3a9ad9"
+        }
+      },
+      {
+        "id": "irma",
+        "label": "IRMA",
+        "description": "IRMA MATRIX time-of-flight sensors return 25 × 20 distance samples. Their depth observations support room-surface and movement studies.",
+        "positions": [
+          {
+            "cell": [
+              1,
+              1
+            ],
+            "reference_id": "1-1-irma",
+            "u": 0.132,
+            "v": 0.187
+          },
+          {
+            "cell": [
+              1,
+              3
+            ],
+            "reference_id": "1-3-irma",
+            "u": 0.921,
+            "v": 0.48
+          },
+          {
+            "cell": [
+              1,
+              5
+            ],
+            "reference_id": "1-5-irma",
+            "u": 0.145,
+            "v": 0.789
+          },
+          {
+            "cell": [
+              3,
+              1
+            ],
+            "reference_id": "3-1-irma",
+            "u": 0.122,
+            "v": 0.192
+          },
+          {
+            "cell": [
+              3,
+              5
+            ],
+            "reference_id": "3-5-irma",
+            "u": 0.116,
+            "v": 0.793
+          },
+          {
+            "cell": [
+              5,
+              1
+            ],
+            "reference_id": "5-1-irma",
+            "u": 0.112,
+            "v": 0.192
+          },
+          {
+            "cell": [
+              5,
+              5
+            ],
+            "reference_id": "5-5-irma",
+            "u": 0.119,
+            "v": 0.81
+          },
+          {
+            "cell": [
+              7,
+              1
+            ],
+            "reference_id": "7-1-irma",
+            "u": 0.106,
+            "v": 0.199
+          },
+          {
+            "cell": [
+              7,
+              5
+            ],
+            "reference_id": "7-5-irma",
+            "u": 0.134,
+            "v": 0.794
+          },
+          {
+            "cell": [
+              9,
+              1
+            ],
+            "reference_id": "9-1-irma",
+            "u": 0.111,
+            "v": 0.194
+          },
+          {
+            "cell": [
+              9,
+              5
+            ],
+            "reference_id": "9-5-irma",
+            "u": 0.102,
+            "v": 0.789
+          },
+          {
+            "cell": [
+              11,
+              1
+            ],
+            "reference_id": "11-1-irma",
+            "u": 0.121,
+            "v": 0.184
+          },
+          {
+            "cell": [
+              11,
+              5
+            ],
+            "reference_id": "11-5-irma",
+            "u": 0.109,
+            "v": 0.799
+          },
+          {
+            "cell": [
+              13,
+              1
+            ],
+            "reference_id": "13-1-irma",
+            "u": 0.145,
+            "v": 0.208
+          },
+          {
+            "cell": [
+              13,
+              5
+            ],
+            "reference_id": "13-5-irma",
+            "u": 0.137,
+            "v": 0.804
+          },
+          {
+            "cell": [
+              14,
+              1
+            ],
+            "reference_id": "14-1-irma",
+            "u": 0.881,
+            "v": 0.195
+          },
+          {
+            "cell": [
+              14,
+              3
+            ],
+            "reference_id": "14-3-irma",
+            "u": 0.876,
+            "v": 0.496
+          },
+          {
+            "cell": [
+              14,
+              5
+            ],
+            "reference_id": "14-5-irma",
+            "u": 0.869,
+            "v": 0.807
+          }
+        ],
+        "colours": {
+          "light": "#d55e00",
+          "dark": "#d55e00"
+        }
+      }
+    ],
+    "fixtures": [
+      {
+        "kind": "troffer",
+        "label": "Light troffers",
+        "positions": [
+          {
+            "cell": [
+              2,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-007"
+          },
+          {
+            "cell": [
+              2,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-008"
+          },
+          {
+            "cell": [
+              6,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-009"
+          },
+          {
+            "cell": [
+              6,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-010"
+          },
+          {
+            "cell": [
+              9,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-011"
+          },
+          {
+            "cell": [
+              9,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-012"
+          },
+          {
+            "cell": [
+              13,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-013"
+          },
+          {
+            "cell": [
+              13,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-014"
+          },
+          {
+            "cell": [
+              4,
+              3
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-015"
+          },
+          {
+            "cell": [
+              11,
+              3
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-016"
+          }
+        ]
+      },
+      {
+        "kind": "hvac",
+        "label": "HVAC vents",
+        "positions": [
+          {
+            "cell": [
+              4,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-001"
+          },
+          {
+            "cell": [
+              4,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-002"
+          },
+          {
+            "cell": [
+              8,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-003"
+          },
+          {
+            "cell": [
+              8,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-004"
+          },
+          {
+            "cell": [
+              11,
+              4
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-005"
+          },
+          {
+            "cell": [
+              11,
+              2
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-006"
+          }
+        ]
+      },
+      {
+        "kind": "sprinkler",
+        "label": "Sprinklers",
+        "positions": [
+          {
+            "cell": [
+              1,
+              1
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-017"
+          },
+          {
+            "cell": [
+              14,
+              1
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-018"
+          },
+          {
+            "cell": [
+              1,
+              5
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-019"
+          },
+          {
+            "cell": [
+              14,
+              5
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-020"
+          },
+          {
+            "cell": [
+              8,
+              1
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-021"
+          },
+          {
+            "cell": [
+              8,
+              5
+            ],
+            "u": 0.5,
+            "v": 0.5,
+            "reference_id": "FIXTURE-022"
+          }
+        ]
+      }
+    ],
+    "fixtures_source": {
+      "repository": "Project-X-Ceiling",
+      "path": "data/field-map/ceiling_field_map.yaml",
+      "sha256": "89dd5512aed1bd3127926e067d4762875cec1397265db6e0936c1a73b733790c",
+      "updated": "2026-10-24T22:29:06Z",
+      "note": "Tile-level annotations; symbols do not represent measured footprints or live status."
+    }
+  },
+  "help": [
+    {
+      "title": "Lighting",
+      "text": "Check connection reads current settings without changing the lights. If a change cannot be confirmed, the panel reads the lights again; press the control again if needed.",
+      "commands": "",
+      "command_tokens": [],
+      "reference": {
+        "machine": "",
+        "effect": "",
+        "documentation": null,
+        "steps": []
+      }
+    },
+    {
+      "title": "Power",
+      "text": "Low supply voltage can slow the Pi and affect storage reliability. Check its supply, cable and connector; a separately powered LCD does not rule out a Pi power problem.\n\nOpen the reference to distinguish current warnings from earlier ones. Do not hide warnings or repeatedly power-cycle. Shut down normally before changing power.",
+      "commands": "vcgencmd get_throttled",
+      "command_tokens": [
+        {
+          "text": "vcgencmd",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "get_throttled",
+          "kind": "text"
+        }
+      ],
+      "reference": {
+        "machine": "Raspberry Pi",
+        "effect": "Read only",
+        "documentation": {
+          "label": "Raspberry Pi power flags",
+          "url": "https://github.com/raspberrypi/documentation/blob/master/documentation/asciidoc/computers/os/graphics-utilities.adoc#get_throttled"
+        },
+        "steps": [
+          {
+            "title": "Check power warnings",
+            "commands": "vcgencmd get_throttled",
+            "why": "Read the Pi firmware flags when the panel is slow or reports a power warning.",
+            "expect": "0x0 means no flags. Nonzero can include earlier warnings; it does not always mean a fault is active now.",
+            "command_tokens": [
+              {
+                "text": "vcgencmd",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "get_throttled",
+                "kind": "text"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "title": "Ubuntu checks",
+      "text": "Use a Terminal on the Ubuntu room computer. These commands inspect state; they do not start devices.\n\nROS owns room controls. Status owns the TV display and its clients. Session presence alone does not prove health.",
+      "commands": "hostname\n\nuptime\n\nfree -m\n\ndf -h /\n\ntmux list-sessions\n\nsource /opt/ros/indigo/setup.bash\n\nsource ~/catkin_ws/devel/setup.bash\n\ntimeout 10 rosservice list",
+      "command_tokens": [
+        {
+          "text": "hostname",
+          "kind": "command"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "uptime",
+          "kind": "command"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "free",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "-m",
+          "kind": "option"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "df",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "-h",
+          "kind": "option"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "/",
+          "kind": "path"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "tmux",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "list-sessions",
+          "kind": "text"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "source",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "/opt/ros/indigo/setup.bash",
+          "kind": "path"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "source",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "~/catkin_ws/devel/setup.bash",
+          "kind": "path"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "timeout",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "10",
+          "kind": "number"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "rosservice",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "list",
+          "kind": "text"
+        }
+      ],
+      "reference": {
+        "machine": "Ubuntu room computer",
+        "effect": "Check in this order",
+        "documentation": {
+          "label": "How the time limit works",
+          "url": "https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html"
+        },
+        "steps": [
+          {
+            "title": "Confirm the computer",
+            "commands": "hostname",
+            "why": "Check which computer this Terminal is connected to.",
+            "expect": "A host name. Confirm it is the room computer before continuing.",
+            "command_tokens": [
+              {
+                "text": "hostname",
+                "kind": "command"
+              }
+            ]
+          },
+          {
+            "title": "Check running time and load",
+            "commands": "uptime",
+            "why": "See time since boot and recent system load.",
+            "expect": "Uptime and load averages. Load is not a CPU percentage.",
+            "command_tokens": [
+              {
+                "text": "uptime",
+                "kind": "command"
+              }
+            ]
+          },
+          {
+            "title": "Check memory",
+            "commands": "free -m",
+            "why": "Inspect memory in MiB when the room computer feels slow.",
+            "expect": "Memory totals and available/free space. Cached memory is not automatically a problem.",
+            "command_tokens": [
+              {
+                "text": "free",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "-m",
+                "kind": "option"
+              }
+            ]
+          },
+          {
+            "title": "Check storage",
+            "commands": "df -h /",
+            "why": "Check space on the root filesystem before collecting more data.",
+            "expect": "Filesystem size, used space, available space and use percentage.",
+            "command_tokens": [
+              {
+                "text": "df",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "-h",
+                "kind": "option"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "/",
+                "kind": "path"
+              }
+            ]
+          },
+          {
+            "title": "Inspect existing sessions",
+            "commands": "tmux list-sessions",
+            "why": "Look for existing sessions before considering a service start.",
+            "expect": "Session names, or no server. A session name alone does not prove the service is healthy.",
+            "command_tokens": [
+              {
+                "text": "tmux",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "list-sessions",
+                "kind": "text"
+              }
+            ]
+          },
+          {
+            "title": "Load the ROS environment",
+            "commands": "source /opt/ros/indigo/setup.bash",
+            "why": "Make the installed ROS tools available in this Terminal. This does not start ROS.",
+            "expect": "Usually no output. If the file is missing, stop and check the installed setup with staff.",
+            "command_tokens": [
+              {
+                "text": "source",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "/opt/ros/indigo/setup.bash",
+                "kind": "path"
+              }
+            ]
+          },
+          {
+            "title": "Load the room workspace",
+            "commands": "source ~/catkin_ws/devel/setup.bash",
+            "why": "Add the installed room packages to this Terminal after loading ROS.",
+            "expect": "Usually no output. Keep using the same Terminal for the next check.",
+            "command_tokens": [
+              {
+                "text": "source",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "~/catkin_ws/devel/setup.bash",
+                "kind": "path"
+              }
+            ]
+          },
+          {
+            "title": "List advertised services",
+            "commands": "timeout 10 rosservice list",
+            "why": "Ask the configured ROS master for service names, with a ten-second time limit.",
+            "expect": "Service names, an error or a timeout. Names show registration, not working sensors or devices.",
+            "command_tokens": [
+              {
+                "text": "timeout",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "10",
+                "kind": "number"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "rosservice",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "list",
+                "kind": "text"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "title": "Start services",
+      "text": "Room host only: stop experiments and check tmux sessions first. startROS.py replaces the ROS session; startStatus.py replaces Status. Do not use them as a quick connection fix.\n\nInstalled paths below are instructions only, not automatic recovery.",
+      "commands": "cd ~/catkin_ws/src/scr_control && python startROS.py\n\ncd ~/scr.status_display && python startStatus.py",
+      "command_tokens": [
+        {
+          "text": "cd",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "~/catkin_ws/src/scr_control",
+          "kind": "path"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "&&",
+          "kind": "operator"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "python",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "startROS.py",
+          "kind": "path"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "\n",
+          "kind": "text"
+        },
+        {
+          "text": "cd",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "~/scr.status_display",
+          "kind": "path"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "&&",
+          "kind": "operator"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "python",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "startStatus.py",
+          "kind": "path"
+        }
+      ],
+      "reference": {
+        "machine": "Ubuntu room computer",
+        "effect": "Room host only · replaces sessions",
+        "documentation": {
+          "label": "Room operating guide",
+          "url": "https://github.com/LESA-RPI/scr.touch_panel/blob/experiment/fresh-pi-setup-20261013/WORKFLOWS.md#before-connected-control"
+        },
+        "steps": [
+          {
+            "title": "Start the ROS session",
+            "commands": "cd ~/catkin_ws/src/scr_control && python startROS.py",
+            "why": "Only after studies are stopped, ownership is checked and the existing sessions are understood.",
+            "expect": "The launcher replaces the ROS session. Inspect its output and check services before using controls.",
+            "command_tokens": [
+              {
+                "text": "cd",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "~/catkin_ws/src/scr_control",
+                "kind": "path"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "&&",
+                "kind": "operator"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "python",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "startROS.py",
+                "kind": "path"
+              }
+            ]
+          },
+          {
+            "title": "Start the Status session",
+            "commands": "cd ~/scr.status_display && python startStatus.py",
+            "why": "Use only when the room host has decided the shared TV/Status session must be started.",
+            "expect": "The launcher replaces Status. Check the TV and required feeds; a session name is not a health check.",
+            "command_tokens": [
+              {
+                "text": "cd",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "~/scr.status_display",
+                "kind": "path"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "&&",
+                "kind": "operator"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "python",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "startStatus.py",
+                "kind": "path"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "title": "Restart computer",
+      "text": "Room host only: stop recordings and coordinate with other room users. Restarting interrupts shared controls and feeds.\n\nUse the Ubuntu Restart action or its Terminal command below. After the desktop and network return, check ROS and Status; service autostart is not verified.",
+      "commands": "sudo reboot",
+      "command_tokens": [
+        {
+          "text": "sudo",
+          "kind": "command"
+        },
+        {
+          "text": " ",
+          "kind": "text"
+        },
+        {
+          "text": "reboot",
+          "kind": "command"
+        }
+      ],
+      "reference": {
+        "machine": "Ubuntu room computer",
+        "effect": "Room host only · interrupts shared work",
+        "documentation": {
+          "label": "Room recovery guide",
+          "url": "https://github.com/LESA-RPI/scr.touch_panel/blob/experiment/fresh-pi-setup-20261013/WORKFLOWS.md#switching-and-recovery"
+        },
+        "steps": [
+          {
+            "title": "Restart the room computer",
+            "commands": "sudo reboot",
+            "why": "Use after recordings have stopped and room users have coordinated the interruption.",
+            "expect": "The connection ends. Wait for the desktop/network, then check ROS and Status; autostart is not assured.",
+            "command_tokens": [
+              {
+                "text": "sudo",
+                "kind": "command"
+              },
+              {
+                "text": " ",
+                "kind": "text"
+              },
+              {
+                "text": "reboot",
+                "kind": "command"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

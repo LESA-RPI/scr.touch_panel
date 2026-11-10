@@ -1,0 +1,80 @@
+"""Shared room-control labels and readiness. No hardware access or discovery."""
+
+from scr_touch_panel_lights import PRESETS
+import os
+
+LIGHTING_TABS = (
+    ("White light", "white"),
+    ("Scenes", "scenes"),
+    ("Programmes", "programmes"),
+    ("Channels", "channels"),
+)
+PREVIOUS_ON = {
+    "label": "Warm white",
+    "detail": "3500 K, level 1000.",
+    "arguments": {"cct": 3500, "intensity": 1000},
+}
+SCENES = tuple(
+    {"id": name, "label": name,
+     "detail": "Everyday lighting. Same as Lights on." if name == "Fid" else "Room-wide colour mixture."}
+    for name in PRESETS
+    if name != "Off"
+)
+GRADIENT = {"id": "Gradient", "label": "Gradient",
+            "detail": "Colour pattern across the room lights."}
+PROGRAMMES = (
+    {"id": "Sun", "label": "Sun",
+     "detail": "Colour and light-level curve, staggered across the room."},
+    {"id": "Circ", "label": "Circ",
+     "detail": "Colour and light-level curve across the whole room."},
+)
+UNAVAILABLE_LIGHTING = "Lighting programmes are unavailable while the room connection is not configured."
+BLINDS_UNAVAILABLE = "Not available yet: the blind adapter is not connected."
+BLIND_ACTIONS = (
+    ("lift", "Lift blinds"),
+    ("open", "Open slats"),
+    ("close", "Close & lower"),
+)
+
+
+def blind_readiness(enabled, connected, busy=False):
+    if not connected:
+        return {
+            "enabled": bool(enabled),
+            "connected": False,
+            "available": False,
+            "detail": "Disabled",
+            "reason": "Not connected",
+        }
+    if not enabled:
+        return {
+            "enabled": False,
+            "connected": bool(connected),
+            "available": False,
+            "detail": "Disabled",
+            "reason": "Locked in settings",
+        }
+    if busy:
+        return {
+            "enabled": True,
+            "connected": True,
+            "available": False,
+            "detail": "Busy",
+            "reason": "Room controls busy",
+        }
+    return {
+        "enabled": True,
+        "connected": True,
+        "available": True,
+        "detail": "Ready",
+        "reason": "Controls unlocked",
+    }
+
+# Room website shown as a QR code on the panel's About page. After changing it,
+# regenerate the image: npx qrcode -o assets/website-qr.png -w 200 -q 2 "<address>"
+WEBSITE_URL = "http://192.168.0.28:8768/"
+# The room host confirmed this name. Other deployments can override it privately.
+DEFAULT_ROOM_NETWORK_NAME = "SCR_AP"
+ROOM_NETWORK_NAME = os.environ.get("SCR_ROOM_NETWORK_NAME", DEFAULT_ROOM_NETWORK_NAME).strip()
+# Native panel display only: never export this value to browser content or state.
+ROOM_NETWORK_PASSWORD = os.environ.get("SCR_ROOM_NETWORK_PASSWORD", "")

@@ -1,0 +1,65 @@
+/* Generated from app/design_tokens.py by app/export_room_content.py. Do not edit. */
+:root{
+  --bg:#ffffff;
+  --surface:#f5f6f7;
+  --ink:#24292d;
+  --muted:#596269;
+  --control:#e0e5e8;
+  --border:#c9ced2;
+  --accent:#364047;
+  --selected-ink:#ffffff;
+  --accent-pressed:#444f57;
+  --pressed:#d2d9dd;
+  --icon-colour:#515d65;
+  --good:#1d6f44;
+  --warning:#875709;
+  --weather-warm:#a16a24;
+  --weather-cool:#3b7590;
+  --text:16px;
+  --small:14px;
+  --title:19px;
+  --heading:30px;
+  --display:84px;
+  --tap:48px;
+  --space:20px;
+  --pad:28px;
+  --radius:0px;
+  --card-radius:0px;
+  --line:1px;
+}
+[data-theme=dark]{
+  --bg:#171717;
+  --surface:#202020;
+  --ink:#f2f2f2;
+  --muted:#bdbdbd;
+  --control:#303030;
+  --border:#4d4d4d;
+  --accent:#d2d2d2;
+  --selected-ink:#202020;
+  --accent-pressed:#f2f2f2;
+  --pressed:#414141;
+  --icon-colour:#c7cbce;
+  --good:#89caa2;
+  --warning:#e8b86a;
+  --weather-warm:#e5b874;
+  --weather-cool:#8cb8db;
+}
+@media (prefers-color-scheme: dark){
+:root:not([data-theme=light]){
+  --bg:#171717;
+  --surface:#202020;
+  --ink:#f2f2f2;
+  --muted:#bdbdbd;
+  --control:#303030;
+  --border:#4d4d4d;
+  --accent:#d2d2d2;
+  --selected-ink:#202020;
+  --accent-pressed:#f2f2f2;
+  --pressed:#414141;
+  --icon-colour:#c7cbce;
+  --good:#89caa2;
+  --warning:#e8b86a;
+  --weather-warm:#e5b874;
+  --weather-cool:#8cb8db;
+}
+}

@@ -1,0 +1,119 @@
+"""Exploring registered ceiling positions never operates room equipment."""
+
+import pytest
+
+from test_panel_navigation import view, panel
+from panel_guides import CEILING_MAP, DEMO
+
+
+def widgets(parent):
+    yield parent
+    for child in parent.winfo_children():
+        yield from widgets(child)
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize("height", [800, 750])
+def test_ceiling_family_selection_uses_reference_positions_without_room_requests(view, theme, height):
+    def blocked(*args, **kwargs):
+        pytest.fail("A reference map must never request a room action")
+
+    view.request = view.start_worker = blocked
+    view.choose_theme(theme)
+    view.root.geometry("1280x%d" % height)
+    view.choose_guide(next(i for i, topic in enumerate(DEMO) if topic.get("map")))
+    view.root.update()
+    canvas, = [w for w in widgets(view.body) if isinstance(w, panel.tk.Canvas)]
+    for family in CEILING_MAP["families"]:
+        button, = [w for w in widgets(view.body)
+                   if isinstance(w, panel.tk.Button) and w.cget("text") == family["label"]]
+        button.invoke()
+        view.root.update()
+        dots = canvas.find_withtag("sensor")
+        assert len(dots) == len(family["positions"])
+        centers = [(sum(canvas.coords(dot)[::2]) / 2,
+                    sum(canvas.coords(dot)[1::2]) / 2) for dot in dots]
+        assert all(0 < x < canvas.winfo_width() and 0 < y < canvas.winfo_height()
+                   for x, y in centers)
+        grid = [canvas.coords(item) for item in canvas.find_withtag("grid")]
+        left, right = min(min(line[::2]) for line in grid), max(max(line[::2]) for line in grid)
+        top, bottom = min(min(line[1::2]) for line in grid), max(max(line[1::2]) for line in grid)
+        cell_width = (right - left) / CEILING_MAP["grid"]["columns"]
+        cell_height = (bottom - top) / CEILING_MAP["grid"]["rows"]
+        assert cell_width == pytest.approx(cell_height)
+        if height == 800:
+            assert 800 <= right - left <= 900
+            assert cell_width >= 55
+        assert (left + right) / 2 == pytest.approx((42 + canvas.winfo_width() - 18) / 2)
+        assert (top + bottom) / 2 == pytest.approx((12 + canvas.winfo_height() - 32) / 2)
+        assert left >= 42 - 1e-6 and right <= canvas.winfo_width() - 18 + 1e-6
+        assert top >= 12 - 1e-6 and bottom <= canvas.winfo_height() - 32 + 1e-6
+        assert canvas.winfo_height() >= 100
+        fixtures = CEILING_MAP["fixtures"]
+        assert {fixture["kind"]: len(fixture["positions"]) for fixture in fixtures} == {
+            "hvac": 6, "troffer": 10, "sprinkler": 6,
+        }
+        fixture_items = canvas.find_withtag("fixture")
+        assert len(fixture_items) == 6 * 3 + 10 + 6 * 2
+        assert max(fixture_items) < min(dots)  # Context stays behind interactive sensor markers.
+        for fixture in fixtures:
+            for position in fixture["positions"]:
+                items = canvas.find_withtag(position["reference_id"])
+                assert len(items) == {"hvac": 3, "troffer": 1, "sprinkler": 2}[fixture["kind"]]
+                assert all("sensor" not in canvas.gettags(item)
+                           and canvas.itemcget(item, "fill" if canvas.type(item) == "line" else "outline") == view.border
+                           for item in items)
+        for item in canvas.find_all():
+            if canvas.type(item) == "text":
+                x0, y0, x1, y1 = canvas.bbox(item)
+                assert 0 <= x0 < x1 <= canvas.winfo_width()
+                assert 0 <= y0 < y1 <= canvas.winfo_height()
+        assert all(canvas.itemcget(dot, "fill") == family["colours"][theme] for dot in dots)
+        for point, center in zip(family["positions"], centers):
+            column, row = point["cell"]
+            assert center == pytest.approx((left + (column - 1 + point["u"]) * cell_width,
+                                            bottom - (row - 1 + point["v"]) * cell_height))
+        # Canvas y increases downwards, so row one belongs below row five.
+        assert all(a[1] > b[1]
+                   for i, a in enumerate(centers) for j, b in enumerate(centers)
+                   if family["positions"][i]["cell"][1] < family["positions"][j]["cell"][1])
+        labels = [w for w in widgets(view.body) if isinstance(w, panel.tk.Label)]
+        rail_buttons = [w for w in widgets(view.body) if isinstance(w, panel.tk.Button)
+                        and w.cget("text") in [f["label"] for f in CEILING_MAP["families"]]]
+        assert len({button.winfo_rootx() for button in rail_buttons}) == 1
+        assert min(button.winfo_rootx() for button in rail_buttons) >= canvas.winfo_rootx() + canvas.winfo_width()
+        assert all(button.winfo_height() >= 44 for button in rail_buttons)
+        assert any(w.cget("text").startswith(
+            "%s · %d positions" % (family["label"], len(dots))
+        ) for w in labels)
+        point = family["positions"][0]
+        canvas.event_generate("<ButtonPress-1>", x=round(centers[0][0]), y=round(centers[0][1]))
+        canvas.event_generate("<ButtonRelease-1>", x=round(centers[0][0]), y=round(centers[0][1]))
+        view.root.update()
+        assert not view.press_active
+        assert any(w.cget("text").startswith("%s · R%dC%d\nReference %s" % (
+            family["label"], *point["cell"], point["reference_id"]
+        )) for w in labels)
+        empty = next((column, row) for column in range(1, 15) for row in range(1, 6)
+                     if [column, row] not in [p["cell"] for p in family["positions"]])
+        canvas.event_generate("<ButtonPress-1>", x=round(left + (empty[0] - 0.5) * cell_width),
+                              y=round(bottom - (empty[1] - 0.5) * cell_height))
+        canvas.event_generate("<ButtonRelease-1>", x=round(left + (empty[0] - 0.5) * cell_width),
+                              y=round(bottom - (empty[1] - 0.5) * cell_height))
+        view.root.update()
+        assert any(w.cget("text").startswith("%s · R%dC%d\nNo registered position" % (
+            family["label"], *empty
+        )) for w in labels)
+        fixture_cell = fixtures[0]["positions"][0]["cell"]
+        canvas.event_generate("<ButtonPress-1>", x=round(left + (fixture_cell[0] - .5) * cell_width),
+                              y=round(bottom - (fixture_cell[1] - .5) * cell_height))
+        canvas.event_generate("<ButtonRelease-1>", x=round(left + (fixture_cell[0] - .5) * cell_width),
+                              y=round(bottom - (fixture_cell[1] - .5) * cell_height))
+        view.root.update()
+        sensor = next((p for p in family["positions"] if p["cell"] == fixture_cell), None)
+        expected = "Reference " + sensor["reference_id"] if sensor else "No registered position"
+        assert any(w.cget("text").startswith("%s · R%dC%d\n%s" % (
+            family["label"], *fixture_cell, expected
+        )) for w in labels)
+        assert all(w.winfo_height() >= w.winfo_reqheight()
+                   for w in labels if w.winfo_ismapped())

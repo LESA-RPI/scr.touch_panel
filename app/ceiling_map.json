@@ -1,0 +1,1298 @@
+{
+  "schema_version": 2,
+  "title": "Ceiling sensor map",
+  "caption": "Choose a family, then tap a marker for its name, reference ID and sensor details.",
+  "grid": {
+    "columns": 14,
+    "rows": 5,
+    "row_one_edge": "bottom"
+  },
+  "orientation": "Reference grid: R1–R14 along the long axis; C1–C5 across. The displayed origin is at the lower left.",
+  "note": "Faint squares: light troffers; slatted squares: HVAC vents; crosses: sprinklers. Approximate positions; symbols do not show size or live status. Four side-mounted Color sensors omitted.",
+  "source": {
+    "repository": "Project-X-Ceiling",
+    "path": "data/output/sensor-extraction/sensors_all_m.csv",
+    "date": "2026-02-24",
+    "sha256": "3043c19b74a23d817c5b0c11221879815ca9dbdb324855017ea837b681e16f77",
+    "calibration": {
+      "configuration_path": "config/ceiling_field_map.yaml",
+      "configuration_sha256": "e5c936e385bcc0c5bc86787755a7b483fa46bec4e2f7c38538656b3ba7bfd252",
+      "method_path": "project_x_ceiling/field_map/sources.py",
+      "method_sha256": "c3ff776771ed1533e5c38057099b90e259f03eaf0d40075037f396a90fed8035",
+      "method": "calibrate_grid",
+      "offset_origin": "lower-left",
+      "offset_decimal_places": 3,
+      "source": "color_sensors",
+      "grid_origin_x_m": 0.00068884293951256,
+      "grid_origin_y_m": -0.0007497753818507813,
+      "cell_width_m": 0.6084983695769538,
+      "cell_height_m": 0.6131904761904762,
+      "sensor_count": 53,
+      "inlier_count": 52,
+      "residual_rms_m": 0.008332069093828807
+    },
+    "palette": {
+      "path": "project_x_ceiling/field_map/static/base.css",
+      "sha256": "b5c0f572fcbf0e11080629b5c421ad3fae812819f1a1a390e8fcd03ea1611d10"
+    }
+  },
+  "families": [
+    {
+      "id": "color",
+      "label": "Color",
+      "description": "TCS34725 sensors measure red, green, blue and clear light channels. These ceiling sensors observe changes in room light; they do not form a camera image.",
+      "positions": [
+        {
+          "cell": [
+            1,
+            1
+          ],
+          "reference_id": "1-1-color",
+          "u": 0.137,
+          "v": 0.497
+        },
+        {
+          "cell": [
+            1,
+            2
+          ],
+          "reference_id": "1-2-color",
+          "u": 0.119,
+          "v": 0.471
+        },
+        {
+          "cell": [
+            1,
+            3
+          ],
+          "reference_id": "1-3-color",
+          "u": 0.814,
+          "v": 0.469
+        },
+        {
+          "cell": [
+            1,
+            4
+          ],
+          "reference_id": "1-4-color",
+          "u": 0.134,
+          "v": 0.473
+        },
+        {
+          "cell": [
+            1,
+            5
+          ],
+          "reference_id": "1-5-color",
+          "u": 0.15,
+          "v": 0.463
+        },
+        {
+          "cell": [
+            2,
+            1
+          ],
+          "reference_id": "2-1-color",
+          "u": 0.108,
+          "v": 0.508
+        },
+        {
+          "cell": [
+            2,
+            3
+          ],
+          "reference_id": "2-3-color",
+          "u": 0.118,
+          "v": 0.491
+        },
+        {
+          "cell": [
+            2,
+            5
+          ],
+          "reference_id": "2-5-color",
+          "u": 0.141,
+          "v": 0.478
+        },
+        {
+          "cell": [
+            3,
+            1
+          ],
+          "reference_id": "3-1-color",
+          "u": 0.13,
+          "v": 0.481
+        },
+        {
+          "cell": [
+            3,
+            2
+          ],
+          "reference_id": "3-2-color",
+          "u": 0.111,
+          "v": 0.503
+        },
+        {
+          "cell": [
+            3,
+            3
+          ],
+          "reference_id": "3-3-color",
+          "u": 0.112,
+          "v": 0.501
+        },
+        {
+          "cell": [
+            3,
+            4
+          ],
+          "reference_id": "3-4-color",
+          "u": 0.109,
+          "v": 0.498
+        },
+        {
+          "cell": [
+            3,
+            5
+          ],
+          "reference_id": "3-5-color",
+          "u": 0.124,
+          "v": 0.489
+        },
+        {
+          "cell": [
+            4,
+            1
+          ],
+          "reference_id": "4-1-color",
+          "u": 0.12,
+          "v": 0.512
+        },
+        {
+          "cell": [
+            4,
+            5
+          ],
+          "reference_id": "4-5-color",
+          "u": 0.133,
+          "v": 0.502
+        },
+        {
+          "cell": [
+            5,
+            1
+          ],
+          "reference_id": "5-1-color",
+          "u": 0.129,
+          "v": 0.512
+        },
+        {
+          "cell": [
+            5,
+            2
+          ],
+          "reference_id": "5-2-color",
+          "u": 0.119,
+          "v": 0.502
+        },
+        {
+          "cell": [
+            5,
+            3
+          ],
+          "reference_id": "5-3-color",
+          "u": 0.116,
+          "v": 0.501
+        },
+        {
+          "cell": [
+            5,
+            4
+          ],
+          "reference_id": "5-4-color",
+          "u": 0.13,
+          "v": 0.511
+        },
+        {
+          "cell": [
+            5,
+            5
+          ],
+          "reference_id": "5-5-color",
+          "u": 0.129,
+          "v": 0.523
+        },
+        {
+          "cell": [
+            6,
+            1
+          ],
+          "reference_id": "6-1-color",
+          "u": 0.125,
+          "v": 0.531
+        },
+        {
+          "cell": [
+            6,
+            3
+          ],
+          "reference_id": "6-3-color",
+          "u": 0.125,
+          "v": 0.506
+        },
+        {
+          "cell": [
+            6,
+            5
+          ],
+          "reference_id": "6-5-color",
+          "u": 0.133,
+          "v": 0.504
+        },
+        {
+          "cell": [
+            7,
+            1
+          ],
+          "reference_id": "7-1-color",
+          "u": 0.116,
+          "v": 0.523
+        },
+        {
+          "cell": [
+            7,
+            2
+          ],
+          "reference_id": "7-2-color",
+          "u": 0.127,
+          "v": 0.506
+        },
+        {
+          "cell": [
+            7,
+            3
+          ],
+          "reference_id": "7-3-color",
+          "u": 0.114,
+          "v": 0.508
+        },
+        {
+          "cell": [
+            7,
+            4
+          ],
+          "reference_id": "7-4-color",
+          "u": 0.132,
+          "v": 0.511
+        },
+        {
+          "cell": [
+            7,
+            5
+          ],
+          "reference_id": "7-5-color",
+          "u": 0.124,
+          "v": 0.512
+        },
+        {
+          "cell": [
+            8,
+            1
+          ],
+          "reference_id": "8-1-color",
+          "u": 0.159,
+          "v": 0.484
+        },
+        {
+          "cell": [
+            8,
+            5
+          ],
+          "reference_id": "8-5-color",
+          "u": 0.146,
+          "v": 0.522
+        },
+        {
+          "cell": [
+            9,
+            1
+          ],
+          "reference_id": "9-1-color",
+          "u": 0.127,
+          "v": 0.469
+        },
+        {
+          "cell": [
+            9,
+            3
+          ],
+          "reference_id": "9-3-color",
+          "u": 0.106,
+          "v": 0.501
+        },
+        {
+          "cell": [
+            9,
+            5
+          ],
+          "reference_id": "9-5-color",
+          "u": 0.119,
+          "v": 0.512
+        },
+        {
+          "cell": [
+            10,
+            1
+          ],
+          "reference_id": "10-1-color",
+          "u": 0.12,
+          "v": 0.502
+        },
+        {
+          "cell": [
+            10,
+            2
+          ],
+          "reference_id": "10-2-color",
+          "u": 0.126,
+          "v": 0.495
+        },
+        {
+          "cell": [
+            10,
+            3
+          ],
+          "reference_id": "10-3-color",
+          "u": 0.115,
+          "v": 0.506
+        },
+        {
+          "cell": [
+            10,
+            4
+          ],
+          "reference_id": "10-4-color",
+          "u": 0.116,
+          "v": 0.496
+        },
+        {
+          "cell": [
+            10,
+            5
+          ],
+          "reference_id": "10-5-color",
+          "u": 0.115,
+          "v": 0.499
+        },
+        {
+          "cell": [
+            11,
+            1
+          ],
+          "reference_id": "11-1-color",
+          "u": 0.127,
+          "v": 0.464
+        },
+        {
+          "cell": [
+            11,
+            5
+          ],
+          "reference_id": "11-5-color",
+          "u": 0.124,
+          "v": 0.507
+        },
+        {
+          "cell": [
+            12,
+            1
+          ],
+          "reference_id": "12-1-color",
+          "u": 0.115,
+          "v": 0.523
+        },
+        {
+          "cell": [
+            12,
+            2
+          ],
+          "reference_id": "12-2-color",
+          "u": 0.108,
+          "v": 0.505
+        },
+        {
+          "cell": [
+            12,
+            3
+          ],
+          "reference_id": "12-3-color",
+          "u": 0.12,
+          "v": 0.508
+        },
+        {
+          "cell": [
+            12,
+            4
+          ],
+          "reference_id": "12-4-color",
+          "u": 0.121,
+          "v": 0.509
+        },
+        {
+          "cell": [
+            12,
+            5
+          ],
+          "reference_id": "12-5-color",
+          "u": 0.125,
+          "v": 0.501
+        },
+        {
+          "cell": [
+            13,
+            1
+          ],
+          "reference_id": "13-1-color",
+          "u": 0.135,
+          "v": 0.499
+        },
+        {
+          "cell": [
+            13,
+            3
+          ],
+          "reference_id": "13-3-color",
+          "u": 0.121,
+          "v": 0.506
+        },
+        {
+          "cell": [
+            13,
+            5
+          ],
+          "reference_id": "13-5-color",
+          "u": 0.152,
+          "v": 0.507
+        },
+        {
+          "cell": [
+            14,
+            1
+          ],
+          "reference_id": "14-1-color",
+          "u": 0.126,
+          "v": 0.504
+        },
+        {
+          "cell": [
+            14,
+            2
+          ],
+          "reference_id": "14-2-color",
+          "u": 0.128,
+          "v": 0.505
+        },
+        {
+          "cell": [
+            14,
+            3
+          ],
+          "reference_id": "14-3-color",
+          "u": 0.12,
+          "v": 0.505
+        },
+        {
+          "cell": [
+            14,
+            4
+          ],
+          "reference_id": "14-4-color",
+          "u": 0.118,
+          "v": 0.504
+        },
+        {
+          "cell": [
+            14,
+            5
+          ],
+          "reference_id": "14-5-color",
+          "u": 0.151,
+          "v": 0.481
+        }
+      ],
+      "colours": {
+        "light": "#56b4e9",
+        "dark": "#7cc6ef"
+      }
+    },
+    {
+      "id": "combo",
+      "label": "COMBO",
+      "description": "STM32WB55 board with VL53L8CX 8 × 8 time-of-flight distances and TCS3430 XYZ/IR light-channel readings.",
+      "positions": [
+        {
+          "cell": [
+            1,
+            1
+          ],
+          "reference_id": "1-1-combo",
+          "u": 0.277,
+          "v": 0.197
+        },
+        {
+          "cell": [
+            1,
+            2
+          ],
+          "reference_id": "1-2-combo",
+          "u": 0.275,
+          "v": 0.803
+        },
+        {
+          "cell": [
+            1,
+            4
+          ],
+          "reference_id": "1-4-combo",
+          "u": 0.282,
+          "v": 0.168
+        },
+        {
+          "cell": [
+            1,
+            5
+          ],
+          "reference_id": "1-5-combo",
+          "u": 0.309,
+          "v": 0.789
+        },
+        {
+          "cell": [
+            2,
+            1
+          ],
+          "reference_id": "2-1-combo",
+          "u": 0.258,
+          "v": 0.182
+        },
+        {
+          "cell": [
+            2,
+            5
+          ],
+          "reference_id": "2-5-combo",
+          "u": 0.284,
+          "v": 0.794
+        },
+        {
+          "cell": [
+            3,
+            1
+          ],
+          "reference_id": "3-1-combo",
+          "u": 0.282,
+          "v": 0.192
+        },
+        {
+          "cell": [
+            3,
+            2
+          ],
+          "reference_id": "3-2-combo",
+          "u": 0.272,
+          "v": 0.81
+        },
+        {
+          "cell": [
+            3,
+            4
+          ],
+          "reference_id": "3-4-combo",
+          "u": 0.262,
+          "v": 0.175
+        },
+        {
+          "cell": [
+            3,
+            5
+          ],
+          "reference_id": "3-5-combo",
+          "u": 0.278,
+          "v": 0.799
+        },
+        {
+          "cell": [
+            4,
+            1
+          ],
+          "reference_id": "4-1-combo",
+          "u": 0.269,
+          "v": 0.192
+        },
+        {
+          "cell": [
+            4,
+            5
+          ],
+          "reference_id": "4-5-combo",
+          "u": 0.273,
+          "v": 0.812
+        },
+        {
+          "cell": [
+            5,
+            1
+          ],
+          "reference_id": "5-1-combo",
+          "u": 0.27,
+          "v": 0.192
+        },
+        {
+          "cell": [
+            5,
+            2
+          ],
+          "reference_id": "5-2-combo",
+          "u": 0.272,
+          "v": 0.82
+        },
+        {
+          "cell": [
+            5,
+            4
+          ],
+          "reference_id": "5-4-combo",
+          "u": 0.277,
+          "v": 0.185
+        },
+        {
+          "cell": [
+            5,
+            5
+          ],
+          "reference_id": "5-5-combo",
+          "u": 0.282,
+          "v": 0.812
+        },
+        {
+          "cell": [
+            6,
+            1
+          ],
+          "reference_id": "6-1-combo",
+          "u": 0.279,
+          "v": 0.208
+        },
+        {
+          "cell": [
+            6,
+            5
+          ],
+          "reference_id": "6-5-combo",
+          "u": 0.284,
+          "v": 0.801
+        },
+        {
+          "cell": [
+            7,
+            1
+          ],
+          "reference_id": "7-1-combo",
+          "u": 0.27,
+          "v": 0.202
+        },
+        {
+          "cell": [
+            7,
+            2
+          ],
+          "reference_id": "7-2-combo",
+          "u": 0.28,
+          "v": 0.829
+        },
+        {
+          "cell": [
+            7,
+            4
+          ],
+          "reference_id": "7-4-combo",
+          "u": 0.29,
+          "v": 0.188
+        },
+        {
+          "cell": [
+            7,
+            5
+          ],
+          "reference_id": "7-5-combo",
+          "u": 0.278,
+          "v": 0.806
+        },
+        {
+          "cell": [
+            8,
+            1
+          ],
+          "reference_id": "8-1-combo",
+          "u": 0.281,
+          "v": 0.192
+        },
+        {
+          "cell": [
+            8,
+            5
+          ],
+          "reference_id": "8-5-combo",
+          "u": 0.273,
+          "v": 0.801
+        },
+        {
+          "cell": [
+            9,
+            1
+          ],
+          "reference_id": "9-1-combo",
+          "u": 0.277,
+          "v": 0.187
+        },
+        {
+          "cell": [
+            9,
+            5
+          ],
+          "reference_id": "9-5-combo",
+          "u": 0.268,
+          "v": 0.794
+        },
+        {
+          "cell": [
+            10,
+            1
+          ],
+          "reference_id": "10-1-combo",
+          "u": 0.269,
+          "v": 0.172
+        },
+        {
+          "cell": [
+            10,
+            2
+          ],
+          "reference_id": "10-2-combo",
+          "u": 0.277,
+          "v": 0.823
+        },
+        {
+          "cell": [
+            10,
+            4
+          ],
+          "reference_id": "10-4-combo",
+          "u": 0.269,
+          "v": 0.175
+        },
+        {
+          "cell": [
+            10,
+            5
+          ],
+          "reference_id": "10-5-combo",
+          "u": 0.274,
+          "v": 0.793
+        },
+        {
+          "cell": [
+            11,
+            1
+          ],
+          "reference_id": "11-1-combo",
+          "u": 0.278,
+          "v": 0.176
+        },
+        {
+          "cell": [
+            11,
+            5
+          ],
+          "reference_id": "11-5-combo",
+          "u": 0.28,
+          "v": 0.799
+        },
+        {
+          "cell": [
+            12,
+            1
+          ],
+          "reference_id": "12-1-combo",
+          "u": 0.276,
+          "v": 0.2
+        },
+        {
+          "cell": [
+            12,
+            2
+          ],
+          "reference_id": "12-2-combo",
+          "u": 0.271,
+          "v": 0.82
+        },
+        {
+          "cell": [
+            12,
+            4
+          ],
+          "reference_id": "12-4-combo",
+          "u": 0.271,
+          "v": 0.178
+        },
+        {
+          "cell": [
+            12,
+            5
+          ],
+          "reference_id": "12-5-combo",
+          "u": 0.281,
+          "v": 0.801
+        },
+        {
+          "cell": [
+            13,
+            1
+          ],
+          "reference_id": "13-1-combo",
+          "u": 0.29,
+          "v": 0.199
+        },
+        {
+          "cell": [
+            13,
+            5
+          ],
+          "reference_id": "13-5-combo",
+          "u": 0.295,
+          "v": 0.799
+        },
+        {
+          "cell": [
+            14,
+            1
+          ],
+          "reference_id": "14-1-combo",
+          "u": 0.269,
+          "v": 0.195
+        },
+        {
+          "cell": [
+            14,
+            5
+          ],
+          "reference_id": "14-5-combo",
+          "u": 0.281,
+          "v": 0.812
+        }
+      ],
+      "colours": {
+        "light": "#0072b2",
+        "dark": "#3a9ad9"
+      }
+    },
+    {
+      "id": "irma",
+      "label": "IRMA",
+      "description": "IRMA MATRIX time-of-flight sensors return 25 × 20 distance samples. Their depth observations support room-surface and movement studies.",
+      "positions": [
+        {
+          "cell": [
+            1,
+            1
+          ],
+          "reference_id": "1-1-irma",
+          "u": 0.132,
+          "v": 0.187
+        },
+        {
+          "cell": [
+            1,
+            3
+          ],
+          "reference_id": "1-3-irma",
+          "u": 0.921,
+          "v": 0.48
+        },
+        {
+          "cell": [
+            1,
+            5
+          ],
+          "reference_id": "1-5-irma",
+          "u": 0.145,
+          "v": 0.789
+        },
+        {
+          "cell": [
+            3,
+            1
+          ],
+          "reference_id": "3-1-irma",
+          "u": 0.122,
+          "v": 0.192
+        },
+        {
+          "cell": [
+            3,
+            5
+          ],
+          "reference_id": "3-5-irma",
+          "u": 0.116,
+          "v": 0.793
+        },
+        {
+          "cell": [
+            5,
+            1
+          ],
+          "reference_id": "5-1-irma",
+          "u": 0.112,
+          "v": 0.192
+        },
+        {
+          "cell": [
+            5,
+            5
+          ],
+          "reference_id": "5-5-irma",
+          "u": 0.119,
+          "v": 0.81
+        },
+        {
+          "cell": [
+            7,
+            1
+          ],
+          "reference_id": "7-1-irma",
+          "u": 0.106,
+          "v": 0.199
+        },
+        {
+          "cell": [
+            7,
+            5
+          ],
+          "reference_id": "7-5-irma",
+          "u": 0.134,
+          "v": 0.794
+        },
+        {
+          "cell": [
+            9,
+            1
+          ],
+          "reference_id": "9-1-irma",
+          "u": 0.111,
+          "v": 0.194
+        },
+        {
+          "cell": [
+            9,
+            5
+          ],
+          "reference_id": "9-5-irma",
+          "u": 0.102,
+          "v": 0.789
+        },
+        {
+          "cell": [
+            11,
+            1
+          ],
+          "reference_id": "11-1-irma",
+          "u": 0.121,
+          "v": 0.184
+        },
+        {
+          "cell": [
+            11,
+            5
+          ],
+          "reference_id": "11-5-irma",
+          "u": 0.109,
+          "v": 0.799
+        },
+        {
+          "cell": [
+            13,
+            1
+          ],
+          "reference_id": "13-1-irma",
+          "u": 0.145,
+          "v": 0.208
+        },
+        {
+          "cell": [
+            13,
+            5
+          ],
+          "reference_id": "13-5-irma",
+          "u": 0.137,
+          "v": 0.804
+        },
+        {
+          "cell": [
+            14,
+            1
+          ],
+          "reference_id": "14-1-irma",
+          "u": 0.881,
+          "v": 0.195
+        },
+        {
+          "cell": [
+            14,
+            3
+          ],
+          "reference_id": "14-3-irma",
+          "u": 0.876,
+          "v": 0.496
+        },
+        {
+          "cell": [
+            14,
+            5
+          ],
+          "reference_id": "14-5-irma",
+          "u": 0.869,
+          "v": 0.807
+        }
+      ],
+      "colours": {
+        "light": "#d55e00",
+        "dark": "#d55e00"
+      }
+    }
+  ],
+  "fixtures": [
+    {
+      "kind": "troffer",
+      "label": "Light troffers",
+      "positions": [
+        {
+          "cell": [
+            2,
+            4
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-007"
+        },
+        {
+          "cell": [
+            2,
+            2
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-008"
+        },
+        {
+          "cell": [
+            6,
+            4
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-009"
+        },
+        {
+          "cell": [
+            6,
+            2
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-010"
+        },
+        {
+          "cell": [
+            9,
+            4
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-011"
+        },
+        {
+          "cell": [
+            9,
+            2
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-012"
+        },
+        {
+          "cell": [
+            13,
+            4
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-013"
+        },
+        {
+          "cell": [
+            13,
+            2
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-014"
+        },
+        {
+          "cell": [
+            4,
+            3
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-015"
+        },
+        {
+          "cell": [
+            11,
+            3
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-016"
+        }
+      ]
+    },
+    {
+      "kind": "hvac",
+      "label": "HVAC vents",
+      "positions": [
+        {
+          "cell": [
+            4,
+            4
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-001"
+        },
+        {
+          "cell": [
+            4,
+            2
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-002"
+        },
+        {
+          "cell": [
+            8,
+            4
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-003"
+        },
+        {
+          "cell": [
+            8,
+            2
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-004"
+        },
+        {
+          "cell": [
+            11,
+            4
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-005"
+        },
+        {
+          "cell": [
+            11,
+            2
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-006"
+        }
+      ]
+    },
+    {
+      "kind": "sprinkler",
+      "label": "Sprinklers",
+      "positions": [
+        {
+          "cell": [
+            1,
+            1
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-017"
+        },
+        {
+          "cell": [
+            14,
+            1
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-018"
+        },
+        {
+          "cell": [
+            1,
+            5
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-019"
+        },
+        {
+          "cell": [
+            14,
+            5
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-020"
+        },
+        {
+          "cell": [
+            8,
+            1
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-021"
+        },
+        {
+          "cell": [
+            8,
+            5
+          ],
+          "u": 0.5,
+          "v": 0.5,
+          "reference_id": "FIXTURE-022"
+        }
+      ]
+    }
+  ],
+  "fixtures_source": {
+    "repository": "Project-X-Ceiling",
+    "path": "data/field-map/ceiling_field_map.yaml",
+    "sha256": "89dd5512aed1bd3127926e067d4762875cec1397265db6e0936c1a73b733790c",
+    "updated": "2026-10-24T22:29:06Z",
+    "note": "Tile-level annotations; symbols do not represent measured footprints or live status."
+  }
+}

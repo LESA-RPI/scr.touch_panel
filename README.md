@@ -1,29 +1,163 @@
 # SCR room touch panel
 
-Touch controls for the LESA Smart Conference Room. The original application and
-the newer Beta client have separate entrypoints and share the existing room
-services. Beta does not yet cover every original feature.
+Touch controls and room guidance for the LESA Smart Conference Room. **Beta**
+provides everyday lighting, room tools and a shared website. **Legacy** opens the
+unchanged original application, with a navigation strip above it. Its original
+controls and behaviour remain the stable fallback while Beta is under development.
 
-## Choose the version
+Earlier navigation, reliability and Legacy-parity changes are reviewed in
+[PR #3](https://github.com/LESA-RPI/scr.touch_panel/pull/3), on
+`fix/panel-navigation-transitions`. The earlier setup is recorded in
+[PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1). An installed cabinet may
+run a different commit; check its release identity before maintenance.
 
-| Version | Source and setup |
+The current source version is **0.2.20**, owned by
+[app/panel_version.py](app/panel_version.py).
+It is for About and internal development/GitHub tracking; everyday headers say
+Beta. Legacy is the preserved older baseline for backtracking, identified by Git
+history rather than an invented release number. The Git commit identifies exactly
+what is deployed. No automatic tags or
+separate release process are required.
+
+## For room users
+
+| Screen | Purpose |
 |---|---|
-| Original application | [main.py](main.py); requires the installed custom ROS clients and room environment |
-| Earlier Beta baseline | [app/scr_touch_panel.py](app/scr_touch_panel.py) on `main`; installed launcher expects Ubuntu/Python 2.7 |
-| Fresh Pi OS and current Beta | [Branch README](https://github.com/LESA-RPI/scr.touch_panel/blob/experiment/fresh-pi-setup-20261013/README.md); Python 3 setup and newer interface under review in [PR #1](https://github.com/LESA-RPI/scr.touch_panel/pull/1) |
+| Home | Lights on/off, optional blind controls and clock/weather |
+| Room tools | Lighting, system/help and device preferences in one sidebar |
+| Demo & guide | Explore the room through a visual tour, or open concise control help |
 
-The newer interface calls the original application **Legacy**. This baseline
-uses **Original**. Check the cabinet's installed release before maintenance;
-the default branch does not identify what is running on a device.
+Home is the default screen. **Lights on applies Fid** on both Beta and the website.
+The former On setting (3500 K, level 1000) is available as **Warm white** under
+Room tools → Lighting → White light. Fid remains in Scenes, marked as the same
+setting as Lights on.
+Demo & guide shows **Room tour** and **Control help** together, with direct topic
+links and a clear return to each list.
+The tour explains the ten lights and eight channels, COMBO distance/colour sensing,
+IRMA distance arrays and the separate Color network. Its ceiling schematic lets
+visitors select a sensor family; positions are a dated reference, not live status.
+Markers use the reference layout's colours and approximate within-cell positions.
+Tap a marker or cell for its reference ID and R/C grid name. Back to topics returns
+to the topic list. Two-choice preferences show both options directly.
+The [LESA room guide](https://app.notion.com/p/f8f36eb121b04faeac3259d5ce380308)
+provides broader room and research context.
+Browsing starts no equipment. Explicit scene buttons in the lighting story can
+change room lights through the same guarded controller as Lighting. Direct page
+links and remembered topics make it easy to explore, try controls and return.
+The guide also shows how to join **SCR_AP** and open the room website by QR code.
+The access key is supplied by private deployment settings and shown only on the
+physical panel; ask the room host if access details are unavailable.
+Room tools → Lighting groups **White light, Scenes,
+Programmes and Channels**. Fid, Sat and Dul retain their original mixtures.
+Scenes also offers the original ten-light Gradient when its service is available.
+Programmes provides the original Sun and Circ Start controls and Stop programmes
+when the existing programme service is configured. Sun staggers its curve across
+the room; Circ applies its curve to the room together. A programme acknowledgement
+confirms only that the request was accepted, not that the programme is running.
+An explicit manual lighting action stops programmes and checks stable drive settings
+before applying. Opening another Beta page does not stop a programme.
+Empty Dynamic CCT, Dynamic Intensity and Auto placeholders and the old Enable
+Sliders gate are omitted.
 
-## Try the baseline without room hardware
+Home includes Lift blinds, Open slats and Close & lower through the shared room
+controller when its blind services are available. Service acceptance does not
+measure physical blind position. Screen & controls can show or hide the Home
+controls. The saved movement permission defaults to Locked; no unlock
+control is offered while the adapter is disconnected. Changing visibility never
+moves equipment or grants permission. Room tools keeps detailed controls together.
+The Legacy shortcut starts the original app on demand while website lighting pauses.
+Back to Home closes Legacy, stops Sun/Circ and checks stable settings before
+returning to Ready, keeping current light levels. If the return fails, press
+Check connection to try again; Legacy can also be reopened.
+Room tools opens each tool directly beside the sidebar and
+remembers the last tool.
 
-Use desktop Python 3.11 or newer with Tk available. `python -m tkinter` checks
-Tk. On Linux, install distribution Tk and virtual-environment packages if needed.
+Home and the idle view show outdoor temperature, conditions, feels-like temperature,
+today's high/low and rain chance when available, plus daylight. Source/model
+details remain under Room tools → Date & weather. Earlier data is clearly dated.
+Forecast labels and values use an aligned grid; missing values show a dash.
+The screensaver gives the clock larger digits with a smaller AM/PM indicator,
+beside weather and the daylight bar. Touch anywhere opens Home.
+
+Light buttons queue immediately on release; sliders send after your touch settles.
+Large values show your selection; the feedback
+area shows the last confirmed controller settings and their age. **Ready** means
+the lighting adapter is available. It does not confirm every room sensor is healthy
+or measure physical brightness. Home and Lighting state the last confirmed power
+and settings in words, with the age of that readback. Pending or uncertain results
+remain explicit. A custom mix is described as custom rather than a saved scene.
+Routine Ready confirmations stay in
+the feedback area; the footer is reserved for explanations, progress and problems.
+Room tools keeps its sidebar in place while changing tools. Unchanged clock/status
+values do not trigger another redraw. Resource checks run in the background so
+slow reads do not hold up touches.
+Lighting presses never wait for storage. Only Legacy handoffs
+are saved before they proceed.
+Home, the screen saver and Lighting tabs reuse their existing widgets when you
+return. Readback, availability and slider bindings refresh before controls are
+shown; this does not cache lighting commands or bypass controller checks.
+Browsing Guide, Settings or About does not disable lighting
+on the other interface. Pending work, Legacy, a blank panel
+and uncertain results retain their control guards.
+
+White light shows the minimum and maximum beside each slider, and lighting
+sliders explain that their values apply automatically. The lighting status badge
+opens connection guidance directly, even after browsing other help.
+System & help separates read-only checks, aligned panel readings and room services,
+panel actions, and guidance. Reference commands are
+available through View command steps and are never executed by the panel.
+Room diagnostics shows dated service registrations and keeps earlier results
+after a failed check. Check now reuses the existing metadata worker. The website
+gateway reuses the panel's cached result, avoiding a second ROS service check.
+These registrations do not prove live sensor data or recording. Indoor readings
+remain on TV/Status until a supported read-only feed is connected; the displayed
+Pi temperature is its processor temperature, separate from outdoor weather.
+Command references use a verified monospace font with restrained shell highlighting;
+the browser can copy each command or the complete topic without formatting.
+Command steps explain which computer to use, why the command helps and what
+result to expect. The panel shows one step at a time with Previous/Next;
+the website shows all steps with individual Copy buttons and reference links.
+
+The full-screen screensaver appears after five idle minutes by default. It has a
+large clock, weather and a prominent “Touch anywhere for room controls” prompt,
+without the normal control-page navigation. Its first wake touch always opens
+Home without activating controls. Screen & controls offers **Preview screen saver**
+for the same screen; there is no separate clock/weather page.
+Control icons use a consistent Lucide outline
+family; weather uses thin, coordinated variants. Dark backgrounds and ordinary
+surfaces stay neutral gray. Navigation uses words, position and type weight;
+controls use quiet neutral fills. Colour is reserved for data, weather and status.
+Saved preferences use a single current-value menu instead of rows of switches.
+The original LESA logo stays
+consistent in both themes. Room tools and Guide keep their footer shortcuts in
+the same positions while browsing.
+Flat sliders share a 48-pixel touch area, a visible grip and pressed/focus feedback.
+Related buttons share widths and spacing; lighting results appear
+in a compact feedback area with the historical readback kept separate.
+**Room tools → Screen**
+offers Off, 1, 5 or 15 minutes. Idle does not interrupt Legacy, held
+touches, pending commands or uncertain lighting. Preferences save appearance and
+idle choices, not light settings or recording state.
+
+**Check connection** reads current settings without changing
+them or repeating a command. If a change cannot be confirmed, the panel reads the
+lights again and controls return; press the control again if needed. **Room tools → System & help** provides guidance. **Website offline** means
+the page cannot reach the panel; it reconnects automatically.
+Opening guide pages operates no devices; its labelled scene buttons are explicit
+room actions. A two-second stationary
+press leaves the black screen; black pixels do not turn off the backlight.
+A small gray hint at the bottom explains the two-second hold.
+
+## Try the panel without room hardware
+
+Use Python 3.11 or newer with Tk. `python -m tkinter` checks Tk availability.
+On Linux, install the distribution's Tk and virtual-environment packages if
+needed. The commands below select the reviewed development branch explicitly:
 
 ```sh
 git clone https://github.com/LESA-RPI/scr.touch_panel.git
 cd scr.touch_panel
+git switch fix/panel-navigation-transitions
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r app/requirements.txt
@@ -32,49 +166,77 @@ python -B app/scr_touch_panel.py --windowed --duration 600 --theme light
 
 On Windows, use `python` in place of `python3` and activate with
 `.venv\Scripts\Activate.ps1`. This preview moves no room devices and starts no
-recording. Desktop requirements are separate from the installed Ubuntu stack.
-For fresh Raspberry Pi OS, use the branch guide above rather than this launcher.
+recording. The cabinet layout is 1280 × 800. Other hardware needs its own font,
+layout and touch checks. The browser client uses the same panel controller when
+the optional trusted-network gateway is enabled.
 
-## Operate the baseline
-
-In this version, Settings returns to Original controls and its touch strip
-returns to Beta. Credits are in Settings. Lighting sliders send automatically;
-confirmation means controller readback, not measured physical brightness.
-Opening Original or exiting waits for restoration of Beta's starting light scene.
-If the result is uncertain, stop changing lights and coordinate with the room host.
-
-Practice annotations have `recording: false`; they do not start a sensor recorder.
-System reports panel readings and advertised services, not physical sensor health.
-A stationary two-second press leaves the black screen; its backlight stays on.
-The updated branch has different navigation and additional features.
-
-## Install, maintain or restore
+## Install, operate or restore
 
 | Need | Reference |
 |---|---|
-| Connect lighting and establish ownership | [Connection checks](WORKFLOWS.md#before-connected-control) |
-| Switch modes or recover an uncertain result | [Switching and recovery](WORKFLOWS.md#switching-and-recovery) |
-| Set up autostart or roll back | [Startup and rollback](WORKFLOWS.md#startup-and-rollback) |
-| Restore hardware or provision a replacement | [Backup and rebuild](WORKFLOWS.md#backup-and-rebuild) |
-| Add a profile or experiment adapter | [Interface contracts](docs/interface.md) |
+| Fresh Raspberry Pi OS installation | [Fresh setup](WORKFLOWS.md#fresh-raspberry-pi-os) |
+| Enable connected lighting | [Ownership and connection checks](WORKFLOWS.md#before-connected-control) |
+| Autostart, switch modes or roll back | [Startup](WORKFLOWS.md#startup-and-rollback) and [recovery](WORKFLOWS.md#switching-and-recovery) |
+| Configure theme, font or weather | [Appearance and weather](WORKFLOWS.md#appearance-and-weather) |
+| Rebuild after hardware or storage failure | [Backup and rebuild](WORKFLOWS.md#backup-and-rebuild) |
+| Add an experiment or client | [Interface contracts](docs/interface.md) and [future surfaces](WORKFLOWS.md#additional-surfaces--agreed-direction) |
+| Contribute code or documentation | [Contributor and agent guidance](AGENTS.md) |
 
-The installed launcher expects the older Python 2.7/Tk/Pillow environment and
-custom ROS workspace. Desktop Python 3 preview support does not migrate that
-launcher. Existing room servers remain separate dependencies; upgrading the
-panel does not require replacing them. Coordinate ownership before live control.
+The fresh Pi 3 deployment uses Raspberry Pi OS Legacy 32-bit Bookworm with
+distribution Python 3.11, Tk 8.6 and Pillow 9.4. Desktop preview dependencies are
+separate; do not install them over system packages. The touch panel defaults to
+`/usr/bin/python3` and checks for Python 3.11+, Tk and Pillow before startup.
+`SCR_PANEL_PYTHON` selects another supported interpreter. Legacy and the ROS
+adapter retain their separate interpreter settings: the older Ubuntu installation
+used Python 2.7, while the fresh setup explicitly selects Python 3 for each.
+
+Legacy starts from [main.py](main.py); Beta starts from
+[app/scr_touch_panel.py](app/scr_touch_panel.py). The installed
+[launcher](app/start_panel.sh) reads private deployment settings and starts one
+Beta. Beta starts Legacy only when requested, using a compatibility wrapper
+that preserves the original source. Existing room ROS services and custom bindings are required for control;
+a local ROS master on the panel is not required.
 
 Git preserves source, not a complete system. Obtain private configuration and
-recovery bundles from the room custodian. Check manifests, scope and read-error
-records: an incomplete image is not an exact clone. Keep captures, credentials,
-participant data and host settings outside this public repository.
+custom client/recovery bundles from the room custodian. Check each archive's
+manifest and read-error record: an incomplete image is not an exact restore.
+Room servers, fixtures and HTTP demo services are separate dependencies.
 
-Run `python -m pytest tests` with pytest installed. Baseline checks cover profiles,
-lighting restoration and uncertain results. Earlier bounded cabinet trials do not
-qualify another release, replacement hardware or prolonged reliability. Preserve
-release hashes and original contributors when cleaning public documentation.
+## Validation and limits
 
-General panel code belongs here; Project-X owns its optional recorder integration.
-Browser/tablet clients are planned, not implemented.
+Run `python -m pytest tests` with pytest installed. Tests cover contracts,
+restoration, uncertain operations, preferences and idle guards. UI changes also
+need target font, internal text-fit, touch and failure-state checks.
 
-Beta: **Diyanko Bhowmik**, with Codex assistance. Original contributors remain in
+Earlier bounded Pi navigation, lighting and autostart trials are historical evidence;
+qualify the current release against the installed configuration before use.
+Prolonged reliability, physical blind motion and replacement hardware remain
+acceptance checks. Service presence is not physical device health.
+
+General panel code belongs here. Project-X owns its optional recorder integration.
+The browser and touch interface share one command owner.
+On phones and portrait tablets, the website keeps Home, Room tools and Demo & guide in a bottom
+navigation bar. Compact tool selection, scrollable lighting tabs and scene rows
+leave more room for controls. Changing pages returns to the top; pending messages
+remain visible above navigation without changing the panel's page.
+The optional gateway permits controls from the configured trusted subnet; it has
+no separate staff sign-in. Guide/help content, appearance roles and common actions
+come from the panel. Browsing the website never wakes or switches the panel;
+only its explicit buttons do.
+Technical contracts remain available to maintainers and agents through the links
+above. Private configuration, captures and incident history stay outside Git.
+
+Touch interface: **Diyanko Bhowmik**, with Codex assistance. Original contributors remain in
 Git history. The supplied LESA logo is retained unchanged.
+
+Control and weather artwork is adapted from [Lucide](https://lucide.dev/). Its licence
+and original notices are retained in [assets/icons/LICENSE](assets/icons/LICENSE).
+
+The browser fallback [room-content.json](browser/room-content.json) is generated by
+[export_room_content.py](app/export_room_content.py) from panel-owned help, guides,
+control metadata and themes. It is not edited separately. After changing those
+sources, run `python app/export_room_content.py browser/room-content.json`; CI
+checks for drift. README owns the overview, WORKFLOWS owns procedures, and the
+panel help is the concise on-screen guidance. Private screenshot/demo generators
+stay outside the runtime and public source. Use a small representative preview for
+everyday iteration; retain the full matrix for release qualification.
