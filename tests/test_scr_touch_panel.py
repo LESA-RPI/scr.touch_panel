@@ -387,7 +387,7 @@ def test_button_intents_dispatch_without_slider_delay_but_stay_serialized():
 
     def request(action, arguments):
         sent.append((action, arguments))
-        state.pending = {"request_id": str(len(sent))}
+        state.pending = {"request_id": str(len(sent)), "action": action, "arguments": arguments}
         return True
 
     state.request = request
@@ -396,12 +396,18 @@ def test_button_intents_dispatch_without_slider_delay_but_stay_serialized():
     assert cancelled == ["old slider timer"]
     assert sent == [("cct", {"cct": 3500, "intensity": 1000})]
     assert state.intent_timer is None and state.queued_intent is None
+    state.apply("cct", immediate=True, cct=3500, intensity=1000)
+    assert len(sent) == 1 and state.queued_intent is None
     state.apply("channels", immediate=True, values=[0] * 8)
     assert len(sent) == 1 and state.queued_intent[0] == "channels"
     assert any("waiting for current request" in text for text in feedback)
     state.pending, state.light_state = None, "ready"
     state.dispatch_intent()
     assert sent[-1] == ("channels", {"values": [0] * 8})
+    state.pending, state.light_state = None, "ready"
+    state.confirmed_intent = sent[-1]
+    state.apply("channels", immediate=True, values=[0] * 8)
+    assert len(sent) == 2 and state.queued_intent is None
     # Uncertainty blocks button dispatch just as it blocks slider changes.
     state.pending, state.light_state = None, "failed"
     state.apply("cct", immediate=True, cct=3500, intensity=1000)
@@ -558,6 +564,7 @@ def test_confirmed_display_uses_matching_request_not_newer_selection(monkeypatch
     state.worker_buffer = json.dumps(dict(reply, request_id="one")) + "\n"
     state.poll_worker()
     assert state.confirmed_light == "3500 K input / level 1000"
+    assert state.confirmed_intent == ("cct", {"cct": 3500, "intensity": 1000})
     assert (
         state.pending is None
         and "Last confirmed drive: 3500 K input / level 1000" in shown[-1]

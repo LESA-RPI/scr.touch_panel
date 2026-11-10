@@ -80,12 +80,31 @@ def test_stale_expired_and_duplicate_commands_never_dispatch_twice():
         )
         return item["reply"]
 
-    assert put(envelope(revision="old"))["code"] == 409 and not calls
-    assert put(envelope(), True)["code"] == 408 and not calls
+    stale = envelope(revision="old", id="stale-command-0001")
+    expired = envelope(id="expired-command-0001")
+    assert put(stale)["code"] == 409 and not calls
+    assert put(expired, True)["code"] == 408 and not calls
+    assert put(expired)["code"] == 408 and not calls
+    assert bridge.receipts[stale["id"]]["id"] == stale["id"]
+    assert bridge.receipts[expired["id"]]["id"] == expired["id"]
     first = put(envelope())
     assert first["ok"] and len(calls) == 1
     assert put(envelope()) == first and len(calls) == 1
     assert put(envelope("on"))["code"] == 409 and len(calls) == 1
+
+    def broken(value):
+        if value["id"] == "broken-command-0001":
+            raise TypeError("Unexpected owner failure")
+        return {"ok": True, "code": 202}
+
+    for key in ("broken-command-0001", "later-command-0001"):
+        bridge.requests.put({"value": envelope(id=key), "deadline": time.monotonic() + 2,
+                             "cancelled": False, "done": threading.Event()})
+    bridge.drain(lambda: {"revision": "current"}, broken)
+    assert bridge.receipts["broken-command-0001"]["code"] == 503
+    assert bridge.receipts["later-command-0001"]["ok"]
+    assert put(envelope(id="broken-command-0001"))["code"] == 503
+    assert len(calls) == 1
 
 
 def test_remote_light_action_is_blocked_when_owner_busy_uncertain_legacy_or_studying(
@@ -171,7 +190,6 @@ def test_blind_permission_is_strict_and_independent_of_visibility_and_connection
     state.mode = "room"
     state.blinds_display = "hidden"
     state.blinds_enabled = False
-    state.blind_controller = None
     messages = []
     calls = []
     state.status_text = SimpleNamespace(set=messages.append)
@@ -184,7 +202,10 @@ def test_blind_permission_is_strict_and_independent_of_visibility_and_connection
     assert not state.blind_command("open")
     assert state.blind_state()["detail"] == "Disabled"
     assert state.blind_state()["reason"] == "Not connected"
-    state.blind_controller = SimpleNamespace(connected=True, submit=calls.append)
+    state.blinds_connected = state.worker_ready = True
+    state.worker = SimpleNamespace(poll=lambda: None)
+    state.request = lambda action, args: calls.append((action, args)) or True
+    state.lighting_feedback = state.update_light_buttons = lambda *unused: None
     for field, value in [
         ("pending", {}),
         ("queued_intent", True),
@@ -199,7 +220,7 @@ def test_blind_permission_is_strict_and_independent_of_visibility_and_connection
     assert calls == []
     for name in ("lift", "open", "close"):
         assert state.blind_command(name)
-    assert calls == ["lift", "open", "close"]
+    assert calls == [("blind", {"name": name}) for name in ("lift", "open", "close")]
     with pytest.raises(ValueError):
         state.blind_command("shell")
     state.blinds_enabled = False
@@ -337,3 +358,12 @@ def test_remote_legacy_opens_original(remote_owner):
     remote_owner.show = lambda mode: (remote_owner.calls.append(mode), setattr(remote_owner, "mode", mode))
     assert execute(remote_owner, envelope("legacy"))["ok"]
     assert remote_owner.calls == ["original"] and remote_owner.mode == "original"
+
+
+def test_remote_power_permits_only_reboot(remote_owner):
+    remote_owner.request_power = lambda operation, **kwargs: remote_owner.calls.append(operation)
+    with pytest.raises(ValueError, match="reboot only"):
+        execute(remote_owner, envelope("power", {"operation": "shutdown", "confirmed": True}))
+    assert not remote_owner.calls
+    assert execute(remote_owner, envelope("power", {"operation": "reboot", "confirmed": True}))["ok"]
+    assert remote_owner.calls == ["reboot"]

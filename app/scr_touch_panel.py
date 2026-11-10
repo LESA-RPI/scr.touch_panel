@@ -114,7 +114,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         self.idle_timeout = getattr(args, "idle_timeout", 300)
         self.blinds_display = getattr(args, "blinds_display", "disabled")
         self.blinds_enabled = getattr(args, "blinds_enabled", False)
-        self.blind_controller = None
         self.blinds_connected = False
         self.light_capabilities = {}
         self.programme = None
@@ -1152,7 +1151,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             self.update_weather(force=True)
 
     def blind_state(self):
-        controller = getattr(self, "blind_controller", None)
         busy = bool(
             self.pending
             or self.queued_intent
@@ -1163,7 +1161,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         )
         return blind_readiness(
             getattr(self, "blinds_enabled", False),
-            bool(controller and controller.connected) or bool(
+            bool(
                 getattr(self, "blinds_connected", False)
                 and getattr(self, "worker_ready", False)
                 and self.worker and self.worker.poll() is None
@@ -1178,9 +1176,6 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         if not readiness["available"]:
             self.status_text.set("Blinds · " + readiness["detail"])
             return False
-        if self.blind_controller is not None:
-            self.blind_controller.submit(name)
-            return True
         if not self.request("blind", {"name": name}):
             return False
         self.light_state = "applying"
@@ -1365,6 +1360,17 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
             return
         # Immutable complete intent, one unsent selection shared by all light controls.
         arguments = json.loads(json.dumps(arguments))
+        selection = (action, arguments)
+        pending = self.pending or {}
+        if selection == (pending.get("action"), pending.get("arguments")) or (
+            not self.pending and selection == getattr(self, "confirmed_intent", None)
+        ):
+            if self.intent_timer is not None:
+                self.root.after_cancel(self.intent_timer)
+            self.intent_timer = self.queued_intent = None
+            return
+        if self.queued_intent == (action, arguments, self.view_generation):
+            return
         self.queued_intent = (action, arguments, self.view_generation)
         if self.intent_timer is not None:
             self.root.after_cancel(self.intent_timer)
@@ -1412,6 +1418,8 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
         ):
             return
         action, arguments = intent[:2]
+        if (action, arguments) == getattr(self, "confirmed_intent", None):
+            return
         self.light_state = "applying"
         self.lighting_feedback(
             "Sending: "
@@ -2302,6 +2310,11 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 self.emit("light_result", result=response)
                 state = response["state"]
                 self.adapter_metadata(response)
+                self.confirmed_intent = (
+                    (action, completed_request["arguments"])
+                    if state == "completed" and action in ("cct", "channels", "gradient")
+                    else None
+                )
                 self.light_state = {
                     "completed": "ready",
                     "released": "disconnected",
@@ -2313,6 +2326,7 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                     # Keep the touch feedback bounded, even for verbose ROS errors.
                     detail = "That change could not be confirmed." if action in ("cct", "channels", "gradient", "programme", "blind") else "Lighting could not be read."
                 if state == "completed" and action not in ("programme", "blind"):
+                    self.confirmed_fixture_words = response.get("fixture_words")
                     self.confirmed_light = light_selection(
                         action, completed_request["arguments"]
                     )
@@ -2323,8 +2337,9 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                 elif state == "completed" and action == "programme":
                     self.confirmed_light = "Programme request accepted; live state unavailable"
                     self.confirmed_at = self.confirmed_power = self.confirmed_scene = None
-                elif state == "ready":
-                    detail = "Lighting ready."
+                elif state == "ready" or (state == "checked" and response.get("stable") is True):
+                    if state == "ready":
+                        detail = "Lighting ready."
                     baseline = response.get("baseline")
                     self.confirmed_light = (
                         baseline + " scene" if baseline in PRESETS else "Current room settings"
@@ -2332,6 +2347,13 @@ class Panel(PanelViews, PanelScreensaver, PanelGuidance, PanelClassic, PanelReco
                     self.confirmed_at = monotonic()
                     self.confirmed_power = confirmed_power(response)
                     self.confirmed_scene = confirmed_scene(response)
+                    self.confirmed_fixture_words = response.get("fixture_words")
+                    if self.confirmed_scene == "Gradient":
+                        self.confirmed_light = "Gradient scene"
+                    values = response.get("words")
+                    if values is not None and not self.queued_intent and hasattr(self, "channel_values"):
+                        for variable, value in zip(self.channel_values, values):
+                            variable.set(round(value * 100 / 65535))
                 elif state == "released":
                     self.confirmed_light = "Session ended"
                     self.confirmed_at = None

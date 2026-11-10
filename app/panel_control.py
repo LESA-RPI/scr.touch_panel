@@ -197,30 +197,36 @@ class Bridge:
             value = item["value"]
             key = value["id"]
             fingerprint = json.dumps(value, sort_keys=True)
-            if item["cancelled"] or time.monotonic() > item["deadline"]:
-                reply = {
-                    "ok": False,
-                    "code": 408,
-                    "detail": "Command expired before acceptance. No action was sent.",
-                }
-            elif key in self.receipts:
+            if key in self.receipts:
                 reply = (
                     self.receipts[key]
                     if self.fingerprints[key] == fingerprint
-                    else {"ok": False, "code": 409, "detail": "Command ID already used"}
+                    else {"ok": False, "code": 409, "detail": "Command ID already used", "id": key}
                 )
-            elif value["revision"] != snapshot()["revision"]:
-                reply = {
-                    "ok": False,
-                    "code": 409,
-                    "detail": "Room state changed. Review the current settings.",
-                }
             else:
                 try:
-                    reply = execute(value)
+                    if item["cancelled"] or time.monotonic() > item["deadline"]:
+                        reply = {
+                            "ok": False,
+                            "code": 408,
+                            "detail": "Command expired before acceptance. No action was sent.",
+                        }
+                    elif value["revision"] != snapshot()["revision"]:
+                        reply = {
+                            "ok": False,
+                            "code": 409,
+                            "detail": "Room state changed. Review the current settings.",
+                        }
+                    else:
+                        reply = execute(value)
+                    reply = dict(reply, id=key)
                 except (ValueError, RuntimeError) as error:
-                    reply = {"ok": False, "code": 409, "detail": str(error)}
-                reply = dict(reply, id=key)
+                    reply = {"ok": False, "code": 409, "detail": str(error), "id": key}
+                except Exception:
+                    reply = {
+                        "ok": False, "code": 503, "id": key,
+                        "detail": "Command failed unexpectedly; outcome unknown. Check the panel; do not retry.",
+                    }
                 self.receipts[key] = reply
                 self.fingerprints[key] = fingerprint
                 while len(self.receipts) > 64:
@@ -228,8 +234,11 @@ class Bridge:
                     self.fingerprints.pop(old, None)
             item["reply"] = reply
             item["done"].set()
-        value = snapshot()
-        value["receipts"] = list(self.receipts.values())[-16:]
+        try:
+            value = snapshot()
+            value["receipts"] = list(self.receipts.values())[-16:]
+        except Exception:
+            return  # Keep the previous sample dated; the next Tk drain can recover.
         with self.lock:
             self.snapshot = value
             self.at = time.monotonic()

@@ -46,11 +46,11 @@ export async function poll() {
     store.state = value;
     store.reachable = true;
     store.lastOk = Date.now();
-    settle(value);
   } catch {
     if (Date.now() - store.lastOk > 6000) store.reachable = false;
   } finally {
     polling = false;
+    settle(store.state || {});
   }
   emit();
 }

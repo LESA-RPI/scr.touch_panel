@@ -12,6 +12,29 @@ import event_journal
 import preferences
 
 
+def test_helper_receipts_keep_only_current_and_previous_complete_records(tmp_path, monkeypatch):
+    import json
+    import os
+    import scr_touch_panel_lights as lights
+
+    synced = []
+    monkeypatch.setattr(lights, "sync_directory", synced.append)
+    monkeypatch.setattr(lights.os, "rename", os.replace)  # Linux rename replacement semantics
+    path = tmp_path / "helper.jsonl"
+    journal = lights.ReceiptJournal(str(path))
+    try:
+        for number in range(4):
+            journal.append({"number": number, "baseline": [0] * 8, "detail": "x" * (3 * 1024 * 1024)})
+    finally:
+        journal.close()
+    assert {p.name for p in tmp_path.iterdir()} == {"helper.jsonl", "helper.jsonl.1"}
+    for name, number in (("helper.jsonl", 3), ("helper.jsonl.1", 2)):
+        saved = json.loads((tmp_path / name).read_text())
+        assert saved["number"] == number and saved["baseline"] == [0] * 8
+        assert (tmp_path / name).stat().st_size < 5 * 1024 * 1024
+    assert synced == [str(tmp_path)] * 3
+
+
 def finish(writer):
     writer.close()
     assert writer.done.wait(3)

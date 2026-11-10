@@ -174,6 +174,27 @@ def test_real_gradient_acquisition_response_keeps_poller_running(controller):
     assert controller.scheduled and room.writes == []
 
 
+def test_stable_check_adopts_changed_drive_values_and_time_but_identity_check_does_not(controller):
+    values = [99] * 8
+    controller.channel_values = [SimpleNamespace(set=lambda value, i=i: values.__setitem__(i, value)) for i in range(8)]
+    controller.confirmed_light, controller.confirmed_power, controller.confirmed_scene = "Old scene", "on", "Fid"
+    controller.confirmed_at = 1
+    room = Room()
+    room.state = dict.fromkeys(room.state, (0,) * 8)
+    response = adapter.Lights(room.call, keep_settings=True, sleep=lambda seconds: None).check()
+    controller.pending = {"request_id": "check:1", "action": "check", "arguments": {}}
+    controller.worker_buffer = json.dumps(dict(response, version=1, request_id="check:1")) + "\n"
+    controller.poll_worker()
+    assert controller.confirmed_power == "off" and controller.confirmed_scene == "Off"
+    assert controller.confirmed_at > 1 and values == [0] * 8
+    assert controller.confirmed_fixture_words == response["fixture_words"]
+    confirmed = (controller.confirmed_at, controller.confirmed_power, controller.confirmed_scene)
+    controller.pending = {"request_id": "check:2", "action": "check", "arguments": {}}
+    controller.worker_buffer = json.dumps({"version": 1, "request_id": "check:2", "state": "checked", "stable": False, "programme": "Sun"}) + "\n"
+    controller.poll_worker()
+    assert (controller.confirmed_at, controller.confirmed_power, controller.confirmed_scene) == confirmed
+
+
 def test_stalled_helper_startup_is_cancelled_before_any_light_command(
     controller, monkeypatch
 ):

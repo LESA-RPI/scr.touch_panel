@@ -78,6 +78,22 @@ def test_owner_reply_size_limit_remains_bounded(transport):
 
 
 def test_oversized_command_is_rejected_without_sending(transport):
-    with pytest.raises(ValueError, match="too large"):
-        controller.Controller("owner.sock").exchange({"value": "x" * 32768})
+    reply = controller.Controller("owner.sock").exchange({"value": "x" * 32768})
+    assert reply["code"] == 409 and "too large" in reply["detail"]
     assert not transport.sent
+
+
+def test_connect_failure_is_definitely_not_sent_but_send_failure_is_unknown(transport):
+    def fail(*unused):
+        raise ConnectionRefusedError("Offline")
+
+    original_connect = transport.connect
+    transport.connect = fail
+    value = controller.Controller("owner.sock").exchange({"action": "off"})
+    assert value["code"] == 409 and "not sent" in value["detail"]
+    assert not transport.sent
+    assert controller.Controller("owner.sock").read()["available"] is False
+    transport.connect = original_connect
+    transport.sendall = fail
+    with pytest.raises(OSError):
+        controller.Controller("owner.sock").exchange({"action": "off"})

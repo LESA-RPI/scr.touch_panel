@@ -362,7 +362,7 @@ def test_manual_write_stops_a_requested_programme_first():
     assert not lights.failed and lights.release()["preserved"]
 
 
-def test_room_change_overrides_an_external_change_without_contacting_status():
+def test_room_change_stops_programmes_before_overriding_an_external_change():
     """Lights changed overnight or at the wall; the user's choice still applies."""
     room, programmes = Room(), LegacyProgrammes()
     lights = adapter.Lights(room.call, keep_settings=True, programmes=programmes,
@@ -371,7 +371,7 @@ def test_room_change_overrides_an_external_change_without_contacting_status():
     room.state = dict.fromkeys(room.state, adapter.setter_words(adapter.PRESETS["Fid"]))
     result = lights.apply("channels", {"values": list(adapter.PRESETS["Off"])})
     assert result["state"] == "completed" and not lights.failed
-    assert not programmes.requests and room.writes == [adapter.PRESETS["Off"]]
+    assert programmes.requests == ["stop"] and room.writes == [adapter.PRESETS["Off"]]
 
 
 def test_bounded_trial_external_change_blocks_before_setter():

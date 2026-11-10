@@ -102,7 +102,7 @@ def test_stop_is_available_without_baseline_and_qualifies_static_controls():
     assert result["programme"] is None and not result["manual_blocked"]
     assert not result["programme_confirmed"] and lights.baseline == room.state
     lights.apply("channels", {"values": list(adapter.PRESETS["Sat"])})
-    assert programmes.requests == ["stop both"]  # Already stopped; no second Status request.
+    assert programmes.requests == ["stop both", "stop both"]
     assert len(room.writes) == 1
 
 
@@ -116,6 +116,33 @@ def test_manual_command_stops_original_programme_and_rebases_after_quiescence():
     assert programmes.requests == ["stop both", "Sun", "stop both"]
     assert result["programme"] is None and not result["manual_blocked"]
     assert len(room.writes) == 1
+
+
+@pytest.mark.parametrize("action", ["channels", "gradient", "cct"])
+def test_fresh_helper_stops_programmes_before_every_manual_selection(action):
+    room, programmes = Devices(), Programmes()
+    original_call = room.call
+
+    def call(name, *args):
+        if name == "cct_all":
+            # The CCT service calculates a mix; this fixture uses a known mix.
+            return original_call("sources_all", *adapter.PRESETS["Fid"])
+        return original_call(name, *args)
+
+    room.call = call
+    lights = owner(room, programmes=programmes)
+    lights.acquire()
+    assert lights.programme is None
+    arguments = (
+        {"values": list(adapter.PRESETS["Sat"])} if action == "channels"
+        else {"cct": 3500, "intensity": 1000}
+    )
+    for unused in range(2):
+        if action == "gradient":
+            lights.apply_gradient()
+        else:
+            lights.apply(action, arguments)
+    assert programmes.requests == ["stop both", "stop both"]
 
 
 def test_moving_readback_after_stop_blocks_manual_write_and_automatic_retry():

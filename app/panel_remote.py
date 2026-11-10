@@ -43,6 +43,7 @@ def snapshot(panel):
             "state": panel.light_state,
             "power": panel.confirmed_power if lighting else None,
             "confirmed_power": panel.confirmed_power,
+            "fixture_words": getattr(panel, "confirmed_fixture_words", None),
             "scene": panel.confirmed_scene if lighting else None,
             "cct": panel.cct.get(),
             "intensity": panel.intensity.get(),
@@ -159,6 +160,8 @@ def execute(panel, request):
                 ]
             )
     elif action == "power":
+        if args["operation"] != "reboot":
+            raise ValueError("Website power control permits reboot only. Shut down on the panel.")
         panel.request_power(args["operation"], confirmed=args["confirmed"])
     elif action == "schedule":
         panel.adjust_schedule(args["which"], args["delta"])

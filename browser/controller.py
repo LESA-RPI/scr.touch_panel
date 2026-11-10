@@ -10,17 +10,27 @@ class Controller:
         self.path = path
 
     def exchange(self, value):
-        raw = json.dumps(value, allow_nan=False).encode() + b"\n"
+        try:
+            raw = json.dumps(value, allow_nan=False).encode() + b"\n"
+        except (ValueError, TypeError):
+            return self.not_sent("Invalid command. Command not sent.")
         if len(raw) > 32768:
-            raise ValueError("Command too large")
-        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+            return self.not_sent("Command too large. Command not sent.")
+        try:
+            client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        except OSError:
+            return self.not_sent()
+        with client:
             deadline = time.monotonic() + 2.8
-            client.settimeout(2.8)
-            client.connect(self.path)
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise TimeoutError("Panel reply deadline exceeded")
-            client.settimeout(remaining)
+            try:
+                client.settimeout(2.8)
+                client.connect(self.path)
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("Panel connect deadline exceeded")
+                client.settimeout(remaining)
+            except OSError:
+                return self.not_sent()
             client.sendall(raw)
             reply = bytearray()
             while len(reply) <= 65536:
@@ -46,6 +56,11 @@ class Controller:
         if not isinstance(value, dict):
             raise ValueError("Invalid panel reply")
         return value
+
+    @staticmethod
+    def not_sent(detail="Panel connection unavailable. Command not sent."):
+        return {"available": False, "ok": False, "code": 409,
+                "detail": detail}
 
     def read(self):
         try:

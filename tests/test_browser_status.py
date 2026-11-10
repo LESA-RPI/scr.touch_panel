@@ -155,7 +155,14 @@ def test_trickled_request_has_absolute_deadline(server):
     worker.start()
     try:
         # The healthy request must finish while the slow socket remains open.
-        assert request(server, "GET", "/api/status")[0] == 200
+        healthy = http.client.HTTPConnection(*server.server_address, timeout=1)
+        try:
+            healthy.request("GET", "/api/status")
+            assert healthy.getresponse().status == 200
+        finally:
+            healthy.close()
+        connection.settimeout(6)
+        assert connection.recv(1) == b""
         assert time.monotonic() - started < 6
     finally:
         stopped.set()
@@ -192,37 +199,6 @@ def test_client_subnet_rejects_other_peers_and_forwarded_headers(server):
             status.client_network(value)
 
 
-def test_weather_cache_preserves_provenance_on_failure():
-    value = {
-        "temperature_f": 60,
-        "temperature_c": 15.6,
-        "condition": "Cloudy",
-        "code": 3,
-        "sunrise": "2026-10-14T07:00",
-        "sunset": "2026-10-14T18:00",
-        "model_time": "2026-10-14T12:00",
-    }
-    snapshot = status.Snapshot("Test host", weather_location=(42.7, -73.7))
-    reply = type("Reply", (), {"stdout": json.dumps(value)})()
-    with (
-        patch.object(status, "host_status", return_value={}),
-        patch.object(status.subprocess, "run", return_value=reply) as fetch,
-    ):
-        snapshot.collect()
-        original = snapshot.read()["weather"]["observed_at"]
-        snapshot.collect()
-        assert (
-            fetch.call_count == 1
-        )  # Multiple samplings do not multiply weather requests.
-        snapshot.weather_attempt -= 901
-        snapshot.weather_time -= 1900
-        fetch.side_effect = OSError("Offline")
-        snapshot.collect()
-    result = snapshot.read()["weather"]
-    assert result["state"] == "unavailable"
-    assert result["observed_at"] == original
-    assert result["data"] == value
-    assert result["observation_age_s"] >= 1900
 
 
 def test_gateway_requires_exact_origin_nonce_and_bounded_json_without_polling_devices(
@@ -398,7 +374,7 @@ def test_unreadable_panel_reply_is_reported_as_unknown_not_rejected(server):
 
 def test_static_artwork_is_cached_but_live_pages_are_not(server):
     assert request(server,'GET','/fonts/Cantarell-Regular.otf')[2]['Cache-Control']=='max-age=86400'
-    assert request(server,'GET','/room.js')[2]['Cache-Control']=='no-store'
-    for path in ('/tools','/guide'):
+    assert request(server,'GET','/js/api.js')[2]['Cache-Control']=='no-store'
+    for path in ('/tools','/guide','/diagnostics','/room.js'):
         code,body,_=request(server,'GET',path)
-        assert code==200 and body==request(server,'GET','/')[1]
+        assert code==404

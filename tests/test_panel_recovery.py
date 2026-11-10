@@ -31,7 +31,6 @@ def recoverable(tmp_path, monkeypatch):
     view.light_changes_requested = view.release_confirmed = False
     view.light_capabilities, view.programme = {}, None
     view.blinds_connected = view.blinds_enabled = False
-    view.blind_controller = None
     view.legacy_process = view.legacy_previous_pid = view.legacy_stopping_at = None
     view.legacy_killed = view.legacy_start_requested = False
     view.legacy_returning = False

@@ -116,6 +116,40 @@ def clock():
         return float(stream.read().split()[0])
 
 
+def sync_directory(path):
+    descriptor = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
+class ReceiptJournal(object):
+    """Bound each helper's recovery history to two private files."""
+
+    def __init__(self, path):
+        self.path = path
+        self.stream = self.open()
+
+    def open(self):
+        return os.fdopen(os.open(self.path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w")
+
+    def append(self, value):
+        line = json.dumps(value, sort_keys=True) + "\n"
+        if self.stream.tell() + len(line) > 5 * 1024 * 1024:
+            # The old file is already synced; rename it before creating the new one.
+            self.stream.close()
+            os.rename(self.path, self.path + ".1")
+            self.stream = self.open()
+            sync_directory(os.path.dirname(os.path.abspath(self.path)))
+        self.stream.write(line)
+        self.stream.flush()
+        os.fsync(self.stream.fileno())
+
+    def close(self):
+        self.stream.close()
+
+
 def restore_preset(snapshot):
     for name, values in PRESETS.items():
         if all(state == setter_words(values) for state in snapshot.values()):
@@ -261,6 +295,11 @@ class Lights(object):
                        if blocked else
                        "Current settings read twice on 10 lights."),
         }
+        uniform = list(state.values())[0]
+        if all(values == uniform for values in state.values()):
+            result["words"] = list(uniform)
+        if state == dict((xy, setter_words(values)) for xy, values in GRADIENT.items()):
+            result["scene"] = "Gradient"
         result.update(self.capabilities())
         return result
 
@@ -364,14 +403,10 @@ class Lights(object):
     def prepare_manual(self):
         if self.observe_only:
             raise ValueError("Connection checks are read-only")
-        if self.keep_settings:
-            # Room control: the user's new choice replaces whatever the lights
-            # show now (wall switch, overnight change). Stop a programme only
-            # when one may be running, so a slow Status service cannot block
-            # an ordinary change.
-            if self.programmes and (self.programme is not None or self.baseline is None):
-                self.stop_programmes()
-        elif self.read() != self.current:
+        # A helper restart cannot know whether Sun/Circ is still running.
+        if self.programmes:
+            self.stop_programmes()
+        elif not self.keep_settings and self.read() != self.current:
             raise ValueError("Another controller changed the lights; trial ownership lost")
 
     def move_blinds(self, name):
@@ -578,18 +613,12 @@ def main():
         parser.error("Connected control requires --receipt and --parent-pid")
     lock = open("/tmp/scr-panel-light-owner.lock", "a")
     fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    journal = os.fdopen(
-        os.open(args.receipt, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600), "w"
-    )
+    journal = ReceiptJournal(args.receipt)
     # Persist both the receipt name and its newly created run directory before
     # any hardware command can be accepted. File fsync alone misses these entries.
     receipt_dir = os.path.dirname(os.path.abspath(args.receipt))
     for directory in (receipt_dir, os.path.dirname(receipt_dir)):
-        descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
-        try:
-            os.fsync(descriptor)
-        finally:
-            os.close(descriptor)
+        sync_directory(directory)
     socket.setdefaulttimeout(10)
     import rospy
     from scr_control.srv import (
@@ -696,9 +725,7 @@ def main():
             values["baseline"] = [
                 [list(xy), list(state)] for xy, state in sorted(lights.baseline.items())
             ]
-        journal.write(json.dumps(values, sort_keys=True) + "\n")
-        journal.flush()
-        os.fsync(journal.fileno())
+        journal.append(values)
 
     def respond(request_id, result):
         result.update(lights.capabilities())

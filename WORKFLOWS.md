@@ -319,7 +319,8 @@ room controls unavailable. Before manually relaunching a crashed panel, inspect
 its last receipt and verify the current owner. Do not repeat uncertain commands.
 
 Restart and shut-down controls require explicit confirmation that the room is ready.
-They use the same panel owner from touch and the trusted-network website. Only
+The trusted-network website can request a restart; shutdown is available only
+on the physical panel. Both use the panel owner. Only
 fixed OS actions authorized by [existing system policy](https://github.com/systemd/systemd/blob/v252/man/org.freedesktop.login1.xml) are eligible; the panel does
 not install privilege rules or execute arbitrary commands. An authentication
 challenge alone is insufficient for unattended execution. Existing narrowly
@@ -346,8 +347,10 @@ through public port forwarding. Review OS/security updates in planned maintenanc
 windows and recheck Python/Tk, startup, fonts and room connectivity afterward.
 Enabled APT timers alone do not establish that security upgrades are installed;
 [Debian's update guidance](https://wiki.debian.org/PeriodicUpdates) explains the
-separate configuration. Retain recovery receipts before managing log growth;
-the append-only panel logs need an explicit retention or rotation policy.
+separate configuration. At startup the launcher keeps ten run directories and
+rotates `original.log`, `switcher.log` and `launcher.log` at 5 MiB with one old copy.
+Each helper receipt also rotates at 5 MiB with one old copy during operation.
+Export any receipts needed for investigation before the next retention cleanup.
 
 ## Fresh Raspberry Pi OS
 
@@ -492,6 +495,9 @@ same absolute socket path under the panel user’s private cache. Both processes
 as that user. The launchers pass their explicit socket options; omitting them keeps
 browser control disabled. The fixed bind address and trusted-client subnet still
 determine who can access the site. No separate staff login is implemented.
+With the control socket configured, browser startup needs no weather coordinates
+or ROS master: weather and room diagnostics come from the panel snapshot.
+Standalone observation can still use an optional `SCR_WEB_MASTER`.
 
 Deploy and qualify both compatible releases. Keep the original application and
 room servers running. Legacy waits for safe release and helper exit, then pauses

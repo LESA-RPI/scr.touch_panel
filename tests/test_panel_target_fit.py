@@ -60,7 +60,9 @@ def test_guide_and_home_recovery_keep_full_touch_targets(view, theme):
         (True, None, "Not connected"),
         (True, SimpleNamespace(connected=True), "Room controls busy"),
     ):
-        view.blinds_enabled, view.blind_controller = enabled, controller
+        view.blinds_enabled = enabled
+        view.blinds_connected = view.worker_ready = controller is not None
+        view.worker = SimpleNamespace(poll=lambda: None, stdin=SimpleNamespace(closed=False)) if controller else None
         view.update_light_buttons()
         view.root.update()
         assert view.blind_status_label.cget("text") == reason

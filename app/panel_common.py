@@ -188,9 +188,12 @@ def confirmed_power(response):
     """Describe confirmed drive readback, never optical or continuously live state."""
     if response.get("state") == "completed" and response.get("scene") == "Gradient" and response.get("fixtures") == 10:
         return "on"
-    if response.get("state") == "ready" and response.get("power") in ("on", "off"):
+    readback = response.get("state") == "ready" or (
+        response.get("state") == "checked" and response.get("stable") is True
+    )
+    if readback and response.get("power") in ("on", "off"):
         return response["power"]
-    if response.get("state") == "ready" and response.get("baseline") in PRESETS:
+    if readback and response.get("baseline") in PRESETS:
         return "off" if response["baseline"] == "Off" else "on"
     values = response.get("words")
     if (
@@ -208,9 +211,13 @@ def confirmed_power(response):
 
 def confirmed_scene(response):
     """Match an admitted baseline or exact confirmed drive words, never a selection."""
-    if response.get("state") == "completed" and response.get("scene") == "Gradient" and response.get("fixtures") == 10:
+    if (response.get("state") in ("completed", "ready") or (
+        response.get("state") == "checked" and response.get("stable") is True
+    )) and response.get("scene") == "Gradient" and response.get("fixtures") == 10:
         return "Gradient"
-    if response.get("state") == "ready" and response.get("baseline") in PRESETS:
+    if (response.get("state") == "ready" or (
+        response.get("state") == "checked" and response.get("stable") is True
+    )) and response.get("baseline") in PRESETS:
         return response["baseline"]
     if response.get("state") == "completed" and confirmed_power(response) is not None:
         values = tuple(response["words"])

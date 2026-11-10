@@ -51,7 +51,8 @@ uniform channel words. `programme` accepts only `name: "Sun"`, `"Circ"` or
 Status service supplied by private `SCR_STATUS_URL`/`--status-url` configuration.
 HTTP acceptance is not process-running or completion confirmation. Before an
 explicit manual lighting action, the helper requests both programmes stop and
-requires two stable drive snapshots. Navigation and ownership release do not
+requires two stable drive snapshots, including after a helper restart and when
+no programme is remembered. Navigation and ownership release do not
 start, stop or restore a programme.
 
 `blind` accepts `name: "lift"`, `"open"` or `"close"` and uses the original
@@ -76,6 +77,9 @@ Only one request is in flight. Requests are capped at 4096 bytes; buffers at
 8192 bytes. Requests older than the ten-second lease are refused. Both processes
 use the same host monotonic clock. Initialization is the only unsolicited message.
 Recovery receipts include baseline and request/result records.
+Each helper receipt rotates at 5 MiB with one previous copy; each record retains
+its baseline. The launcher keeps ten run directories and rotates the three
+appended logs at 5 MiB with one previous copy before starting their writers.
 Handoff checkpoints (Legacy entry and return) are saved by
 one background writer in FIFO order and wait for those saves. Everyday commands are
 tracked in memory only. Helper input uses bounded nonblocking writes on Linux, failing closed
@@ -88,7 +92,11 @@ and labels the result as advertised service availability. It does not query TOF,
 blinds, HVAC or acquisition data, and does not assess IRMA recorder health.
 
 `check` has empty arguments and returns `checked` after stable read-only scans of
-all ten lights. In room control a stable check adopts the current settings.
+all ten lights. In room control a stable check adopts the current settings,
+updating confirmed power, scene, fixture values and age on both interfaces.
+Uniform channel words also update the channel inputs; CCT inputs cannot be
+inferred from channel readback. Identity-only programme checks retain the older
+confirmed display and its timestamp.
 
 ## Lighting ownership and recovery
 
@@ -105,8 +113,9 @@ settings. For any persisted uncertain/interrupted-return/Legacy state, after Leg
 has exited, it uses bounded `return_legacy`: stop Sun/Circ, then two matching stable
 reads of all ten lights. Success clears uncertainty and keeps current settings;
 failure stays uncertain and permits another check. `needs_staff` is reserved for
-recovery storage errors. The website retains unknown receipts until a matching
-receipt or new owner session; it never resends.
+recovery storage errors. The website never resends a command. A matching receipt
+or new owner session resolves an unknown command; after twenty seconds it releases
+the wait and asks the user to inspect current state, including when offline.
 
 ## Optional weather details
 
@@ -133,6 +142,12 @@ journal sequence and view generation. A stale revision returns 409 without execu
 Duplicate IDs return their original receipt; differing payloads with a reused ID
 are refused. Queued requests expire after two seconds. Lost acceptance is uncertain:
 clients query receipts and never automatically repeat commands.
+Expired and unexpectedly failed commands also retain their ID and receipt.
+The HTTP relay returns 409 with a not-sent detail if connection fails before sending;
+503 means the result may be unknown. Eight daemon request workers allow status
+reads alongside slow requests; idle request lines time out after two seconds and
+the full request has a four-second deadline. Host, Origin, nonce and subnet checks
+apply as before.
 
 The shared actions cover on/off, CCT/level, eight channels, admitted presets, Gradient,
 original programme requests, permitted whole-room blinds,
@@ -209,11 +224,13 @@ The opt-in HTTP gateway exposes `/api/controller` and `/api/command`. Commands
 require the exact configured Host, matching Origin, a per-service nonce and bounded
 JSON. The existing source-subnet allowlist applies to every request. Everyone in
 that subnet can control the room; there is no separate user identity system.
-`/api/status` and diagnostics remain observation-only. Service-start and restart
+`/api/status` remains observation-only. Service-start and restart
 references are display/copy text, never command actions.
 
 Pi power actions use `power` with exactly `operation` (`reboot` or `shutdown`)
 and `confirmed: true`. They share the existing network and revision checks.
+The website may request only `reboot`; the owner rejects website `shutdown`
+requests. Shutdown remains available on the physical panel.
 The owner refuses busy, Legacy and uncertain-light states,
 then requires confirmed ownership release, helper exit, saved preferences and a durable
 power-request record before one fixed OS command. Existing noninteractive

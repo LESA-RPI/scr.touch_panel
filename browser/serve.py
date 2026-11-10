@@ -9,7 +9,7 @@ Author: Diyanko Bhowmik, with Codex assistance. No control adapter is imported.
 import argparse
 import datetime as dt
 import http.client
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import ipaddress
 import json
 import secrets
@@ -39,17 +39,7 @@ ASSETS = {
     "/js/ui.js": ("js/ui.js", "text/javascript"),
     "/js/pages.js": ("js/pages.js", "text/javascript"),
     "/js/main.js": ("js/main.js", "text/javascript"),
-    "/styles.css": ("styles.css", "text/css"),
-    "/status.js": ("status.js", "text/javascript"),
-    "/design.js": ("design.js", "text/javascript"),
-    "/theme.js": ("theme.js", "text/javascript"),
-    "/room.js": ("room.js", "text/javascript"),
-    "/room.css": ("room.css", "text/css"),
-    # Home, Room tools and Guide are one page; room.js picks the view from the path.
-    "/tools": ("index.html", "text/html"),
     "/room-content.json": ("room-content.json", "application/json"),
-    "/diagnostics": ("diagnostics.html", "text/html"),
-    "/guide": ("index.html", "text/html"),
     "/logo.jpg": ("lesa-logo.jpeg", "image/jpeg"),
 }
 
@@ -126,11 +116,30 @@ def client_network(value):
     return network
 
 
-class RoomServer(HTTPServer):
+class RoomServer(ThreadingHTTPServer):
+    daemon_threads = True
+
     def __init__(self, *args, **kwargs):
+        self.slots = threading.BoundedSemaphore(8)
         super().__init__(*args, **kwargs)
         self.controller = None
         self.control_nonce = secrets.token_urlsafe(32)
+
+    def process_request(self, request, client_address):
+        if not self.slots.acquire(blocking=False):
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            self.slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self.slots.release()
 
     def verify_request(self, request, client_address):
         # Use the socket peer, never a caller-supplied forwarding header.
@@ -245,55 +254,17 @@ def bounded_graph(master):
 
 class Snapshot:
     def __init__(
-        self, label, master=None, weather_location=None, timezone="America/New_York", controller=None
+        self, label, master=None, controller=None
     ):
-        self.label, self.master, self.timezone = label, master, timezone
+        self.label, self.master = label, master
         self.controller = controller
         self.lock = threading.Lock()
         self.data = None
         self.sample_time = self.graph_time = None
         self.last_graph = None
         self.last_graph_utc = None
-        self.weather_location = weather_location
-        self.weather_time = self.weather_attempt = None
-        self.weather_data = None
-        self.weather_utc = None
-        self.weather_state = (
-            "unconfigured" if weather_location is None else "unavailable"
-        )
-
-    def collect_weather(self):
-        if self.weather_location is None or (
-            self.weather_attempt is not None
-            and time.monotonic() - self.weather_attempt < 900
-        ):
-            return
-        self.weather_attempt = time.monotonic()
-        try:
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    "-B",
-                    str(ROOT.parent / "app/weather.py"),
-                    *map(str, self.weather_location),
-                    self.timezone,
-                ],
-                capture_output=True,
-                text=True,
-                timeout=8,
-                check=True,
-            )
-            value = json.loads(result.stdout)
-            if "error" in value or "temperature_f" not in value:
-                raise ValueError("Weather unavailable")
-            self.weather_data = value
-            self.weather_time, self.weather_utc = time.monotonic(), utc()
-            self.weather_state = "available"
-        except (OSError, ValueError, subprocess.SubprocessError):
-            self.weather_state = "unavailable"
 
     def collect(self):
-        self.collect_weather()
         host = host_status()
         graph = {"state": "unconfigured", "observed_at": None, "services": []}
         graph_time = self.graph_time
@@ -345,16 +316,6 @@ class Snapshot:
             "sampled_at": utc(),
             "host": host,
             "room": graph,
-            "weather": {
-                "state": self.weather_state,
-                "data": self.weather_data,
-                "observed_at": self.weather_utc,
-                "observation_age_s": (
-                    None
-                    if self.weather_time is None
-                    else round(time.monotonic() - self.weather_time, 1)
-                ),
-            },
         }
         with self.lock:
             self.data, self.sample_time, self.graph_time = (
@@ -375,9 +336,6 @@ class Snapshot:
                 if self.graph_time is None
                 else max(0, round(time.monotonic() - self.graph_time, 1))
             )
-            result["weather"] = dict(result["weather"])
-            if result["weather"]["observation_age_s"] is not None:
-                result["weather"]["observation_age_s"] += result["sample_age_s"]
             return result
 
     def run(self, stopped):
@@ -395,7 +353,7 @@ class Snapshot:
 
 
 class Handler(BaseHTTPRequestHandler):
-    # HTTP/1.0 closes each connection. No unbounded worker threads or file serving.
+    # HTTP/1.0 closes each connection. Idle request lines cannot occupy a worker.
     def setup(self):
         super().setup()
         self.connection.settimeout(2)
@@ -545,7 +503,8 @@ class Handler(BaseHTTPRequestHandler):
             self.respond(400, b"Invalid command")
             return
         except OSError:
-            self.respond(503, b"Command receipt unknown. Check the panel; do not retry.")
+            self.respond(409, json.dumps({"ok": False, "code": 409,
+                "detail": "Request body incomplete. Command not sent."}).encode(), "application/json")
             return
         # Once the command may have reached the panel, any failure leaves its result unknown.
         try:
@@ -588,17 +547,6 @@ def main():
     parser.add_argument(
         "--master", help="Approved private ROS master URL; omit for host-only status"
     )
-    parser.add_argument(
-        "--weather-latitude",
-        type=float,
-        help="Optional public outdoor-weather location",
-    )
-    parser.add_argument("--weather-longitude", type=float)
-    parser.add_argument(
-        "--timezone",
-        default="America/New_York",
-        help="Weather day boundaries; match the panel's --timezone",
-    )
     parser.add_argument("--probe-master", help=argparse.SUPPRESS)
     args = parser.parse_args()
     try:
@@ -615,19 +563,8 @@ def main():
         if args.probe_master:
             print(json.dumps(service_graph(master_url(args.probe_master))))
             return
-        if (args.weather_latitude is None) != (args.weather_longitude is None):
-            raise ValueError("Weather needs both latitude and longitude")
-        if args.weather_latitude is not None and not (
-            -90 <= args.weather_latitude <= 90 and -180 <= args.weather_longitude <= 180
-        ):
-            raise ValueError("Weather coordinates are out of range")
     except ValueError as error:
         parser.error(str(error))
-    location = (
-        None
-        if args.weather_latitude is None
-        else (args.weather_latitude, args.weather_longitude)
-    )
     controller = None
     if args.panel_control_socket:
         from controller import Controller
@@ -635,7 +572,7 @@ def main():
         if not Path(args.panel_control_socket).is_absolute():
             parser.error("Panel socket path must be absolute")
         controller = Controller(args.panel_control_socket)
-    snapshot = Snapshot(args.label, args.master, location, args.timezone, controller)
+    snapshot = Snapshot(args.label, args.master, controller=controller)
     snapshot.collect()
     server = RoomServer((args.bind, args.port), Handler)
     server.allowed_clients = allowed
